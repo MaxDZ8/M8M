@@ -1,36 +1,7 @@
 /*
-The MIT License (MIT)
-
-Copyright (c) 2014 Massimo Del Zotto
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
-#if __OPENCL_C_VERSION__ < 200
-size_t get_global_linear_id() {
-	const size_t yslot = get_global_id(1) - get_global_offset(1);
-	const size_t xslot = get_global_id(0) - get_global_offset(0);
-	return yslot * get_global_size(0) + xslot;
-}
-#endif
-
-
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */
 void AESRoundLDS(local uint *o0, local uint *o1, local uint *o2, local uint *o3, uint k0, uint k1, uint k2, uint k3,
                  local uint *lut0, local uint *lut1, local uint *lut2, local uint *lut3) {
 #if __ENDIAN_LITTLE__
@@ -115,24 +86,14 @@ uint2 ECHO_SHIFTVEC(local uint *hi, local uint *lo, uint i) {
 }
 
 
-#define HASH_TO_DEBUG 0
-
-
 #if defined ECHO_IS_LAST
 __attribute__((reqd_work_group_size(8, 8, 1)))
-kernel void Echo_8way(global uint2 *input, global uint *found, global uint *dispatchData, global uint *aes_round_luts, global uint *debug) {
+kernel void Echo_8way(global uint2 *input, global uint *found, global uint *dispatchData, global uint *aes_round_luts) {
 #else
 __attribute__((reqd_work_group_size(8, 8, 1)))
 kernel void Echo_8way(global uint2 *input, global uint2 *hashOut, global uint *aes_round_luts, global uint *debug) {
 #endif
     input += (get_global_id(1) - get_global_offset(1)) * 8;
-	
-		if(debug && get_global_id(1) == HASH_TO_DEBUG) {
-			debug[get_local_id(0) * 2 + 0] = input[get_local_id(0)].x;
-			debug[get_local_id(0) * 2 + 1] = input[get_local_id(0)].y;
-			debug += 2*8;
-		}
-
     local uint aesLUT0[256];
 	event_t ldsReady = async_work_group_copy(aesLUT0, aes_round_luts + 256 * 0, 256, 0);
 #if defined AES_TABLE_ROW_1
@@ -266,25 +227,13 @@ kernel void Echo_8way(global uint2 *input, global uint2 *hashOut, global uint *a
 	const uint2 xorv = get_local_id(0) % 2 == 0? (uint2)(512, 0) : (uint2)(0);
 	const uint2 myHash = xorv ^ input[get_local_id(0)] ^ noval ^ nival;
 	
-		if(debug && get_global_id(1) == HASH_TO_DEBUG) {
-			debug[get_local_id(0) * 2 + 0] = myHash.x;
-			debug[get_local_id(0) * 2 + 1] = myHash.y;
-			debug += 2*8;
-			
-			debug[get_local_id(0) * 2 + 0] = dispatchData[2];
-			debug[get_local_id(0) * 2 + 1] = dispatchData[1];
-			debug += 2*8;
-		}
-		
-		
-	
 #if defined ECHO_IS_LAST
 	if(get_local_id(0) == 3) {
-		ulong magic = (((ulong)myHash.x) << 32) | myHash.y;
-		ulong target = (((ulong)dispatchData[1]) << 32) | dispatchData[2];
+		ulong magic = (((ulong)myHash.y) << 32) | myHash.x;
+		ulong target = (((ulong)dispatchData[1]) << 32) | dispatchData[2]; // watch out for endianess!
 		if(magic <= target) {
 			uint storage = atomic_inc(found);
-			found[storage + 1] = get_global_id(1);
+			found[storage + 1] = as_uint(as_char4(get_global_id(1)).wzyx); // watch out for endianess!
 		}
 	}
 #else 

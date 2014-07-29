@@ -1,27 +1,7 @@
 /*
-The MIT License (MIT)
-
-Copyright (c) 2014 Massimo Del Zotto
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */
 /* Luffa-512.
 That is, 64 bytes, or 16 uints, the typical size of a BTC protocol hash.
 
@@ -113,10 +93,7 @@ uint2 MixWord(uint2 v) {
 	return v;
 }
 
-
-#define DBG(x) if(debug && get_global_id(0) == 0) { *debug = x;    debug++; }
-
-kernel void Luffa_1way(global uint *wuData, global uint *hashOut, global uint *debug) {
+kernel void Luffa_1way(global uint *wuData, global uint *hashOut) {
 	uint8 V[5] = {
 		(uint8)(0x6D251E69u, 0x44B051E0u, 0x4EAA6FB4u, 0xDBF78465u, 0x6E292011u, 0x90152DF4u, 0xEE058139u, 0xDEF610BBu),
 		(uint8)(0xC3B44B95u, 0xD9D2F256u, 0x70EEE9A0u, 0xDE099FA3u, 0x5D9B0557u, 0x8FC944B3u, 0xCF1CCF0Eu, 0x746CD581u),
@@ -128,10 +105,6 @@ kernel void Luffa_1way(global uint *wuData, global uint *hashOut, global uint *d
 #if !defined(LUFFA_HEAD)
 #error To be adapted for higher degree chained hashing.
 #endif
-
-		for(int i = 0; i < 19; i++) DBG(wuData[i]);
-		DBG(as_uint(as_uchar4(get_global_id(0)).wzyx));
-
 	hashOut += (get_global_id(0) - get_global_offset(0)) * 16;
 
 	uint8 M = (uint8)(wuData[0], wuData[1], wuData[2], wuData[3],
@@ -210,16 +183,6 @@ kernel void Luffa_1way(global uint *wuData, global uint *hashOut, global uint *d
             hashOut[4] = V[0].s5 ^ V[1].s5 ^ V[2].s5 ^ V[3].s5 ^ V[4].s5;
             hashOut[7] = V[0].s6 ^ V[1].s6 ^ V[2].s6 ^ V[3].s6 ^ V[4].s6;
             hashOut[6] = V[0].s7 ^ V[1].s7 ^ V[2].s7 ^ V[3].s7 ^ V[4].s7;
-			
-				DBG(hashOut[0]);
-				DBG(hashOut[1]);
-				DBG(hashOut[2]);
-				DBG(hashOut[3]);
-				DBG(hashOut[4]);
-				DBG(hashOut[5]);
-				DBG(hashOut[6]);
-				DBG(hashOut[7]);
-			
         }
     }
     hashOut[ 9] = V[0].s0 ^ V[1].s0 ^ V[2].s0 ^ V[3].s0 ^ V[4].s0;
@@ -230,14 +193,4 @@ kernel void Luffa_1way(global uint *wuData, global uint *hashOut, global uint *d
     hashOut[12] = V[0].s5 ^ V[1].s5 ^ V[2].s5 ^ V[3].s5 ^ V[4].s5;
     hashOut[15] = V[0].s6 ^ V[1].s6 ^ V[2].s6 ^ V[3].s6 ^ V[4].s6;
     hashOut[14] = V[0].s7 ^ V[1].s7 ^ V[2].s7 ^ V[3].s7 ^ V[4].s7;
-			
-		DBG(hashOut[8 + 0]);
-		DBG(hashOut[8 + 1]);
-		DBG(hashOut[8 + 2]);
-		DBG(hashOut[8 + 3]);
-		DBG(hashOut[8 + 4]);
-		DBG(hashOut[8 + 5]);
-		DBG(hashOut[8 + 6]);
-		DBG(hashOut[8 + 7]);
-		
 }

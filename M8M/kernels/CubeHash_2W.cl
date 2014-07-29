@@ -1,28 +1,7 @@
 /*
-The MIT License (MIT)
-
-Copyright (c) 2014 Massimo Del Zotto
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
-
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */
 uint LE_UINT_LOAD(uint v) {
 #if __ENDIAN_LITTLE__
 	return as_uint(as_uchar4(v).wzyx);
@@ -172,11 +151,8 @@ void CubeHash_2W_Pass(uint *lo, local uint *hi) {
 }
 
 
-#define DBG(x) if(debug && get_global_id(1) == 0) { debug[get_local_id(0)] = x;    debug += 2; }
-
-
 __attribute__((reqd_work_group_size(2, 32, 1)))
-kernel void CubeHash_2way(global uint *input, global uint *hashOut, global uint *debug) {
+kernel void CubeHash_2way(global uint *input, global uint *hashOut) {
 	/* Two-way CubeHash is this way: even registers go in local work unit x-0 while odd registers go in x-1.
 	BUT only the lower 0..15 values are in regs. Others are in LDS. We therefore get much better occupancy, allowing
 	the memory unit to not stall. Hopefully. */
@@ -193,18 +169,6 @@ kernel void CubeHash_2way(global uint *input, global uint *hashOut, global uint 
 	lo[1] ^= LE_UINT_LOAD(input[3 - get_local_id(0)]);
 	lo[2] ^= LE_UINT_LOAD(input[5 - get_local_id(0)]);
 	lo[3] ^= LE_UINT_LOAD(input[7 - get_local_id(0)]);
-	
-	
-		DBG(input[0 * 2 + get_local_id(0)]);
-		DBG(input[1 * 2 + get_local_id(0)]);
-		DBG(input[2 * 2 + get_local_id(0)]);
-		DBG(input[3 * 2 + get_local_id(0)]);
-		DBG(input[4 * 2 + get_local_id(0)]);
-		DBG(input[5 * 2 + get_local_id(0)]);
-		DBG(input[6 * 2 + get_local_id(0)]);
-		DBG(input[7 * 2 + get_local_id(0)]);
-		
-
 	
 	for(uint pass = 0; pass < 13; pass++) {
 		CubeHash_2W_Pass(lo, hi);
@@ -224,17 +188,6 @@ kernel void CubeHash_2way(global uint *input, global uint *hashOut, global uint 
 		}
 	}
 	
-	
-		DBG(lo[0]);
-		DBG(lo[1]);
-		DBG(lo[2]);
-		DBG(lo[3]);
-		DBG(lo[4]);
-		DBG(lo[5]);
-		DBG(lo[6]);
-		DBG(lo[7]);
-		
-
 	hashOut[2 * 0] = lo[0];
 	hashOut[2 * 1] = lo[1];
 	hashOut[2 * 2] = lo[2];

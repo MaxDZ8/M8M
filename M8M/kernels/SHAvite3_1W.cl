@@ -1,27 +1,7 @@
 /*
-The MIT License (MIT)
-
-Copyright (c) 2014 Massimo Del Zotto
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */
 /*! Differently from other implementations, SHAvite3 is not "transversal" across different
 nearby WI. Why?
 Lib SPH implementation might be a bit hard to read but it's almost optimal.
@@ -240,11 +220,8 @@ void SHAvite3_Round(uint roundix, uint *p, uint *rko, uint *rki, local uint *x, 
 }
 
 
-#define DBG(x) if(debug && get_global_id(0) == 0) { *debug = x;    debug++; }
-
-
 __attribute__((reqd_work_group_size(64, 1, 1)))
-kernel void SHAvite3_1way(global uint *input, global uint *hashOut, global uint *aes_round_luts, global uint *debug) {
+kernel void SHAvite3_1way(global uint *input, global uint *hashOut, global uint *aes_round_luts) {
 	input   += (get_global_id(0) - get_global_offset(0)) * 16;
 	hashOut += (get_global_id(0) - get_global_offset(0)) * 16;
 	
@@ -262,8 +239,6 @@ kernel void SHAvite3_1way(global uint *input, global uint *hashOut, global uint 
 			rko[init * 4 + col] = input[init * 4 + col];
 		}
 	}
-	
-		for(uint i = 0; i < 16; i++) DBG(input[i]);
 	
 	/* At first glance, setting up rki seems to be deviating considerably from the SHAvite3-512 standard.
 	The code is indeed not by Pornin (who is a go-to man for cryptography). In SPHLIB shavite3 implementation,
@@ -318,9 +293,5 @@ kernel void SHAvite3_1way(global uint *input, global uint *hashOut, global uint 
 		for(uint cp = 0; cp < 8; cp++) hashing[cp] ^= p[cp + 8];
 		for(uint cp = 0; cp < 8; cp++) hashing[cp + 8] ^= p[cp];
 	}
-	
-		for(uint i = 0; i < 16; i++) DBG(hashing[i]);
-	
-	
 	for(uint cp = 0; cp < 16; cp++) hashOut[cp] = hashing[cp];
 }

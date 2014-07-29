@@ -1,0 +1,18 @@
+{
+	"pools" : [
+		{
+			"url" : "stratum+mine1.myr.nonce-pool.com:3360",
+			"user" : "MaxDZ8.M8M-d",
+			"pass" : "finely",
+			"coinDiffMul" : 256
+		}
+	],
+  "driver" : "OCL",
+  "algo" : "qubit",
+  "impl" : "multiStep",
+  "checkNonces" : false,
+  "implParams" : {
+    "linearIntensity" : 1024,
+    "dispatchCount" : 1
+  }
+}
