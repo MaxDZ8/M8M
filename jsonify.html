@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pretty-print json objects by line</title>
+<script type="application/javascript">
+"use strict"
+function jsonify(string) {
+  string = string.split("\n");
+  var dst = document.getElementById("output");
+  dst.textContent = "";
+  for(var i in string) {
+    if(string[i].trim().length == 0) continue;
+    var object = "<cannot parse, invalid?>";
+    try {
+      object = JSON.parse(string[i]);
+    } catch(exc) {
+    }
+    if(object instanceof String) { }
+    else object = JSON.stringify(object, undefined, "    ");
+    if(dst.textContent.length) dst.textContent += ",\n";
+    dst.textContent += object;
+  }
+  dst.focus();
+  dst.selectionStart = 0;
+  dst.selectionEnd = dst.textContent.length;
+  
+}
+
+
+</script>
+</head>
+<body">
+<textarea style="font-size: 25%" autofocus="true" cols="120" rows="16" onchange="jsonify(this.value)"></textArea>
+<br>
+<textarea readonly="true" cols="120" rows="16" id="output"></textarea>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Epoch+milliseconds = date</title>
+<script type="application/javascript">
+"use strict"
+function makeDate(string) {
+  var ms = Math.floor(1 * string);
+  document.getElementById("output").textContent = new Date(ms);
+}
+
+
+</script>
+</head>
+<body">
+<input type="text" style="font-size: 10%" autofocus="true" onchange="makeDate(this.value)"></textArea>
+<br>
+<textarea readonly="true" cols="120" rows="16" id="output"></textarea>
+</body>
+</html>

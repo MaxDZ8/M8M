@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Image to C array</title>
+<script type="application/javascript">"use strict"
+
+function setEventCallback(receiver, eventName, callback, capturing) {
+	try {
+	  if(receiver.addEventListener) receiver.addEventListener(eventName, callback, capturing);
+	  else if(receiver.attachEvent) receiver.attachEvent     (eventName, callback);
+	  else alert("ERROR: I don't know how to define event listeners.");
+	} catch(exc) { alert(exc); }
+}
+  
+function mangleImage() {
+	var viewport = document.getElementById("showLoadedImage");
+	if(!viewport) {
+		viewport = document.createElement("img");
+		viewport.id = "showLoadedImage";
+		document.body.appendChild(viewport);
+		document.body.appendChild(document.createElement("br"));
+		setEventCallback(viewport, "load", pullPixels);
+	}
+	var output = document.getElementById("outputBytes");
+	if(!output) {
+		output = document.createElement("textarea");
+		output.id = "outputBytes";
+		output.readonly = true;
+		output.cols = 120;
+		output.rows = 32;
+		document.body.appendChild(output);
+	}
+	
+	var reader = new FileReader;
+	setEventCallback(reader, "load", function() {
+		viewport.src = reader.result;
+	});
+	reader.readAsDataURL(document.getElementById("imageFile").files[0]);
+}
+
+
+function pullPixels() {
+	var canv = document.createElement("canvas");
+	canv.height = this.height;
+	canv.width = this.width;
+	var context = canv.getContext("2d");
+	context.drawImage(document.getElementById("showLoadedImage"), 0, 0);
+	
+	var pixels = context.getImageData(0, 0, canv.width, canv.height);
+	var csrc = "// image is " + canv.width + "x" + canv.height + " ARGB pixels, left to right, top to bottom, line n begins at offset n*width*4\n";
+	csrc += "static const unsigned char image[" + canv.width + " * " + canv.height + " * 4] = {\n";
+	var hex = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g'];
+	var offset = 0;
+	var colNewline = function(i) {
+	    return i != 0 && (i % 4) == 0;
+	};
+	var chanPerm = [2, 1, 0, 3];
+	for(var row = 0; row < pixels.height; row++) {
+		csrc += "\t";
+		if(row) csrc += "// line[" + row + "]\n\t";
+		for(var col = 0; col < pixels.width; col++) {
+			if(colNewline(col)) csrc += "\n\t";
+			for(var chan = 0; chan < 4; chan++) {
+				var hi = pixels.data[offset + chanPerm[chan]] >> 4;
+				var lo = pixels.data[offset + chanPerm[chan]] & 0x0F;
+				csrc += "0x" + hex[hi] + hex[lo] + ",";
+				if(chan + 1 < 4) csrc += " ";
+			}
+			offset += 4;
+			if(colNewline(col + 1) == false && col + 1 < pixels.width) csrc += "    ";
+		}
+		csrc += "\n";
+	}
+	csrc = csrc.substring(0, csrc.length - 3);
+	csrc += "\n};\n";
+	var out = document.getElementById("outputBytes");
+	out.focus();
+	out.textContent += csrc;	
+	out.selectionStart = 0;
+	out.selectionEnd = csrc.length;
+}
+
+
+</script>
+</head>
+<body>
+This script runs locally in your browser. The network will not get your data in any way.<br>
+<input id="imageFile" type="file" accept="image/*" onchange="mangleImage()">Load an image to convert it to a C hex array.</input>
+<br>
+</body>
+</html>

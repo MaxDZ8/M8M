@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>M8M large integer trouble test test test</title>
+<script type="application/javascript" src="bigInt.js"></script>
+<script type="application/javascript">
+"use strict"
+
+var toDec = {
+  truediffone:  "00000000FFFF0000000000000000000000000000000000000000000000000000",
+  truediffonePD:"00000000FFFFFFFF000000000000000000000000000000000000000000000000",
+  bits192:      "0000000000000000FFFFFFFFFFFFFFFF00000000000000000000000000000000",
+  bits128:      "00000000000000000000000000000000FFFFFFFFFFFFFFFF0000000000000000",
+  bits64:       "000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFF"
+};
+
+
+var toHex = {
+  truediffone: "26959535291011309493156476344723991336010898738574164086137773096960",
+  bits192: "6277101735386680763835789423207666416102355444464034512896",
+  bits128: "340282366920938463463374607431768211456",
+  bits64: "18446744073709551616",
+};
+
+
+window.onload = function() {
+  function addCell(content, container) {
+    if(!container) container = tr;
+    var type = "td";
+    if(container.tagName == "THEADER") type = "th";
+    var td = document.createElement(type);
+    td.textContent = content;
+    container.appendChild(td);
+  }
+  function header() {
+    var h = document.createElement("theader");
+    for(var loop = 0; loop < arguments.length; loop++) {
+      addCell(arguments[loop], h);
+    }
+    table.appendChild(h);
+  }
+  var table = document.createElement("table");
+  header("identifier", "hex digits", "decimal");
+  for(var key in toDec) {
+    var value = str2bigInt(toDec[key], 16, 256);
+    var tr = document.createElement("tr");
+    addCell(key);
+    addCell("0x" + toDec[key]);
+    addCell(bigInt2str(value, 10));
+    table.appendChild(tr);
+  }
+  document.body.appendChild(table);
+  table = document.createElement("table");
+  header("identifier", "decimal", "hex digits");
+  for(var key in toHex) {
+    var value = str2bigInt(toHex[key], 10, 256);
+    var tr = document.createElement("tr");
+    addCell(key);
+    addCell(toHex[key]);
+    addCell("0x" + bigInt2str(value, 16));
+    table.appendChild(tr);
+  }
+  document.body.appendChild(table);
+}
+
+</script>
+</head>
+<body">
+<p>Stupid webpage to test the magic numbers used in miner's difficulty calculations.</p>
+</body>
+</html>
