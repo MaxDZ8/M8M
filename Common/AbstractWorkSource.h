@@ -35,6 +35,15 @@ public:
 		e_newWork
 	};
 
+	struct PoolStats {
+		struct ShareStats {
+			asizei found, sent, accepted;
+			ShareStats() : found(0), sent(0), accepted(0) { }
+		} shares;
+	} stats;
+	
+	std::function<void(bool success)> shareResponseCallback;
+
 	/*! Stratum pools are based on message passing. Every time we can, we must mangle input from the server,
 	process it to produce output and act accordingly. The input task is the act of listening to the remote server
 	to figure out if there's something to do. Pool servers will send a sequence of 1-line stratum commands and
@@ -47,8 +56,12 @@ public:
 
 	void Shares(const std::string &job, auint nonce2, const std::vector<auint> &nonces) { 
 		auint ntime = stratum.GetJobNetworkTime(job);
+		stats.shares.found += nonces.size();
 		if(!ntime) return;
-		for(asizei loop = 0; loop < nonces.size(); loop++) stratum.SendWork(ntime, nonce2, nonces[loop]);
+		for(asizei loop = 0; loop < nonces.size(); loop++) {
+			stratum.SendWork(ntime, nonce2, nonces[loop]);
+			stats.shares.sent++; // because it could throw and it wouldn't be sent.
+		}
 	}
 
 	const stratum::WorkUnit GenWorkUnit();

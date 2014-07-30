@@ -12,7 +12,7 @@
   "impl" : "multiStep",
   "checkNonces" : false,
   "implParams" : {
-    "linearIntensity" : 1024,
+    "linearIntensity" : 768,
     "dispatchCount" : 1
   }
 }

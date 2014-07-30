@@ -70,11 +70,7 @@ protected:
 	}
 
 public:
-	struct Shares {
-		aulong sent;
-		aulong accepted;
-		Shares() : sent(0), accepted(0) { }
-	} shares;
+	std::function<void(bool success)> shareResponseCallback;
 	aulong errorCount;
 
 	const aulong coinDiffMul;

@@ -123,6 +123,13 @@ public:
 		return enqueued;
 	}
 
+	void ShowStats() {
+		for(asizei loop = 0; loop < routes.size(); loop++) {
+			const AbstractWorkSource::PoolStats &stats(routes[loop].pool->stats);
+			std::cout<<"pool["<<loop<<"] found sent accepted = "<<stats.shares.found<<' '<<stats.shares.sent<<' '<<stats.shares.accepted<<std::endl;
+		}
+	}
+
 private:
 	Network &network;
 	DispatchCallback dispatchFunc;
@@ -325,6 +332,8 @@ int main(int argc, char **argv) {
 		auto dispatchNWU([&processors, algoIndex](AbstractWorkSource &pool, const stratum::WorkUnit &wu) {
 			processors->Mangle(pool, wu, algoIndex);
 		});
+		bool showShareStats = false;
+		auto onShareResponse= [&showShareStats](bool ok) { showShareStats = true; };
 		std::unique_ptr<Connections> remote(InstanceConnections(*configuration, network, dispatchNWU));
 		asizei sinceActivity = 0;
 		while(!quit) {
@@ -349,22 +358,42 @@ int main(int argc, char **argv) {
 			}
 			std::vector<MinerInterface::Nonces> sharesFound;
 			if(processors->SharesFound(sharesFound)) {
-				std::cout<<"Sending "<<std::dec<<sharesFound.size()<<" shares."<<std::endl;
+				std::cout.setf(std::ios::dec);
+				std::cout<<"Sending "<<sharesFound.size()<<" shares."<<std::endl;
 				if(firstShare) {
 					firstShare = false;
 					notify.ShowMessage(L"Found my first share!\nNumbers are being crunched as expected.");
 				}
-				for(auto el = sharesFound.cbegin(); el != sharesFound.cend(); ++el) remote->SendShares(*el);
+				for(auto el = sharesFound.cbegin(); el != sharesFound.cend(); ++el) {
+					{
+						adouble took = std::chrono::duration_cast<std::chrono::milliseconds>(el->lastNoncePeriod).count() / 1000.0;
+						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;
+						std::cout<<"Share time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+					}
+					{
+						adouble took = std::chrono::duration_cast<std::chrono::milliseconds>(el->averageNoncePeriod).count() / 1000.0;
+						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0; // this does not make any sense.
+						// ^ I should be tracking the number of hashes instead but it's still something.
+						// ^ as long intensity is constant, this is correct anyway
+						std::cout<<"Average time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+					}
+					remote->SendShares(*el);
+					showShareStats = true;
+				}
+			}
+			if(showShareStats) {
+				remote->ShowStats();
+				showShareStats = false;
 			}
 		}
 	} catch(std::string msg) {
-		if(FLAGS_errorBox) MessageBoxA(NULL, msg.c_str(), "Fatal error", MB_OK);
+		if(FLAGS_errorBox) MessageBoxA(NULL, msg.c_str(), "M8M - Fatal error", MB_OK);
 		else std::cout<<msg.c_str();
 	} catch(std::exception msg) {
-		if(FLAGS_errorBox) MessageBoxA(NULL, msg.what(), "Fatal error", MB_OK);
+		if(FLAGS_errorBox) MessageBoxA(NULL, msg.what(), "M8M - Fatal error", MB_OK);
 		else std::cout<<msg.what();
 	} catch(Exception *msg) {
-		if(FLAGS_errorBox) MessageBoxA(NULL, "numbered exception (deprecated)", "Fatal error", MB_OK);
+		if(FLAGS_errorBox) MessageBoxA(NULL, "numbered exception (deprecated)", "M8M - Fatal error", MB_OK);
 		else std::cout<<"numbered exception (deprecated)";
 		delete msg;
 	}

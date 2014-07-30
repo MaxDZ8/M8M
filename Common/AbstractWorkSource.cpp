@@ -120,4 +120,8 @@ AbstractWorkSource::AbstractWorkSource(const char *presentation, aulong coinDiff
 #if defined(M8M_STRATUM_DUMPTRAFFIC)
 	stratumDump.open("stratumTraffic.txt");
 #endif
+	stratum.shareResponseCallback = [this](bool ok) {
+		if(ok) stats.shares.accepted++;
+		if(this->shareResponseCallback) this->shareResponseCallback(ok);
+	};
 }

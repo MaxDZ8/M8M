@@ -22,8 +22,6 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 
     return [this]() {
         ScopedFuncCall onTermination([this]() {
-			if(!this->mutex) return;
-
 			std::unique_lock<std::mutex> lock(*this->mutex);
 			if(this->asyncOwned.contextMenu) {
 				DestroyMenu(this->asyncOwned.contextMenu);
@@ -41,7 +39,6 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 				DestroyIcon(this->asyncOwned.osIcon);
 				this->asyncOwned.osIcon = 0;
 			}
-			this->asyncOwned.iconGraphics.reset();
 			if(this->asyncOwned.windowHandle) {
 				DestroyWindow(this->asyncOwned.windowHandle);
 				this->asyncOwned.windowHandle = 0;
@@ -56,6 +53,10 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 	        Status res = GdiplusStartup(&gdiplusToken, &gdipstart, &gdipInitResult);
 	        if(res != Ok) throw std::string("Could not init GDI+");
 	        ScopedFuncCall cleargdi([gdiplusToken]() { GdiplusShutdown(gdiplusToken); });
+			ScopedFuncCall clearBitmap([this]() {
+				std::unique_lock<std::mutex> lock(*this->mutex);
+				if(this->asyncOwned.iconGraphics) delete this->asyncOwned.iconGraphics; // this must happen before GDI+ shutdown or it will be considered an incomplete type
+			});
 
 			WNDCLASSEX winClass;
 	        memset(&winClass, 0, sizeof(winClass));
@@ -176,7 +177,7 @@ LRESULT AsyncNotifyIconPumper::NotifyCallback(WORD msg, int x, int y) {
 		break;
 	}
 	default:
-	std::cout<<std::hex<<msg<<std::endl;
+	std::cout<<std::hex<<msg<<std::dec<<std::endl;
 	}
 	return 1;
 }
@@ -241,9 +242,19 @@ void AsyncNotifyIconPumper::UpdateIcon() {
 	memcpy_s(words, sizeof(words), shared->icon.rgbaPixels.get(), w * h * 4); //!< \todo CreateBitmap needs scanlines to be WORD aligned, and this is not currently guaranteed for tight packing, ok for now.
 
 	using namespace Gdiplus;
-	asyncOwned.iconGraphics.reset(new Bitmap(w, h, 4 * w, PixelFormat32bppARGB, reinterpret_cast<BYTE*>(words)));
-	Status result = asyncOwned.iconGraphics->GetHICON(&asyncOwned.osIcon);
+	std::unique_ptr<Bitmap> newBitmap(new Bitmap(w, h, 4 * w, PixelFormat32bppARGB, reinterpret_cast<BYTE*>(words)));
+	HICON newIcon = 0;
+	Status result = newBitmap->GetHICON(&newIcon);
 	if(result != Ok) throw std::string("GetHICON failed, error ") + std::to_string(result);
+	
+	HICON prevIcon = asyncOwned.osIcon;
+	Bitmap *prevBitmap = asyncOwned.iconGraphics;
+	asyncOwned.iconGraphics = newBitmap.release();
+	asyncOwned.osIcon = newIcon;
+	ScopedFuncCall clearPrev([prevIcon, prevBitmap]() {
+		if(prevIcon) DestroyIcon(prevIcon);
+		if(prevBitmap) delete prevBitmap;
+	});
 
 	NOTIFYICONDATA idata;
 	memset(&idata, 0, sizeof(idata));

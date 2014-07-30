@@ -1,7 +1,3 @@
-/*
- * This code is released under the MIT license.
- * For conditions of distribution and use, see the LICENSE or hit the web.
- */
 #pragma once
 
 #if defined(_WIN32)
@@ -35,11 +31,11 @@ private:
     struct AsyncOwned { // the other thread spawns real OS resources here and kills them on exit.
 		HWND windowHandle;
 		HMENU contextMenu;
-		std::unique_ptr<Gdiplus::Bitmap> iconGraphics;
+		Gdiplus::Bitmap *iconGraphics;
 		HICON osIcon;
 		bool removeFromNotificationArea;
 
-		AsyncOwned() : windowHandle(0), contextMenu(0), osIcon(0), removeFromNotificationArea(false) { }
+		AsyncOwned() : windowHandle(0), contextMenu(0), osIcon(0), removeFromNotificationArea(false), iconGraphics(nullptr) { }
 		// No dtor. Automatically cleared by the other thread!
 	} asyncOwned;
 	

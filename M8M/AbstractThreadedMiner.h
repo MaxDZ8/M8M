@@ -5,18 +5,16 @@
 #pragma once
 #include "AbstractMiner.h"
 #include <set>
-#include <chrono>
 
 template<typename MiningProcessorsProvider>
 class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
-
 	struct DelayRequest {
-		std::chrono::time_point<std::chrono::high_resolution_clock> when;
+		HPTP when;
 		auint howManyMS;
-		void Clear() { when = std::chrono::time_point<std::chrono::high_resolution_clock>();    howManyMS = 0; }
-		void Requested(auint ms) { when = std::chrono::high_resolution_clock::now(), howManyMS = ms; }
+		void Clear() { when = HPTP();    howManyMS = 0; }
+		void Requested(auint ms) { when = HRCLK::now(), howManyMS = ms; }
 		auint Remaining() const {
-			auto now = std::chrono::high_resolution_clock::now();
+			auto now = HRCLK::now();
 			auto elapsed = now - when;
 			if(elapsed.count() >= howManyMS * .001) return 0;
 			return auint((howManyMS * .001 - elapsed.count()) * 1000);
@@ -26,7 +24,11 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 
 	struct WUSpecState : public WUSpec {
 		auint hashesSoFar;
-		WUSpecState() : hashesSoFar(0) { }
+		HPTP inputTime;
+		asizei testedHashes; //!< initialized together with inputTime, maybe we'll have variable intensity a day!
+		const HPTP creationTime;
+		asizei iterations;
+		explicit WUSpecState() : hashesSoFar(0), creationTime(HPCLK::now()), iterations(0) { }
 	};
 
 	static void CheckResults(std::vector<auint> &shares, const WUSpec &algo) {
@@ -130,11 +132,15 @@ public:
 						std::vector<cl_event> algoWait;
 						if(el.params.imp->CanTakeInput(el.params.internalIndex)) {
 							auint prev = el.hashesSoFar;
+							el.inputTime = HPCLK::now();
+							el.testedHashes = el.params.imp->BeginProcessing(el.params.internalIndex, el.wu, el.hashesSoFar);
 							el.hashesSoFar += el.params.imp->BeginProcessing(el.params.internalIndex, el.wu, el.hashesSoFar);
 							if(el.hashesSoFar <= prev) throw std::exception("nonce overflow, need to roll a new WU");
 						}
 						else if(el.params.imp->ResultsAvailable(foundWU, foundNonces, el.params.internalIndex) && el.wu.job == foundWU.job) {
 							// if job id is not matched, those results are stale for sure.
+							HPTP resTime(HPCLK::now());
+							el.iterations++;
 							if(checkNonces) CheckResults(foundNonces, el);
 							if(foundNonces.size()) {
 								std::unique_lock<std::mutex> sync(output.beingUsed);
@@ -143,6 +149,9 @@ public:
 								add.job = foundWU.job;
 								add.nonce2 = foundWU.nonce2;
 								add.nonces = std::move(foundNonces);
+								add.lastNoncePeriod = resTime - el.inputTime;
+								add.averageNoncePeriod = (resTime - el.creationTime) / el.iterations;
+								add.lastNonceScanAmount = el.testedHashes;
 								output.found.push_back(add);
 							}
 						}

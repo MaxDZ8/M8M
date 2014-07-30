@@ -149,7 +149,6 @@ void StratumState::SendWork(auint ntime, auint nonce2, auint nonce) {
 	size_t used = PushMethod("mining.submit", KeyValue("params", message, false));
 	ScopedFuncCall popMsg([this]() { this->pending.pop(); });
 	pendingRequests.insert(std::make_pair(used, "mining.submit"));
-	shares.sent++;
 	popMsg.Dont();
 }
 
@@ -181,7 +180,7 @@ void StratumState::Response(asizei id, const stratum::MiningAuthorizeResponse &m
 
 
 void StratumState::Response(asizei id, const stratum::MiningSubmitResponse &msg) {
-	if(msg.accepted) shares.accepted++;
+	if(shareResponseCallback) shareResponseCallback(msg.accepted);
 }
 
 

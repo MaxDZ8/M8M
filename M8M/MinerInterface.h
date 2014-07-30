@@ -8,6 +8,8 @@
 #include "../Common/Stratum/WorkUnit.h"
 #include "../Common/Settings.h"
 #include "../Common/AbstractWorkSource.h"
+#include <chrono>
+
 
 /*! Initially, this was supposed to be a generic way to manage computing devices.
 However as I added OpenCL to the list of supported APIs I figured out there was quite a lot of code to be generalized and shared across APIs
@@ -45,11 +47,17 @@ public:
 	Notice mangling a new work unit <b>might</b> require switching to a different algorithm. The specified algorithm must have been
 	specified in advance by using EnableAlgorithm(). */
 	virtual void Mangle(const AbstractWorkSource &owner, const stratum::WorkUnit &wu, const auint algoSettings) = 0;
+
+	typedef std::chrono::high_resolution_clock HPCLK;
+	typedef std::chrono::time_point<std::chrono::high_resolution_clock> HPTP;
 	
 	struct Nonces {
 		const AbstractWorkSource *owner;
 		std::string job;
 		auint nonce2;
+		HPTP::duration lastNoncePeriod; //!< time taken to produce the last values added to this->nonces vector
+		HPTP::duration averageNoncePeriod; //!< updated every time lastNoncePeriod is also updated.
+		asizei lastNonceScanAmount;
 		std::vector<auint> nonces;
 	};
 	/*! Call this every once in a while to get newly found nonces. Because implementations are not required to filter stale results, external code
