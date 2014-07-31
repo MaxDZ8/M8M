@@ -27,18 +27,6 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 				DestroyMenu(this->asyncOwned.contextMenu);
 				this->asyncOwned.contextMenu = 0;
 			}
-			if(this->asyncOwned.osIcon) {
-				if(this->asyncOwned.removeFromNotificationArea) {
-					NOTIFYICONDATA iid;
-					iid.cbSize = sizeof(iid);
-					iid.hWnd = asyncOwned.windowHandle;
-					iid.uID = iconIndex;
-					Shell_NotifyIcon(NIM_DELETE, &iid);
-
-				}
-				DestroyIcon(this->asyncOwned.osIcon);
-				this->asyncOwned.osIcon = 0;
-			}
 			if(this->asyncOwned.windowHandle) {
 				DestroyWindow(this->asyncOwned.windowHandle);
 				this->asyncOwned.windowHandle = 0;
@@ -55,6 +43,19 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 	        ScopedFuncCall cleargdi([gdiplusToken]() { GdiplusShutdown(gdiplusToken); });
 			ScopedFuncCall clearBitmap([this]() {
 				std::unique_lock<std::mutex> lock(*this->mutex);
+				
+				if(this->asyncOwned.osIcon) { // icon is a function of bitmap so if bitmap goes, the icon will get invalid
+					if(this->asyncOwned.removeFromNotificationArea) {
+						NOTIFYICONDATA iid;
+						iid.cbSize = sizeof(iid);
+						iid.hWnd = asyncOwned.windowHandle;
+						iid.uID = iconIndex;
+						Shell_NotifyIcon(NIM_DELETE, &iid);
+					}
+					DestroyIcon(this->asyncOwned.osIcon);
+					this->asyncOwned.osIcon = 0;
+				}
+
 				if(this->asyncOwned.iconGraphics) delete this->asyncOwned.iconGraphics; // this must happen before GDI+ shutdown or it will be considered an incomplete type
 			});
 
