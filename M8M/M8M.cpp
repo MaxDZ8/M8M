@@ -14,7 +14,6 @@ conflicts to pad gather phase. */
 #include "../Common/SourcePolicies/FirstPoolWorkSource.h"
 #include "../Common/Exceptions.h"
 #include "../Common/Init.h"
-#include "DirectComputeAlgorithms.h"
 #include "AbstractThreadedMiner.h"
 #include "AlgoFactories/Scrypt1024_CL.h"
 #include "AlgoFactories/QubitCL12.h"

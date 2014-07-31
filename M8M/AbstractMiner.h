@@ -5,6 +5,7 @@
 #pragma once
 #include "MinerInterface.h"
 #include "AlgoFamily.h"
+#include <thread>
 #include <mutex>
 #include <deque>
 
