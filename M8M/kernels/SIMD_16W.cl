@@ -47,22 +47,20 @@ int8 SIMD16W_MangleInput(global uchar *input, uint offset) {
 	}	
 	int a[4];
 	for(uint loop = 0; loop < 2; loop++) {
-		int mul = loop % 1? -1 : 1;
-		int shft = x[2] << 4;
-		a[loop * 2 + 0] = x[0] + x[2] * mul;
-		a[loop * 2 + 1] = x[0] + shft * mul;
+		a[loop * 2 + 0] = x[0] + x[2];
+		a[loop * 2 + 1] = x[0] + x[2] << 4;
 	}
 	int b[4];
 	b[0] = x[1] + x[3];
 	b[2] = (x[1] << 4) - (x[3] << 4);
-#if SIMD_REDUCE_BYTE_LUT == 0
+#if !defined(SIMD_REDUCE_BYTE_LUT) || SIMD_REDUCE_BYTE_LUT == 0
 	b[1] = SIMD_ByteReduce((x[1] << 2) + (x[3] << 6));
 	b[3] = SIMD_ByteReduce((x[1] << 6) + (x[3] << 2));
 	/* Values here have special properties. Guaranteed to be [0..255] and
 	very likely being (0, u) or even (0, 0). Therefore very high coherence with
 	late values having the same value. I cannot risk bank collisions here, use L1 instead. */
 #else
-#if !defined(SIMD_REDUCE_BYTE_LUT) || SIMD_REDUCE_BYTE_LUT > 1
+#if SIMD_REDUCE_BYTE_LUT > 1
 	b[1] = reduced[x[1] * 256 + x[3]];	
 #else
 	b[1] = SIMD_ByteReduce((x[1] << 2) + (x[3] << 6));
