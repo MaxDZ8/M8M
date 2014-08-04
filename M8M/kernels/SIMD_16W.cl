@@ -47,8 +47,8 @@ int8 SIMD16W_MangleInput(global uchar *input, uint offset) {
 	}	
 	int a[4];
 	for(uint loop = 0; loop < 2; loop++) {
-		a[loop * 2 + 0] = x[0] + x[2];
-		a[loop * 2 + 1] = x[0] + x[2] << 4;
+		a[loop * 2 + 0] = x[0] +  x[2];
+		a[loop * 2 + 1] = x[0] + (x[2] << 4);
 	}
 	int b[4];
 	b[0] = x[1] + x[3];

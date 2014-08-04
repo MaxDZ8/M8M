@@ -1,3 +1,7 @@
+/*
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */
 #pragma once
 
 #if defined(_WIN32)
