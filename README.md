@@ -36,13 +36,13 @@ Now the question is: **what is M8M? What is the result?**
 
 **M8M runs on the Microsoft® Windows® operating system. You'll need at least version 7.**
 
-**M8M has been written targeting AMD GCN hardware**: that's video cards series 7**nnn** or R**n**-2**nn**, including APUs. If you don't know what I'm talking about you'll have to look for a Radeon™ sticker on your PC.
+**M8M has been written targeting AMD GCN hardware**: that's video cards series 7000 or Rx-200, including most APUs. If you don't know what I'm talking about you'll have to look for a Radeon™ sticker on your PC.
 
 M8M is a miner written to spread awareness of what hashing is and how it relates to crypto. Comprension.
 
-Since I mine crypto while working, **M8M is geared toward people working on computers equipped with GPUs that happen to be idle**. So we want to pay some extra electricity because it's so sad to leave them unused for most of the time and because our computers are already on.
+Since I mine crypto while working, **M8M is geared toward people working on computers equipped with GPUs that happen to be (mostly) idle** or with plenty of unused power. So we are willing to pay some extra electricity because it's so sad to leave them underutilized for most of the time: our computers are already on!
 
-M8M is also geared towards **people who find current miners too difficult**. The interface is still a bit clunky but at least you won't have to read endless documentation and figure it out. We have other things to do!
+M8M is also geared towards **people who find current miners too difficult**. The interface is still a bit clunky but at least you won't have to read endless, often incomplete and contradictory documentation to figure it out. We have other things to do!
 
 In my tests, M8M also turned out to be faster than standard miners. Perhaps it will be faster for you too.
 
@@ -61,10 +61,10 @@ The following are all ideas I've been considering:
 ##On safety
 
 ###A warning
-Cryptocurrency mining is an intensive operation for your computer. If you don't know what this means, I suggest you to not proceed further. Thank you for reading so far!
+Cryptocurrency mining is an intensive operation for your computer. If you don't know what this means, then pay special attention here.
 
-The following are all things that **might happen** to your computer while using M8M:
-* it can hang due to this or that component getting too hot;
+The following are all things that **might happen** to your computer while using M8M (as well as any others performance-intensive applications):
+* it can hang due to *this* or *that* component getting too hot;
 * it can hang and refuse to turn on again for a while;
 * it can hang and refuse to turn on ever again!
 * its lifespan might be reduced;
@@ -77,7 +77,7 @@ Be warned that M8M and cryptocurrency miners in general will rise your electrici
 
 They will also generate a fairly typical (but small) network traffic which might expose you to unwanted attention (if you want to mine at work, check out your company allows that).
 
-M8M uses the network for configuration. This must be considered a security risk. It your responsability to secure your network and computer, M8M assumes to be run in a "militarized zone".
+M8M uses the network for configuration. This **must be considered a security risk. It your responsability to secure your network and computer**, M8M assumes to be run in a "demilitarized zone".
 
 If you don't know what this means or you cannot assess how the above affects you please do not use M8M without obtaining and understanding proper information.
 
@@ -85,62 +85,26 @@ If you don't know what this means or you cannot assess how the above affects you
 
 ***I have written M8M with no malicious intent.***
 
-In other words, it is ***not*** my intention to damage you, your computer or your data. It is ***not*** my intention to somehow obtain an unfair advantage by exploiting your resources.
+In other words, it is **not** my intention to damage you, your computer or your data. It is **not** my intention to somehow obtain an unfair advantage by exploiting your resources.
 
 ##Usage
 
-###Installation
-**You're probably better off with the installer**. If you want to enable web monitoring or administration you'll need administration rights on your machine as this needs to setup a couple of firewall rules.
-
-The standalone executable can be run without administrative rights but you'll need to set up the environment yourself. Configuring M8M will also require some work.
-
-###First run
-Differently from "legacy" miners, M8M requires a graphical user interface. If this does not make any sense to you, then you probably don't need to bother.
-
-Run M8M by clicking on its icon or by using your OS launcher. In the latter case, hitting the button between CTRL and ALT on your keyboard, writing "M8M" and hitting ENTER will be sufficient.
-A small icon and a popup should show up in your taskbar notification area. It will be a warning icon asking you to configure your miner.
-
-Right-click on M8M icon, a popup menu will appear. Click on "Enable web administration".
-Right-click on M8M icon again. Click on "Connect to web administration".
-
-Your browser will open. Following the wizard should be sufficient.
-
-> Note: the suggested browser is Mozilla Firefox.
-
-> Note: always remember to save settings before closing the browser window.
-
-###Successive runs / production
-M8M will run from the saved settings: you don't need to bother.
-
-Unless told to do otherwise, M8M will load its settings from
-
-    %APPDATA%\M8M\init.json
-
-> Note: if something is already there, I'm sorry to inform you M8M might have overwritten your data. Let me know if this happened.
-
-###Advanced usage: multiple configurations
-If you want to load a different configuration file, create a shortcut or a batch file running M8M using the `--config` parameter. It could be something like:
-
-    M8M.exe --config=path_to_different_config.json
-	
-This is the only supported command line parameter. Note M8M will always load `init.json` by default and you cannot change this. Even if you save different configs, M8M will not use them at load by default.
+This document does not include installation nor usage instructions as it focuses on source code.
+Please use the wiki instead: https://github.com/MaxDZ8/M8M/wiki#usage
 
 ##Building 
 
-Compared to legacy miners the list of dependanies is limited you'll need:
+Compared to legacy miners the list of dependancies is limited you'll need:
 - Windows Platform SDK for desktop apps.
 - Some OpenCL SDK;
-- Some version of [gflags](https://github.com/schuhschuh/gflags) (likely to be phased out);
 - Some version of [jsoncpp](http://sourceforge.net/projects/jsoncpp) (likely to be replaced);
 
 There are no `define`s to be used in production builds.
 Link dependancies include:
     OpenCL.lib;Ws2_32.lib;Gdiplus.lib;Shell32.lib
-Of course you'll need to link gflags and jsoncpp as well.
+Of course you'll need to link jsoncpp as well.
 
-As M8M currently targets Windows®, you'll hopefully be just fine downloading the Visual Studio 2012 solution file.
+As M8M currently targets Windows®, you'll hopefully be just fine downloading the Visual Studio 2012 solution file, as soon as it is released.
 
 ##Algorithms supported
-###Qubit
-###Scrypt n=1024
-Not to be used. This was my first attempt at modern OpenCL and it didn't quite work out.
+https://github.com/MaxDZ8/M8M/wiki#algorithms-supported
