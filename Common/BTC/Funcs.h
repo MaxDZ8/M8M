@@ -6,7 +6,7 @@
 #include <iterator>
 #include <vector>
 #include <array>
-#include "../SerializationBuffers.h"
+#include "../AREN/SerializationBuffers.h"
 #include "../hashing.h"
 
 namespace btc {

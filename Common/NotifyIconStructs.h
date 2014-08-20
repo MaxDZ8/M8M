@@ -6,7 +6,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
-#include "ArenDataTypes.h"
+#include "AREN/ArenDataTypes.h"
 
 enum MenuItemType {
 	mit_command,

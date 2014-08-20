@@ -11,146 +11,30 @@ Initially intended as a Scrypt miner based on GPGPU constructs to reduce memory
 conflicts to pad gather phase. */
 #include <string>
 #include <iostream>
-#include "../Common/SourcePolicies/FirstPoolWorkSource.h"
+#include "Connections.h"
 #include "../Common/Exceptions.h"
 #include "../Common/Init.h"
 #include "AbstractThreadedMiner.h"
-#include "AlgoFactories/Scrypt1024_CL.h"
 #include "AlgoFactories/QubitCL12.h"
 #include <iomanip>
 #include "../Common/NotifyIcon.h"
 #include "M8MIcon.h"
+#include "WebMonitorTracker.h"
+#include "../Common/AREN/SharedUtils/AutoConsole.h"
+
+#include "commands/Monitor/SystemCMD.h"
+#include "commands/Monitor/AlgoCMD.h"
+#include "commands/Monitor/CurrentPoolCMD.h"
+#include "commands/Monitor/DeviceConfigCMD.h"
+#include "commands/Monitor/WhyRejectedCMD.h"
+#include "commands/Monitor/ConfigInfo.h"
+#include "commands/Monitor/ScanTime.h"
+#include "commands/Monitor/DeviceShares.h"
+#include "commands/Monitor/Profiler.h"
+
+#include "TimedValueStream.h"
 
 
-DECLARE_string(config);
-DEFINE_bool(enumerate, false, "Specifying this will cause the miner to dump information about available processors and then shutdown. Use this to get processor IDs to bind to workers.");
-DEFINE_bool(errorBox, true, "Setting this to false will suppress exception messages going to error box. The program will therefore exit immediately. A good idea for dedicated miners.");
-
-using std::cout;
-using std::endl;
-using std::unique_ptr;
-
-
-
-/*! One object of this kind is used to manage proper creation of socket resources
-and their relative pools. It's an helper object, effectively part of main and not very
-separated in terms of responsabilities and management as it's really meant to only give
-readability benefits. */
-class Connections {
-public:
-	/*! Those two lists are rebuilt every time WaitForData is called. */
-	std::vector<Network::SocketInterface*> toRead, toWrite;
-	typedef std::function<void(AbstractWorkSource &pool, const stratum::WorkUnit&)> DispatchCallback;
-
-	Connections(Network &factory, std::vector< std::unique_ptr<PoolInfo> >::const_iterator &first, asizei count, DispatchCallback df)
-		: network(factory), routes(count), toRead(count), toWrite(count), dispatchFunc(df) {
-		for(asizei loop = 0; loop < count; loop++) {
-			const PoolInfo &conf(*first->get());
-			const char *host = conf.host.c_str();
-			const char *port = conf.explicitPort.length()? conf.explicitPort.c_str() : conf.service.c_str();
-			Network::ConnectedSocketInterface *conn = &factory.BeginConnection(host, port);
-			ScopedFuncCall clearConn([&factory, conn] { factory.CloseConnection(*conn); });
-			std::unique_ptr<FirstPoolWorkSource> stratum(new FirstPoolWorkSource("M8M/DEVEL", conf, *conn));
-			stratum->errorCallback = [](asizei i, int errorCode, const std::string &message) {
-				cout<<"Stratum message ["<<std::to_string(i)<<"] generated error response by server (code "
-					<<std::dec<<errorCode<<"=0x"<<std::hex<<errorCode<<std::dec<<"), server says: \""<<message<<"\""<<std::endl;
-			};
-			routes[loop] = Remote(conn, stratum.release());
-			clearConn.Dont();
-		}
-	}
-	~Connections() {
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			if(routes[loop].pool) routes[loop].pool->Shutdown();
-			if(routes[loop].connection) network.CloseConnection(*routes[loop].connection);
-		}
-	}
-	void PrepareSleepLists() {
-		toRead.resize(0);
-		toWrite.resize(0);
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			if(routes[loop].pool->NeedsToSend()) toWrite.push_back(routes[loop].connection);
-			else toRead.push_back(routes[loop].connection);
-		}
-	}
-	/*! Check all the currently managed pools. If a pool can either send or receive data,
-	give it the chance of doing so. Call this after the .toRead and .toWrite lists have been updated. */
-	void Refresh() {
-		if(routes.size() == 0) throw std::exception("No active connections to pools, giving up.");
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			auto r = std::find(toRead.cbegin(), toRead.cend(), routes[loop].connection);
-			auto w = std::find(toWrite.cbegin(), toWrite.cend(), routes[loop].connection);
-			bool canRead = r != toRead.cend();
-			bool canWrite = w != toWrite.cend();
-			if(canRead || canWrite) {
-				cout<<"Pool "<<loop<<" ";
-				if(canRead) cout<<'R';
-				if(canWrite) cout<<'W';
-				cout<<endl;
-				AbstractWorkSource &pool(*routes[loop].pool);
-				auto happens = pool.Refresh(canRead, canWrite);
-				switch(happens) {
-				case AbstractWorkSource::e_nop: 
-				case AbstractWorkSource::e_gotRemoteInput:
-					break;
-				case AbstractWorkSource::e_newWork: dispatchFunc(pool, pool.GenWorkUnit()); break;
-				default:
-					cout<<"Unrecognized pool event: "<<happens;
-				}
-			}
-		}
-	}
-	void Close(Network::SocketInterface *bad) {
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			if(bad != routes[loop].connection) continue;
-			Network::ConnectedSocketInterface *shutdown = routes[loop].connection;
-			cout<<"Shutting down connection for pool "<<routes[loop].pool->GetName();
-			for(asizei back = loop + 1; back < routes.size(); back++) routes[back - 1] = std::move(routes[back]);
-			network.CloseConnection(*shutdown);
-		}
-		routes.pop_back();
-	}
-	/*! Send a bunch of shares to the pool matching by job id.
-	\todo This is a bit easy-going as there's no guarantee job ids are going to be unique across different pools. I'll have to fix it in the future. */
-	asizei SendShares(const MinerInterface::Nonces &found) {
-		asizei enqueued = 0;
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			if(routes[loop].pool.get() != found.owner) continue;
-			routes[loop].pool->Shares(found.job, found.nonce2, found.nonces);
-			enqueued++;
-		}
-		return enqueued;
-	}
-
-	void ShowStats() {
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			const AbstractWorkSource::PoolStats &stats(routes[loop].pool->stats);
-			std::cout<<"pool["<<loop<<"] found sent accepted = "<<stats.shares.found<<' '<<stats.shares.sent<<' '<<stats.shares.accepted<<std::endl;
-		}
-	}
-
-private:
-	Network &network;
-	DispatchCallback dispatchFunc;
-	struct Remote {
-		Network::ConnectedSocketInterface *connection;
-		std::unique_ptr<AbstractWorkSource> pool;
-		Remote(Network::ConnectedSocketInterface *pipe = nullptr, AbstractWorkSource *own = nullptr) : connection(pipe), pool(own) { }
-		Remote(Remote &&ori) {
-			connection = ori.connection;
-			pool = std::move(ori.pool);
-		}
-		Remote& operator=(Remote &&other) {
-			if(this == &other) return other;
-			connection = other.connection; // those are not owned so no need to "really" move them
-			pool = std::move(other.pool);
-			return *this;
-		}
-	};
-	/*! This list is untouched, set at ctor and left as is. */
-	std::vector<Remote> routes;
-
-};
 
 
 Connections* InstanceConnections(const Settings &settings, Network &manager, Connections::DispatchCallback df) {
@@ -171,8 +55,95 @@ void _stdcall ErrorsToSTDOUT(const char *err, const void *priv, size_t privSz, v
 	cout.flush();
 }
 
+struct TrackedValues : commands::monitor::ScanTime::DeviceTimeProviderInterface, commands::monitor::DeviceShares::ValueSourceInterface {
+	std::vector<TimedValueStream> shareTime;
+	std::vector<commands::monitor::DeviceShares::ShareStats> shares;
 
-MinerInterface* InstanceProcessingNodes(const Settings &settings) {
+	void Resize(asizei numDevices) {
+		shareTime.resize(numDevices);
+		shares.resize(numDevices);
+	}
+
+	// commands::monitor::ScanTime::DeviceTimeProviderInterface
+	bool GetSTMinMax(std::chrono::microseconds &min, std::chrono::microseconds &max, asizei devIndex) const {
+		if(devIndex < shareTime.size()) {
+			min = shareTime[devIndex].GetMin();
+			max = shareTime[devIndex].GetMax();
+		}
+		return devIndex < shareTime.size();
+	}
+
+	bool GetSTAvg(std::chrono::microseconds &shortAvg, std::chrono::microseconds &longAvg, asizei devIndex) const {
+		if(devIndex < shareTime.size()) {
+			shortAvg = shareTime[devIndex].GetShortAverage();
+			longAvg  = shareTime[devIndex].GetLongAverage();
+		}
+		return devIndex < shareTime.size();
+	}
+	
+	virtual bool GetSTLast(std::chrono::microseconds &last, asizei devIndex) const { 
+		if(devIndex < shareTime.size()) last = shareTime[devIndex].GetLast();
+		return devIndex < shareTime.size();
+	}
+
+	void GetSTWindow(std::chrono::minutes &shortWindow, std::chrono::minutes &longWindow) const {
+		shortWindow = shareTime[0].GetShortWindow();
+		longWindow  = shareTime[0].GetLongWindow();
+	}
+	
+	bool GetDSS(commands::monitor::DeviceShares::ShareStats &out, asizei dl) {
+		if(dl < shares.size()) {
+			out.bad = shares[dl].bad;
+			out.good = shares[dl].good;
+			out.stale = shares[dl].stale;
+		}
+		return dl < shares.size();
+	}
+
+};
+
+
+typedef std::vector< std::unique_ptr<commands::AbstractCommand> > WebCommands;
+
+
+template<typename CreateClass, typename Param>
+void SimpleCommand(WebCommands &persist, WebMonitorTracker &mon, Param &param) {
+	std::unique_ptr<CreateClass> build(new CreateClass(param));
+	mon.RegisterCommand(*build);
+	persist.push_back(std::move(build));
+}
+
+template<typename MiningProcessorsProvider>
+void RegisterMonitorCommands(WebCommands &persist, WebMonitorTracker &mon, AbstractMiner<MiningProcessorsProvider> &miner, const std::unique_ptr<Connections> &connections, TrackedValues &tracking) {
+	using namespace commands::monitor;
+	MiningProcessorsProvider &procs(miner.GetProcessersProvider());
+	SimpleCommand< SystemCMD<MiningProcessorsProvider> >(persist, mon, procs);
+	SimpleCommand<AlgoCMD>(persist, mon, miner);
+	{
+		auto getPoolURL = [&connections](const AbstractWorkSource &pool) -> std::string {
+			// if(connections.get() == nullptr) throw std::exception("Impossible. This was guaranteed to not happen by program structure.");
+			// If pool is not set then this cannot be called. But if this is callable, pool is set, therefore connections are there.
+			const Network::ConnectedSocketInterface &socket(connections->GetConnection(pool));
+			return socket.PeerHost() + ':' + socket.PeerPort();
+		};
+		std::unique_ptr<CurrentPoolCMD> build(new CurrentPoolCMD(miner, getPoolURL));
+		mon.RegisterCommand(*build);
+		persist.push_back(std::move(build));
+	}
+	SimpleCommand<DeviceConfigCMD>(persist, mon, miner);
+	SimpleCommand<WhyRejectedCMD>(persist, mon, miner);
+	SimpleCommand<ConfigInfoCMD>(persist, mon, miner);
+	SimpleCommand<ScanTime>(persist, mon, tracking);
+	SimpleCommand<DeviceShares>(persist, mon, tracking);
+	{
+		MiningProfilerInterface *profiler = dynamic_cast<MiningProfilerInterface*>(&miner);
+		if(profiler) SimpleCommand<Profiler>(persist, mon, *profiler);
+		else throw std::string("miner with no profiler, not currently supported"); // because I'd have to add a language query.
+	}
+}
+
+
+MinerInterface* InstanceProcessingNodes(WebCommands &persist, const Settings &settings, WebMonitorTracker &reg, const std::unique_ptr<Connections> &connections, TrackedValues &tracking) {
 	std::function<void(auint sleepms)> sleepFunc = 
 #if defined _WIN32
 		[](auint ms) { Sleep(ms); };
@@ -183,21 +154,20 @@ MinerInterface* InstanceProcessingNodes(const Settings &settings) {
 	if(!_stricmp("opencl", settings.driver.c_str()) || !_stricmp("ocl", settings.driver.c_str())) {
 		std::vector< std::unique_ptr< AlgoFamily<OpenCL12Wrapper> > > algos;
 		std::unique_ptr< AlgoFamily<OpenCL12Wrapper> > add;
-		if(!_stricmp(settings.algo.c_str(), "scrypt1024")) add.reset(new Scrypt1024_CL12(true, ErrorsToSTDOUT));
-		else if(!_stricmp(settings.algo.c_str(), "qubit")) add.reset(new QubitCL12(true, ErrorsToSTDOUT));
+		// Maybe this will come back from the dead a day in form of scrypt-n perhaps.
+		// if(!_stricmp(settings.algo.c_str(), "scrypt1024")) add.reset(new Scrypt1024_CL12(true, ErrorsToSTDOUT));
+		// else
+		if(!_stricmp(settings.algo.c_str(), "qubit")) add.reset(new QubitCL12(true, ErrorsToSTDOUT));
 		else throw std::string("Algorithm \"") + settings.algo + "\" not found in OpenCL 1.2 driver.";
 		algos.push_back(std::move(add));
 		std::unique_ptr< AbstractThreadedMiner<OpenCL12Wrapper> > ret(new AbstractThreadedMiner<OpenCL12Wrapper>(algos, sleepFunc));
+		RegisterMonitorCommands(persist, reg, *ret, connections, tracking);
 		ret->CheckNonces(settings.checkNonces);
 		return ret.release();
 	}
 	throw std::exception("Driver string invalid.");
 }
 
-
-void DumpDeviceInformations(MinerInterface &nodes) {
-	cout<<"Enumeration functionalities to be implemented."<<endl;
-}
 
 #if defined(_DEBUG)
 #define TIMEOUT_MS ( 60 * 1000 * 30)
@@ -211,68 +181,15 @@ The main problem is that waking it up on signal would require a socket to sleep 
 Windows allows to sleep on sockets and thread signals but I'm not sure other OSs allow this. */
 #define POLL_PERIOD_MS 200
 
-
-#if defined(_WIN32)
-#include <shellapi.h>
-#define DIR_SEPARATOR L"\\"
-#endif
-
-
 #define PATH_TO_WEBAPPS L".." DIR_SEPARATOR L"web" DIR_SEPARATOR
 
-#define WEBMONITOR_PATH PATH_TO_WEBAPPS L"monitor.html"
-#define WEBADMIN_PATH PATH_TO_WEBAPPS L"admin.html"
+#define WEBMONITOR_PATH PATH_TO_WEBAPPS L"monitor_localhost.html"
+#define WEBADMIN_PATH PATH_TO_WEBAPPS L"admin_localhost.html"
+
+#define DEFAULT_ADMIN_PORT 31001
 
 
-
-void LaunchBrowser(const wchar_t *what) {
-#if defined(_WIN32)
-	SHELLEXECUTEINFO exe;
-	memset(&exe, 0, sizeof(exe));
-	exe.cbSize = sizeof(exe);
-	exe.fMask = SEE_MASK_NOASYNC;// | SEE_MASK_CLASSNAME;
-	exe.lpFile = what;
-	exe.nShow = SW_SHOWNORMAL;
-	//exe.lpClass = L"http";
-
-	wchar_t buff[256];
-	_wgetcwd(buff, 256);
-	std::wcout<<buff<<std::endl;
-
-	ShellExecuteEx(&exe);	
-	if(reinterpret_cast<int>(exe.hInstApp) < 32) throw std::exception("Could not run browser.");
-#else
-#error what to do here?
-#endif
-}
-
-
-class WebMonitorTracker {
-	NotifyIcon &menu;
-	asizei miON, miOFF, miCONN;
-
-	void Toggle() {
-		if(!menu.ToggleMenuItemStatus(miON)) {
-			std::cout<<"Activating web monitor."<<std::endl;
-		}
-		menu.ToggleMenuItemStatus(miOFF);
-		menu.ToggleMenuItemStatus(miOFF);
-		if(!menu.ToggleMenuItemStatus(miCONN)) {
-			std::cout<<"Disabling web monitor."<<std::endl;
-		}
-	}
-
-public:
-	WebMonitorTracker(NotifyIcon &icon) : menu(icon), miON(0), miOFF(0), miCONN(0) { }
-	void SetMessages(const wchar_t *enable, const wchar_t *connect, const wchar_t *disable) {
-		miON = menu.AddMenuItem(enable, [this]() { Toggle(); });
-		miCONN = menu.AddMenuItem(connect, [this]() { LaunchBrowser(WEBMONITOR_PATH); }, false);
-		miOFF = menu.AddMenuItem(disable, [this]() { Toggle(); }, false);
-
-	}
-};
-
-
+#if 0
 class WebAdminTracker {
 	NotifyIcon &menu;
 	asizei miON, miOFF, miCONN; // miON will be a sub-menu in the future.
@@ -295,50 +212,84 @@ public:
 		miCONN = menu.AddMenuItem(connect, []() { LaunchBrowser(WEBADMIN_PATH); }, false);
 		miOFF = menu.AddMenuItem(disable, [this]() { Toggle(); }, false);
 	}
-};
+};  
+#endif // 0
 
 
+#if defined(_WIN32)
+int WINAPI wWinMain(HINSTANCE instance, HINSTANCE unusedLegacyW16, PWSTR cmdLine, int showStatus) {
+#else
 int main(int argc, char **argv) {
-	google::ParseCommandLineFlags(&argc, &argv, true);
+#endif
+
+#if defined(_WIN32) && (defined(_DEBUG) || defined(RELEASE_WITH_CONSOLE))
+	sharedUtils::system::AutoConsole<false> handyOutputForDebugging;
+	handyOutputForDebugging.Enable();
+#endif
+
 	unique_ptr<Settings> configuration;
 	try {
-		cout<<"M8M starting, loading =\""<<FLAGS_config<<'"'<<endl;
+		Network network;
+		std::unique_ptr<Connections> remote;
+		//cout<<"M8M starting, loading =\""<<FLAGS_config<<'"'<<endl;
 		bool quit = false;
-		configuration.reset(LoadConfig());
+		configuration.reset(LoadConfig(L"init.json"));
 		NotifyIcon notify;
-		WebMonitorTracker webMonitor(notify);
-		WebAdminTracker webAdmin(notify);
+		WebMonitorTracker webMonitor(notify, network, WEBMONITOR_PATH);
+		webMonitor.clientConnectionCallback = [](WebMonitorTracker::ClientConnectionEvent ev) {
+			switch(ev) {
+			case WebMonitorTracker::cce_welcome: cout<<"--WS: New client connected."<<endl; break;
+			case WebMonitorTracker::cce_closing: cout<<"--WS: Client requested socket close."<<endl; break;
+			case WebMonitorTracker::cce_farewell: cout<<"--WS: A websocket has just been destroyed."<<endl; break;
+			}
+			return true;
+		};
+		////WebAdminTracker webAdmin(notify, network);
+		notify.AddMenuSeparator();
 		notify.SetIcon(L"M8M - An (hopefully) educational cryptocurrency miner.", M8M_NOTIFY_ICON_16X16, 16, 16);
 		notify.ShowMessage(L"Getting ready!\nLeave me some seconds to warm up...");
-		webMonitor.SetMessages(L"Enable web monitor", L"Connect to web monitoring", L"Disable web monitor");
+		webMonitor.SetMessages(L"Enable web monitor", L"Connect to web monitor", L"Disable web monitor");
 		notify.AddMenuSeparator();
-		webAdmin.SetMainMessages(L"Enable web administration", L"Connect to web administration", L"Disable web admin");
+		////webAdmin.SetMainMessages(L"Enable web administration", L"Connect to web administration", L"Disable web admin");
 		notify.AddMenuSeparator();
 		notify.AddMenuItem(L"Exit ASAP", [&quit]() { quit = true; });
 		notify.BuildMenu();
 		notify.Tick();
 
-		Network network;
+		TrackedValues stats;
 		bool firstShare = true;
-		std::unique_ptr<MinerInterface> processors(InstanceProcessingNodes(*configuration));
-		if(FLAGS_enumerate) {
-			DumpDeviceInformations(*processors);
-			return 0;
+		WebCommands parsers;
+		std::unique_ptr<MinerInterface> processors(InstanceProcessingNodes(parsers, *configuration, webMonitor, remote, stats));
+		ScopedFuncCall forceParserGoodbye([&parsers]() { parsers.clear(); }); // they must go away before the API wrapper bites the dust.
+		if(!processors->SetCurrentAlgo(configuration->algo.c_str(), configuration->impl.c_str())) {
+			throw std::string("Algorithm \"") + configuration->algo + '.' + configuration->impl + ", not found.";
 		}
-		const asizei algoIndex = processors->EnableAlgorithm(configuration->algo.c_str(), configuration->impl.c_str(), configuration->implParams);
-		if(algoIndex == asizei(-1)) throw std::string("Fatal error: algorithm \"") + configuration->algo.c_str() + "\" with implementation \"" + configuration->impl.c_str() + "\" is not available.";
-		
-		auto dispatchNWU([&processors, algoIndex](AbstractWorkSource &pool, const stratum::WorkUnit &wu) {
-			processors->Mangle(pool, wu, algoIndex);
+		processors->AddSettings(configuration->implParams);
+
+		{
+			asizei numDevices = 0, dummy;
+			while(processors->GetDeviceConfig(dummy, numDevices)) numDevices++;
+			stats.Resize(numDevices);
+		}
+		MiningProfilerInterface *profiler = dynamic_cast<MiningProfilerInterface*>(processors.get());
+
+		processors->Start();
+		auto dispatchNWU([&processors](AbstractWorkSource &pool, const stratum::WorkUnit &wu) {
+			processors->Mangle(pool, wu);
 		});
 		bool showShareStats = false;
 		auto onShareResponse= [&showShareStats](bool ok) { showShareStats = true; };
-		std::unique_ptr<Connections> remote(InstanceConnections(*configuration, network, dispatchNWU));
+		remote.reset(InstanceConnections(*configuration, network, dispatchNWU));
 		asizei sinceActivity = 0;
+		std::vector<Network::SocketInterface*> toRead, toWrite;
 		while(!quit) {
+			if(profiler) profiler->Tick();
 			notify.Tick();
-			remote->PrepareSleepLists();
-			asizei updated = network.SleepOn(remote->toRead, remote->toWrite, POLL_PERIOD_MS);
+			toRead.clear();
+			toWrite.clear();
+			remote->FillSleepLists(toRead, toWrite);
+			webMonitor.FillSleepLists(toRead, toWrite);
+			asizei updated = network.SleepOn(toRead, toWrite, POLL_PERIOD_MS);
 			if(!updated) {
 				sinceActivity += POLL_PERIOD_MS;
 				if(sinceActivity >= TIMEOUT_MS) {
@@ -350,10 +301,8 @@ int main(int argc, char **argv) {
 			}
 			else {
 				sinceActivity = 0;
-				for(asizei loop = 0; loop < remote->toRead.size(); loop++) {
-					if(remote->toRead[loop]->Works() == false) remote->Close(remote->toRead[loop]);
-				}
-				remote->Refresh();
+				remote->Refresh(toRead, toWrite);
+				webMonitor.Refresh(toRead, toWrite);
 			}
 			std::vector<MinerInterface::Nonces> sharesFound;
 			if(processors->SharesFound(sharesFound)) {
@@ -364,18 +313,38 @@ int main(int argc, char **argv) {
 					notify.ShowMessage(L"Found my first share!\nNumbers are being crunched as expected.");
 				}
 				for(auto el = sharesFound.cbegin(); el != sharesFound.cend(); ++el) {
+					stats.shareTime[el->deviceIndex].Took(el->scanPeriod);
+					stats.shares[el->deviceIndex].good += el->nonces.size();
+					stats.shares[el->deviceIndex].bad += el->bad;
+					stats.shares[el->deviceIndex].stale += el->stale;
 					{
-						adouble took = std::chrono::duration_cast<std::chrono::milliseconds>(el->lastNoncePeriod).count() / 1000.0;
+						adouble took = el->scanPeriod.count() / 1000000.0;
 						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;
 						std::cout<<"Share time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
 					}
 					{
-						adouble took = std::chrono::duration_cast<std::chrono::milliseconds>(el->averageNoncePeriod).count() / 1000.0;
+						adouble took = stats.shareTime[el->deviceIndex].GetShortAverage().count() / 1000000.0;
 						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0; // this does not make any sense.
 						// ^ I should be tracking the number of hashes instead but it's still something.
 						// ^ as long intensity is constant, this is correct anyway
-						std::cout<<"Average time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+						std::cout<<"Average time (short) = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
 					}
+					{
+						adouble took = stats.shareTime[el->deviceIndex].GetLongAverage().count() / 1000000.0;
+						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;
+						std::cout<<"Average time (long) = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+					}
+					{
+						adouble took = stats.shareTime[el->deviceIndex].GetMin().count() / 1000000.0;
+						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;
+						std::cout<<"Min time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+					}
+					{
+						adouble took = stats.shareTime[el->deviceIndex].GetMax().count() / 1000000.0;
+						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;
+						std::cout<<"Max time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+					}
+					std::cout<<"Shares found: "<<el->nonces.size()<<", bad: "<<el->bad<<", stale: "<<el->stale<<std::endl;
 					remote->SendShares(*el);
 					showShareStats = true;
 				}
@@ -386,15 +355,19 @@ int main(int argc, char **argv) {
 			}
 		}
 	} catch(std::string msg) {
-		if(FLAGS_errorBox) MessageBoxA(NULL, msg.c_str(), "M8M - Fatal error", MB_OK);
+		///////////if(FLAGS_errorBox) MessageBoxA(NULL, msg.c_str(), "M8M - Fatal error", MB_OK);
+		if(true) MessageBoxA(NULL, msg.c_str(), "M8M - Fatal error", MB_OK);
 		else std::cout<<msg.c_str();
 	} catch(std::exception msg) {
-		if(FLAGS_errorBox) MessageBoxA(NULL, msg.what(), "M8M - Fatal error", MB_OK);
+		///////////if(FLAGS_errorBox) MessageBoxA(NULL, msg.what(), "M8M - Fatal error", MB_OK);
+		if(true) MessageBoxA(NULL, msg.what(), "M8M - Fatal error", MB_OK);
 		else std::cout<<msg.what();
 	} catch(Exception *msg) {
-		if(FLAGS_errorBox) MessageBoxA(NULL, "numbered exception (deprecated)", "M8M - Fatal error", MB_OK);
+		///////////if(FLAGS_errorBox) MessageBoxA(NULL, "numbered exception (deprecated)", "M8M - Fatal error", MB_OK);
+		if(true) MessageBoxA(NULL, "numbered exception (deprecated)", "M8M - Fatal error", MB_OK);
 		else std::cout<<"numbered exception (deprecated)";
 		delete msg;
-	}
+	}  
+
 	return 0;
 }

@@ -115,7 +115,15 @@ bool AbstractWorkSource::NeedsToSend() const {
 aulong AbstractWorkSource::GetCoinDiffMul() const { return stratum.coinDiffMul; }
 
 
-AbstractWorkSource::AbstractWorkSource(const char *presentation, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v) : stratum(presentation, coinDiffMul, mm) {
+void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, bool> > &list) const {
+	const asizei prev = list.size();
+	list.resize(prev + stratum.GetNumWorkers());
+	for(asizei loop = 0; loop < list.size(); loop++) list[loop] = stratum.GetWorkerInfo(loop);
+}
+
+
+AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poolName, const char *algorithm, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v)
+	: stratum(presentation, coinDiffMul, mm), algo(algorithm), name(poolName) {
 	for(asizei loop = 0; loop < v.size(); loop++) stratum.Authorize(v[loop].first, v[loop].second);
 #if defined(M8M_STRATUM_DUMPTRAFFIC)
 	stratumDump.open("stratumTraffic.txt");

@@ -9,7 +9,7 @@
 #include <map>
 #include <time.h>
 #include <json/json.h>
-#include "../Common/ArenDataTypes.h"
+#include "../Common/AREN/ArenDataTypes.h"
 #include "../Common/Exceptions.h"
 
 
@@ -29,6 +29,8 @@ Legacy miners work by considering pool availability, distribute effort (time)
 across pools or distribute results (shares). */
 class AbstractWorkSource {
 public:
+	const std::string algo;
+	const std::string name;
 	enum Event {
 		e_nop,
 		e_gotRemoteInput,
@@ -74,15 +76,16 @@ public:
 	bool NeedsToSend() const;
 
 	//! This call is to allow outer code to understand which pool is being manipulated.
-	virtual const char* GetName() const = 0;
+	const char* GetName() const { return name.c_str(); }
 
 	aulong GetCoinDiffMul() const;
+	void GetUserNames(std::vector< std::pair<const char*, bool> > &list) const;
 
 protected:
 	/*! Used to enumerate workers to register to this remote server.
 	Return nullptr as first element to terminate enumeration. */
 	typedef std::vector< std::pair<const char*, const char*> > Credentials;
-	AbstractWorkSource(const char *presentation, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v);
+	AbstractWorkSource(const char *presentation, const char *name, const char *algo, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v);
 
 	virtual void MangleError(size_t id, const Json::Value &error) = 0;
 	virtual void MangleResponse(size_t id, const Json::Value &result) = 0;

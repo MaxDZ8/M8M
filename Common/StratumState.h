@@ -10,7 +10,7 @@
 #include "../Common/Stratum/messages.h"
 #include "../Common/Stratum/parsing.h" // DecodeHEX
 #include "../Common/ScopedFuncCall.h"
-#include "../Common/SerializationBuffers.h"
+#include "../Common/AREN/SerializationBuffers.h"
 #include "../Common/BTC/Funcs.h"
 #include "../Common/Stratum/WorkUnit.h"
 #include <sstream>
@@ -163,6 +163,13 @@ public:
 	void RequestReplyReceived(asizei id, bool success) {
 		pendingRequests.erase(pendingRequests.find(id)); // guaranteed to exist as code will have used Response(asizei) before this and also the appropriate response calls!
 		if(!success) errorCount++;
+	}
+
+	// Not very useful stuff: pull out worker data. Useful for monitoring purposes.
+	asizei GetNumWorkers() const { return workers.size(); }
+	std::pair<const char*, bool> GetWorkerInfo(const asizei i) const {
+		const Worker &w(workers[i]);
+		return std::make_pair(w.name.c_str(), w.authorized != 0 && w.canWork);
 	}
 };
 

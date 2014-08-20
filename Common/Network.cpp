@@ -16,7 +16,7 @@ asizei NetworkInterface::AbstractDataSocket::Receive(aubyte *storage, asizei buf
 
 
 void WindowsNetwork::SetBlocking(int socket, bool blocks) {
-	unsigned long state = blocks;
+	unsigned long state = !blocks; // 0 nonblocking disabled!
 	if(ioctlsocket(socket, FIONBIO, &state)) throw std::exception("Cannot set socket blocking state.");
 }
 
@@ -349,17 +349,19 @@ asizei WindowsNetwork::ConnectedSocket::Send(const abyte *message, asizei count)
 
 asizei WindowsNetwork::ConnectedSocket::Receive(abyte *storage, asizei count) {
 	int received = recv(socket, storage, count, 0);
-	if(received < 0) throw std::exception("send(...) returned negative count, this is an unhandled error.");
+	if(received < 0) {
+		int err = WSAGetLastError();
+		if(err != WSAEWOULDBLOCK) throw std::exception("send(...) returned negative count, this is an unhandled error.");
+		else received = 0;
+	}
 	return asizei(received);
 }
 
 
 bool WindowsNetwork::ConnectedSocket::GotData() const {
-	fd_set me;
-	FD_ZERO(&me);
-	FD_SET(socket, &me);
-	int result = select(socket + 1, &me, NULL, NULL, 0);
-	return result != 0;
+	char dummy;
+	int result = recv(socket, &dummy, sizeof(dummy), MSG_PEEK);
+	return result > 0;
 }
 
 
@@ -369,6 +371,15 @@ bool WindowsNetwork::ConnectedSocket::CanSend() const {
 	FD_SET(socket, &me);
 	int result = select(socket + 1, NULL, &me, NULL, 0);
 	return result != 0;
+}
+
+
+void WindowsNetwork::CloseServiceSocket(ServiceSocketInterface &what) {
+	auto rem = servers.find(&what);
+	if(rem != servers.end()) {
+		delete rem->second;
+		servers.erase(rem);
+	}
 }
 
 
@@ -405,6 +416,7 @@ NetworkInterface::ConnectedSocketInterface& WindowsNetwork::BeginConnection(Serv
 	int connSock = real->second->socket;
 	int client = accept(connSock, NULL, NULL);
 	if(client == INVALID_SOCKET) throw std::exception("Could not accept an incoming connection.");
+	SetBlocking(client, false);
 	ScopedFuncCall clearSocket([client]() { if(client) closesocket(client); });
 	std::unique_ptr<ConnectedSocket> add(new ConnectedSocket(nullptr, nullptr));
 	add->socket = client;

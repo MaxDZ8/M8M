@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <gflags/gflags.h>
 #include <fstream>
 #include <json/reader.h>
 #include "Settings.h"
@@ -12,7 +11,4 @@
 #include <functional>
 #include <algorithm>
 
-
-DECLARE_string(config);
-
-Settings* LoadConfig();
+Settings* LoadConfig(const wchar_t *filename);

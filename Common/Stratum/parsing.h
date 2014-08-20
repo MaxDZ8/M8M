@@ -6,7 +6,7 @@
 #include <json/json.h>
 #include "messages.h"
 #include <memory>
-#include "../ArenDataTypes.h"
+#include "../AREN/ArenDataTypes.h"
 
 namespace stratum {
 

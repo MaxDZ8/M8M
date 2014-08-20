@@ -3,15 +3,19 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include "ArenDataTypes.h"
+#include "AREN/ArenDataTypes.h"
 #include <vector>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
 #include "ScopedFuncCall.h"
 #include <memory>
 #include <map>
 #include <set>
 #include "Exceptions.h"
+
+#if defined(_WIN32)
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#include <Windows.h>
+#endif
 
 
 enum SockErr {
@@ -199,6 +203,8 @@ public:
 	\param port number of local port to use on this machine. If 0, assigned by system.
 	\param numPending amount of maximum connections supported by this socket. If 0, maximum supported by the system. */
 	virtual ServiceSocketInterface& NewServiceSocket(aushort port, aushort numPending) = 0;
+
+	virtual void CloseServiceSocket(ServiceSocketInterface &what) = 0;
 	
 	/*! Creates a connection by pulling out a connection request from a service socket. Always call this AFTER SleepOn
 	has returned indicating availability of a connection request to handle; other conditions are considered errors. */
@@ -276,6 +282,7 @@ public:
 	SockErr GetSocketError();
 	
 	ServiceSocketInterface& NewServiceSocket(aushort port, aushort numPending);
+	void CloseServiceSocket(ServiceSocketInterface &what);
 	ConnectedSocketInterface& BeginConnection(ServiceSocketInterface &listener);
 };
 

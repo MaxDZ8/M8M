@@ -1,0 +1,5 @@
+Files in this directory are not really part of M8M. They were borrowed from my internal "AREN Technology" project.
+In terms of licensing, it doesn't change much to you. Consider them either MIT or ZLIB and you'll be fine - those files behave exactly like "original" files in M8M which implies you can do pretty much anything you want.
+
+However, if you want to use a stricter license, please do not include those files in your project as I use them in a closed-source project.
+The only thing I really want to do with this note is making clear I have the right to keep using it in a closed source project.

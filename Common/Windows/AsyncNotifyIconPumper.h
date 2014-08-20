@@ -5,6 +5,7 @@
 #pragma once
 
 #if defined(_WIN32)
+#include <WinSock2.h> // what is this? In general, I would just define WIN32_LEAN_AND_MEAN but looks like it breaks GDI+ (?)
 #include <Windows.h>
 #include <gdiplus.h>
 #include <windowsx.h>

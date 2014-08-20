@@ -18,8 +18,10 @@ struct PoolInfo {
 	unsigned __int64 diffOneMul; //!< BTC: 1, LTC: 64*1024, QRK: 256. Using the LTC constant is really the best thing to do by default as this implies no work (detected as valid) will get trashed (big IF)
 	const string user;
 	const string pass;
-	PoolInfo(const string &url, const string &userutf8, const string &passutf8)
-		: user(userutf8), pass(passutf8), diffOneMul(64 * 1024), merkleMode(mm_SHA256D) {
+	const string name;
+	string algo;
+	PoolInfo(const string &nick, const string &url, const string &userutf8, const string &passutf8)
+		: user(userutf8), pass(passutf8), diffOneMul(64 * 1024), merkleMode(mm_SHA256D), name(nick) {
 		if(url.find("stratum+") == 0) appLevelProtocol = "stratum";
 		else throw std::exception("Pool is required to be stratum for the time being.");
 		string rem = url.substr(strlen("stratum+"));

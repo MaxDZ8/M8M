@@ -4,11 +4,12 @@
  */
 #pragma once
 #include <array>
-#include "SerializationBuffers.h"
-#include "arenDataTypes.h"
+#include "AREN/SerializationBuffers.h"
 
 
 namespace hashing {
+
+	
 
 /*! A bit of warning about the LenType parameter.
 The SHA standard mandates the use of a 64-bit length and SHA blocks must be sized according to that length.
@@ -19,22 +20,22 @@ written as (last eight bytes), big endian
 CDAB4312						CDAB431200000000
 Which is a very different thing. Therefore, before writing the length, it will be cast to the appropriate
 type. Blocks are still sized with an 8 bit length anyway. */
-template<typename LenType>
-class VariableLengthSHA256 {
-private:
-	std::array<auint, 8> h;
-	std::array<aubyte, 64> pad; //!< used to process the last packet without "appending" for real, size of a block.
+template<auint HASH_BITS, typename LenType>
+class AbstractSHA_bits {
+protected:
+	std::array<auint, HASH_BITS / (4 * 8)> h;
+	std::array<aubyte, 64> pad;
 	aulong bytesProcessed;
-	static auint SigmaO(auint v) { return _rotr(v,  7) ^ _rotr(v, 18) ^    (v >>  3); };
-	static auint SigmaI(auint v) { return _rotr(v, 17) ^ _rotr(v, 19) ^    (v >> 10); };
-	static auint SumO(auint v)   { return _rotr(v,  2) ^ _rotr(v, 13) ^ _rotr(v, 22); };
-	static auint SumI(auint v)   { return _rotr(v,  6) ^ _rotr(v, 11) ^ _rotr(v, 25); };
-	static auint Ch(auint x, auint y, auint z)  { return (x & y) ^ (~x & z); };
-	static auint Maj(auint x, auint y, auint z) { return (x & y) ^ ( x & z) ^ (y & z); };
+	virtual std::array<auint, HASH_BITS / 32> GetIV() const = 0;
 public:
-	asizei GetBlockSize() const { return 512 / 8; /* also size of pad */ }
+	AbstractSHA_bits() : bytesProcessed(0) { if(sizeof(LenType) > sizeof(aulong)) throw std::exception("SHA have length count up to 64 bits."); }
+
+	//! Ouch! This might be a performance path! Hopefully an optimizing compiler will de-virtualize it.
+	virtual void BlockProcessing(const aubyte *chunk) = 0;
+
+	asizei GetBlockSize() const { return sizeof(pad); }
 	asizei GetHashSize() const  { return sizeof(h); };
-	typedef std::array<aubyte, 32> Digest;
+	typedef std::array<aubyte, HASH_BITS / 8> Digest;
 	Digest& GetHash(Digest &hashBE) const {
 		DestinationStream serializer(hashBE.data(), sizeof(hashBE));
 		for(asizei loop = 0; loop < h.size(); loop++) serializer<<h[loop];
@@ -49,61 +50,9 @@ public:
 		return serializer;
 	}
 	void Restart() {
-		auint hstart[8] = {
-			0x6a09e667,  //2^32 times the square root of the first 8 primes 2..19
-			0xbb67ae85,
-			0x3c6ef372,
-			0xa54ff53a,
-			0x510e527f,
-			0x9b05688c, 
-			0x1f83d9ab,
-			0x5be0cd19
-		};
-		memcpy_s(h.data(), sizeof(h), hstart, sizeof(hstart));
+		std::array<auint, HASH_BITS / 32> hstart(GetIV());
+		memcpy_s(h.data(), sizeof(h), hstart.data(), sizeof(hstart));
 		bytesProcessed = 0;
-	}
-	void BlockProcessing(const aubyte *chunk) {
-		const auint K[64] = {
-			0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-			0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-			0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-			0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-			0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-			0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-			0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-			0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-		};
-		std::array<auint, 64> w;
-		const auint *cbytes = reinterpret_cast<const auint*>(chunk);
-		auint *wbytes = w.data();
-		for(size_t cp = 0; cp < 16; cp++) wbytes[cp] = HTON(cbytes[cp]);
-		for(size_t cp = 16; cp < 64; cp++) {
-			auint so = SigmaO(w[cp - 15]);
-			auint si = SigmaI(w[cp -  2]);
-			w[cp] = w[cp - 16] + so + w[cp - 7] + si;
-		}
-		auint a = h[0],  b  = h[1];
-		auint c = h[2],  d  = h[3];
-		auint e = h[4],  f  = h[5];
-		auint g = h[6],  hp = h[7];
-		for(size_t inner = 0; inner < 64; inner++) {
-			auint t1 = hp + SumI(e) + Ch(e, f, g) + K[inner] + w[inner];
-			auint t2 = SumO(a) + Maj(a, b, c);			
-			hp = g;
-			g = f;
-			f = e;
-			e = d + t1;
-			d = c;
-			c = b;
-			b = a;
-			a = t1 + t2;
-		}
-		// Add the hash to result so far.
-		h[0] += a;  h[1] += b;
-		h[2] += c;  h[3] += d;
-		h[4] += e;	h[5] += f;
-		h[6] += g;	h[7] += hp;
-		bytesProcessed += 16 * sizeof(auint);
 	}
 	/*! The final block of data can be partial, so you pass an explicit byte count to mangle.
 	This block will terminate the stream of data, but sometimes you want to put the SHA256 length
@@ -138,17 +87,77 @@ public:
 		serializer<<bitLen;
 		BlockProcessing(pad.data());
 	}
-	VariableLengthSHA256() : bytesProcessed(0) {
-		if(sizeof(LenType) > sizeof(aulong)) throw std::exception("SHA256 standards admits length up to 64bits wide.");
-		Restart();
+};
+
+
+template<typename LenType>
+class VariableLengthSHA256 : public AbstractSHA_bits<256, LenType> {
+private:
+	static auint SigmaO(auint v) { return _rotr(v,  7) ^ _rotr(v, 18) ^    (v >>  3); };
+	static auint SigmaI(auint v) { return _rotr(v, 17) ^ _rotr(v, 19) ^    (v >> 10); };
+	static auint SumO(auint v)   { return _rotr(v,  2) ^ _rotr(v, 13) ^ _rotr(v, 22); };
+	static auint SumI(auint v)   { return _rotr(v,  6) ^ _rotr(v, 11) ^ _rotr(v, 25); };
+	static auint Ch(auint x, auint y, auint z)  { return (x & y) ^ (~x & z); };
+	static auint Maj(auint x, auint y, auint z) { return (x & y) ^ ( x & z) ^ (y & z); };
+
+	std::array<auint, 8> GetIV() const {
+		std::array<auint, 8> hstart;
+		hstart[0] = 0x6a09e667; //2^32 times the square root of the first 8 primes 2..19
+		hstart[1] = 0xbb67ae85;
+		hstart[2] = 0x3c6ef372;
+		hstart[3] = 0xa54ff53a;
+		hstart[4] = 0x510e527f;
+		hstart[5] = 0x9b05688c;
+		hstart[6] = 0x1f83d9ab;
+		hstart[7] = 0x5be0cd19;
+		return hstart;
 	}
-	VariableLengthSHA256(const aubyte *msg, asizei count) : bytesProcessed(0) {
-		if(sizeof(LenType) > sizeof(aulong)) throw std::exception("SHA256 standards admits length up to 64bits wide.");
-		Restart();
-		EndBlocks(msg, count);
+public:
+	void BlockProcessing(const aubyte *chunk) {
+		const auint K[64] = {
+			0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+			0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+			0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+			0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+			0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+			0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+			0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+			0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+		};
+		std::array<auint, 64> w;
+		const auint *cbytes = reinterpret_cast<const auint*>(chunk);
+		for(size_t cp = 0; cp < 16; cp++) w[cp] = HTON(cbytes[cp]);
+		for(size_t cp = 16; cp < 64; cp++) {
+			auint so = SigmaO(w[cp - 15]);
+			auint si = SigmaI(w[cp -  2]);
+			w[cp] = w[cp - 16] + so + w[cp - 7] + si;
+		}
+		auint a = h[0],  b  = h[1];
+		auint c = h[2],  d  = h[3];
+		auint e = h[4],  f  = h[5];
+		auint g = h[6],  hp = h[7];
+		for(size_t inner = 0; inner < 64; inner++) {
+			auint t1 = hp + SumI(e) + Ch(e, f, g) + K[inner] + w[inner];
+			auint t2 = SumO(a) + Maj(a, b, c);			
+			hp = g;
+			g = f;
+			f = e;
+			e = d + t1;
+			d = c;
+			c = b;
+			b = a;
+			a = t1 + t2;
+		}
+		// Add the hash to result so far.
+		h[0] += a;  h[1] += b;
+		h[2] += c;  h[3] += d;
+		h[4] += e;	h[5] += f;
+		h[6] += g;	h[7] += hp;
+		bytesProcessed += 16 * sizeof(auint);
 	}
-	VariableLengthSHA256(const VariableLengthSHA256 &from, bool hash = false) : bytesProcessed(0) {
-		if(sizeof(LenType) > sizeof(aulong)) throw std::exception("SHA256 standards admits length up to 64bits wide.");
+	VariableLengthSHA256() { Restart(); }
+	VariableLengthSHA256(const aubyte *msg, asizei count) { Restart();    EndBlocks(msg, count); }
+	VariableLengthSHA256(const VariableLengthSHA256 &from, bool hash = false) {
 		if(hash) {
 			Restart();
 			Digest prev;
@@ -160,6 +169,65 @@ public:
 			std::copy(from.h.cbegin(), from.h.cend(), h.begin());
 			bytesProcessed = from.bytesProcessed;
 		}
+	}
+};
+
+
+/*! SHA160 is different enough from SHA256 I cannot be bothered in looking to give them a common code base.
+Just copypasting most. \sa VariableLengthSHA256 */
+class SHA160 : public AbstractSHA_bits<160, aulong> {
+private:
+	std::array<auint, 5> GetIV() const {
+		std::array<auint, 5> hstart;
+		hstart[0] = 0x67452301;
+		hstart[1] = 0xEFCDAB89;
+		hstart[2] = 0x98BADCFE;
+		hstart[3] = 0x10325476;
+		hstart[4] = 0xC3D2E1F0;
+		return hstart;
+	};
+public:
+	SHA160() { Restart(); }
+	SHA160(const aubyte *msg, asizei count) { Restart();    EndBlocks(msg, count); }
+	void BlockProcessing(const aubyte *chunk) {
+		const auint K[4] = {
+			0x5A827999,
+			0x6ED9EBA1,
+			0x8F1BBCDC,
+			0xCA62C1D6
+		};
+		std::array<auint, 80> w;
+		const auint *cbytes = reinterpret_cast<const auint*>(chunk);
+		for(size_t cp = 0; cp < 16; cp++) w[cp] = HTON(cbytes[cp]);
+		for(size_t cp = 16; cp < 80; cp++) {
+			auint xorred = w[cp - 3] ^ w[cp - 8] ^ w[cp - 14] ^ w[cp - 16];
+			w[cp] = _rotl(xorred, 1);
+		}
+		auint a = h[0],  b  = h[1];
+		auint c = h[2],  d  = h[3];
+		auint e = h[4];
+		auint ki = -1;
+		for(asizei i = 0; i < 80; i++) {
+			if((i % 20) == 0) ki++;
+			auint f;
+			switch(ki) {
+			case 0: f = (b & c) | ((~b) & d); break; // almost 'CH' but OR instead of xor
+			case 2: f = (b & c) | (b & d) | (c & d); break; // almost 'MAJ' but OR instead of xor
+			case 1:
+			case 3: f = b ^ c ^ d;
+			}
+			auint temp = _rotl(a, 5) + f + e + K[ki] + w[i];
+			e = d;
+			d = c;
+			c = _lrotl(b, 30);
+			b = a;
+			a = temp;
+		}
+		// Add the hash to result so far.
+		h[0] += a;  h[1] += b;
+		h[2] += c;  h[3] += d;
+		h[4] += e;
+		bytesProcessed += 16 * sizeof(auint);
 	}
 };
 

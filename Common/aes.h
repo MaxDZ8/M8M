@@ -3,7 +3,7 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include "ArenDataTypes.h"
+#include "AREN/ArenDataTypes.h"
 
 namespace aes {
 

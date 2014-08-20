@@ -8,25 +8,366 @@
 const auint QubitMultistepOpenCL12::MAX_CONCURRENCY = 1024 * 32 * 32;
 
 
-asizei QubitMultistepOpenCL12::ValidateSettings(OpenCL12Wrapper &cl, const std::vector<Settings::ImplParam> &params) {
-	Options building;
+bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
+#if DEBUGBUFFER_SIZE
+	auto UintHexOut = [](std::ofstream &out, aubyte *bytes, asizei count, bool splitting) -> aubyte* {
+		count *= 4;
+		const char *hex = "0123456789abcdef";
+		for(asizei loop = 0; loop < count; loop++) {
+			if(splitting && loop && (loop % 4) == 0) out<<' ';
+			char hi = bytes[loop] >> 4;
+			char lo = bytes[loop] & 0x0F;
+			out<<hex[hi]<<hex[lo];
+		}
+		return bytes + count;
+	};
+	// Work items in SIMD work transposed.
+	auto UnpackHexOut = [&UintHexOut](std::ofstream &out, aubyte *bytes, asizei count, bool splitting) -> aubyte* {
+		for(asizei loop = 0; loop < count; loop++) {
+			asizei x = loop / 16;
+			asizei y = loop % 16;
+			UintHexOut(out, bytes + (y * 16 + x) * 4, 1, splitting);
+		}
+		return bytes + count * 4;
+	};
+#endif
+	QubitMultiStep_Options &options(settings[setIndex].options);
+	AlgoInstance &use(settings[setIndex].algoInstances[slotIndex]);
+	switch(use.step) {
+	case 1: {
+		const asizei woff[1] = { use.nonceBase };
+		const asizei workDim [1] = { options.HashesPerDispatch() };
+		const asizei groupDim[1] = { 256 }; // based on observation from profiling slightly better.
+		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[0], 1, woff, workDim, groupDim, 0, NULL, NULL);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[0] kernel.";
+			
+#if DEBUGBUFFER_SIZE
+		{
+			const asizei start = 0;
+			const asizei size = 20 + 16;
+			cl_uint hostBuff[size];
+			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
+			if(error != CL_SUCCESS) { return; }
+
+			std::ofstream dbg("debug_LUFFA_OUT.txt");
+			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
+			const char *hex = "0123456789abcdef";
+			for(asizei loop = 0; loop < size * sizeof(hostBuff[0]); loop++) {
+				if(loop == 20 * sizeof(hostBuff[0])) dbg<<std::endl;
+				char hi = bytes[loop] >> 4;
+				char lo = bytes[loop] & 0x0F;
+				dbg<<hex[hi]<<hex[lo];
+			}
+		}
+#endif
+
+
+		break;
+	}
+	case 2: {
+		const asizei woff[2] = { 0, use.nonceBase };
+		const asizei workDim [2] = { 2, options.HashesPerDispatch() };
+		const asizei groupDim[2] = { 2, 32 }; // required by 2-way kernel.
+		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[1], 2, woff, workDim, groupDim, 0, NULL, NULL);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[1] kernel.";
+
+#if DEBUGBUFFER_SIZE
+		{
+			const asizei start = 0;
+			const asizei size = 16 + // luffa output
+					            16; // cubehash output
+			cl_uint hostBuff[size];
+			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
+			if(error != CL_SUCCESS) { return; }
+
+			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
+			const char *hex = "0123456789abcdef";
+			asizei dump = 0;
+			{
+				std::ofstream dbg("debug_LUFFA_OUT.txt", std::ios::app);
+				dbg<<std::endl;
+				for(; dump < 16 * 4; dump++) {
+					char hi = bytes[dump] >> 4;
+					char lo = bytes[dump] & 0x0F;
+					dbg<<hex[hi]<<hex[lo];
+				}
+			}
+			{
+				std::ofstream dbg("debug_CUBEHASH_OUT.txt");
+				for(; dump < size * sizeof(hostBuff[0]); dump++) {
+					char hi = bytes[dump] >> 4;
+					char lo = bytes[dump] & 0x0F;
+					dbg<<hex[hi]<<hex[lo];
+				}
+			}
+		}
+#endif
+		break;
+	}
+	case 3: {
+		const asizei woff[1] = { use.nonceBase };
+		const asizei workDim [1] = { options.HashesPerDispatch() };
+		const asizei groupDim[1] = { 64 }; // required workgroup size... but perhaps 128-256 would be a better idea due to cache trashing
+		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[2], 1, woff, workDim, groupDim, 0, NULL, NULL);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[2] kernel.";
+
+#if DEBUGBUFFER_SIZE
+		{
+			const asizei start = 0;
+			const asizei size = 16 + // cubehash output
+					            16; // shavite3 output
+			cl_uint hostBuff[size];
+			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
+			if(error != CL_SUCCESS) { return; }
+
+			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
+			const char *hex = "0123456789abcdef";
+			asizei dump = 0;
+			{
+				std::ofstream dbg("debug_CUBEHASH_OUT.txt", std::ios::app);
+				dbg<<std::endl;
+				for(; dump < 16 * 4; dump++) {
+					char hi = bytes[dump] >> 4;
+					char lo = bytes[dump] & 0x0F;
+					dbg<<hex[hi]<<hex[lo];
+				}
+			}
+			{
+				std::ofstream dbg("debug_SHAVITE3_OUT.txt");
+				asizei end = dump + 4 * 16;
+				for(; dump < end; dump++) {
+					char hi = bytes[dump] >> 4;
+					char lo = bytes[dump] & 0x0F;
+					dbg<<hex[hi]<<hex[lo];
+				}
+			}
+		}
+#endif
+		break;
+	}
+	case 4: {
+		const asizei woff[2] = { 0, use.nonceBase };
+		const asizei workDim [2] = { 16, options.HashesPerDispatch() };
+		const asizei groupDim[2] = { 16, 4 };
+		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[3], 2, woff, workDim, groupDim, 0, NULL, NULL);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[3] kernel.";
+
+#if DEBUGBUFFER_SIZE
+		{
+			const asizei start = 0;
+			const asizei size = 16 + // shavite3 output
+					            16; // SIMD output
+			cl_uint hostBuff[size];
+			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
+			if(error != CL_SUCCESS) { return; }
+
+			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
+			{
+				std::ofstream dbg("debug_SHAVITE3_OUT.txt", std::ios::app);
+				dbg<<std::endl;
+				bytes = UintHexOut(dbg, bytes, 16, false);
+			}
+			{
+				std::ofstream dbg("debug_SIMD_OUT.txt");
+				bytes = UintHexOut(dbg, bytes, 16, false);
+			}
+		}
+#endif
+		break;
+	}
+	case 5: {
+		const asizei woff[2] = { 0, use.nonceBase };
+		const asizei workDim [2] = { 8, options.HashesPerDispatch() };
+		const asizei groupDim[2] = { 8, 8 };
+		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[4], 2, woff, workDim, groupDim, 0, NULL, NULL);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[4] kernel.";
+		const asizei size = (1 + options.OptimisticNonceCountMatch()) * sizeof(cl_uint);
+		void *raw = clEnqueueMapBuffer(use.res.commandq, use.res.nonces, CL_FALSE, CL_MAP_READ, 0, size, 0, NULL, &use.res.resultsTransferred, &error);
+		use.res.mappedNonceBuff = reinterpret_cast<cl_uint*>(raw);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueMapBuffer while mapping result nonce buffer.";
+#if DEBUGBUFFER_SIZE
+		{
+			const asizei start = 0;
+			const asizei size = 16 + // SIMD output
+					            16+16+16; // ECHO output
+			cl_uint hostBuff[size];
+			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
+			if(error != CL_SUCCESS) { return; }
+
+			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
+			{
+				std::ofstream dbg("debug_SIMD_OUT.txt", std::ios::app);
+				dbg<<std::endl;
+				bytes = UintHexOut(dbg, bytes, 16, false);
+			}
+			{
+				std::ofstream dbg("debug_ECHO_OUT.txt");
+				dbg<<"ECHO hash out"<<std::endl;
+				bytes = UintHexOut(dbg, bytes, 16, false);
+				dbg<<"\nECHO target"<<std::endl;
+				bytes = UintHexOut(dbg, bytes, 16, false);
+			}
+		}
+#endif
+		break;
+	}
+	default: use.step--;
+	}
+	use.step++;
+	return use.step <= 5;
+}
+
+
+void QubitMultistepOpenCL12::HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei setIndex, asizei resIndex) {
+	/* * * * * * * * * * * * */
+	//! \todo Implement qubit CPU-side hashing for validation.
+	throw std::string("TODO");
+	/* * * * * * * * * * * * */
+}
+
+
+QubitMultistepOpenCL12::~QubitMultistepOpenCL12() {
+	// what if the nonce buffer is still mapped? I destroy both the event and the buffer anyway.
+	for(asizei s = 0; s < settings.size(); s++) {
+		for(asizei i = 0; i < settings[s].algoInstances.size(); i++) settings[s].algoInstances[i].res.Free();
+	}
+}
+
+
+void QubitMultistepOpenCL12::GetSettingsInfo(SettingsInfo &out, asizei setting) const {
+	// In line of theory I could design some fairly contrived way to do everything using GenResources...
+	// BUT I would end mixing logic and presentation code. Not a good idea. Since algo implementations don't change very often,
+	// I think it's a better idea to just keep them in sync.
+	const auto &opt(settings[setting].options);
+	out.hashCount = opt.HashesPerPass();
+	std::vector<std::string> constQual, inoutQual, outQual;
+	constQual.push_back(std::string("const"));
+	inoutQual.push_back(std::string("in"));
+	inoutQual.push_back(std::string("out"));
+	outQual.push_back(std::string("out"));
+
+	const std::string deviceRes("device");
+	const std::string hostRes("host");
+
+	out.Push(deviceRes, constQual, "work unit data",   128);
+	out.Push(deviceRes, constQual, "dispatch info",    5 * sizeof(cl_uint));
+	out.Push(deviceRes, constQual, "AES round tables", sizeof(auint) * 4 * 256);
+	out.Push(deviceRes, constQual, "SIMD alpha table", sizeof(short) * 256);
+	out.Push(deviceRes, constQual, "SIMD beta table",  sizeof(unsigned short) * 256);
+	out.Push(deviceRes, inoutQual, "Hash IO buffers (2)", sizeof(cl_uint) * 16 * opt.HashesPerPass());
+	out.Push(hostRes,   outQual,   "found nonces ",    sizeof(cl_uint) * (1 + opt.OptimisticNonceCountMatch()));
+}
+
+
+//! \todo very ugly code repetition from Scrypt1024_Multistep_OpenCL12, need a base class for CL12
+bool QubitMultistepOpenCL12::LoadFile(std::unique_ptr<char[]> &source, asizei &len, const std::string &name) {
+	len = 0;
+	std::ifstream disk(name.c_str(), std::ios_base::binary);
+	if(disk.good() == false) return false;
+	disk.seekg(0, std::ios_base::end);
+	aulong size = disk.tellg();
+	const asizei maxSize = 1024 * 1024 * 8;
+	if(size > maxSize) throw std::string("File ") + name + " is way too big: " + std::to_string(size) + "B, max is " + std::to_string(maxSize) + "B.";
+	disk.seekg(0, std::ios_base::beg);
+	// CL2 is clear on the fact the strings don't need to be NULL-terminated. CL1.2 was rather clear in rationale as well, but it looks like
+	// some AMD APP versions really want this string NULL-terminated.
+	source.reset(new char[asizei(size + 1)]);
+	disk.read(source.get(), size);
+	source.get()[size] = 0;
+	len = asizei(size);
+	return true;
+}
+
+
+void QubitMultistepOpenCL12::ProbeProgramBuildInfo(cl_program program, cl_device_id device, const std::string &defines) const {
+	cl_build_status status;
+	cl_int error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, NULL);
+	if(status == CL_BUILD_NONE || status == CL_BUILD_IN_PROGRESS) return;
+	bool fatal = status == CL_BUILD_ERROR;
+	asizei count = 0;
+	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &count);
+	std::unique_ptr<char[]> messages(new char[count]);
+	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, count, messages.get(), NULL);
+	if(messages.get() && count > 1) errorCallback("Program build log:\n", messages.get(), strlen(messages.get()), NULL);
+	if(fatal) throw std::string("Fatal error while building program, see output. Compiling with\n" + defines);
+}
+
+
+std::string QubitMultistepOpenCL12::GetBuildOptions(const QubitMultiStep_Options &opt, const auint index) {
+	std::stringstream build;
+	switch(index) {
+	case 0: build<<"-D LUFFA_HEAD"; break;
+	case 1: break;
+	case 2: break;
+	case 3: break;
+	case 4: build<<"-D AES_TABLE_ROW_1 -D AES_TABLE_ROW_2 -D AES_TABLE_ROW_3 -D ECHO_IS_LAST "; break;
+	}
+#if defined(_DEBUG)
+	//build<<" -g"; //cl2.0 only, even though CodeXL wants it!
+#endif
+	// CL2.0 //
+	//build<<" -cl-uniform-work-group-size";
+	return build.str();
+}
+
+
+std::string QubitMultistepOpenCL12::GetSourceFileName(const QubitMultiStep_Options &opt, auint index) {
+	switch(index) {
+	case 0: return std::string("Luffa_1W.cl");
+	case 1: return std::string("CubeHash_2W.cl");
+	case 2: return std::string("SHAvite3_1W.cl");
+	case 3: return std::string("SIMD_16W.cl");
+	case 4: return std::string("Echo_8W.cl");
+	}
+	return std::string();
+}
+
+
+std::string QubitMultistepOpenCL12::GetKernelName(const QubitMultiStep_Options &opt, auint index) {
+	switch(index) {
+	case 0: return std::string("Luffa_1way");
+	case 1: return std::string("CubeHash_2way");
+	case 2: return std::string("SHAvite3_1way");
+	case 3: return std::string("SIMD_16way");
+	case 4: return std::string("Echo_8way");
+	}
+	return std::string();
+}
+
+
+void QubitMultistepOpenCL12::Parse(QubitMultiStep_Options &opt, const std::vector<Settings::ImplParam> &params) {
     for(auto el = params.cbegin(); el != params.cend(); ++el) {
 		if(!_stricmp("linearIntensity", el->name.c_str())) {
 			if(el->valueUINT == 0) throw std::string("Invalid linearIntensity (0, would imply no work being carried out).");
-			building.linearIntensity = el->valueUINT;
+			opt.linearIntensity = el->valueUINT;
 		}
 		else if(!_stricmp("dispatchCount", el->name.c_str())) {
 			if(el->valueUINT == 0) throw std::string("Invalid dispatch count (0, would imply no work being carried out).");
-			building.dispatchCount = el->valueUINT;
+			opt.dispatchCount = el->valueUINT;
 		}
-		else throw std::string("Unrecognized option \"") + el->name + "\" for OpenCL.scrypt1024.multistep kernel.";
+		else throw std::string("Unrecognized option \"") + el->name + "\" for OpenCL.qubit.multistep kernel.";
 	}
-	if(building.Concurrency() > MAX_CONCURRENCY) throw std::string("Concurrency is too high (") + std::to_string(building.Concurrency()) + ", max value is " + std::to_string(MAX_CONCURRENCY) + '.';
-	
-    const cl_device_id use = cl.GetLessUsedDevice();
-	Resources add;
+	if(opt.Concurrency() > MAX_CONCURRENCY) throw std::string("Concurrency is too high (") + std::to_string(opt.Concurrency()) + ", max value is " + std::to_string(MAX_CONCURRENCY) + '.';
+}
+
+
+asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev, RejectReasonFunc callback) {
+	//! \todo support multiple configurations.
+	bool fail = false;
+	auto badthing = [&callback, &fail](const char *str) { fail = true;    if(callback) callback(str); };
+
+	if(OpenCL12Wrapper::GetDeviceGroupInfo(plat, OpenCL12Wrapper::dgis_profile) != "FULL_PROFILE") badthing("full profile required");
+	if(dev.type.gpu == false) badthing("must be GPU");
+
+	if(fail) return settings.size();
+
+	return 0; // ok if we support a single config.
+}
+
+
+void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add, cl_platform_id plat, cl_device_id use, const QubitMultiStep_Options &opt) {
 	cl_int error;
-	cl_context_properties platform[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(cl.GetPlatform(use)), 0, 0 }; // a single zero would suffice
+	cl_context_properties platform[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(plat), 0, 0 }; // a single zero would suffice
 	add.ctx = clCreateContext(platform, 1, &use, errorCallback, NULL, &error);
 	if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create context.";
 
@@ -92,10 +433,10 @@ asizei QubitMultistepOpenCL12::ValidateSettings(OpenCL12Wrapper &cl, const std::
 	}
 
 	for(auint i = 0; i < add.io.size(); i++) {
-		add.io[i] = clCreateBuffer(add.ctx, CL_MEM_HOST_NO_ACCESS, building.HashesPerDispatch() * 16 * sizeof(cl_uint), NULL, &error);
+		add.io[i] = clCreateBuffer(add.ctx, CL_MEM_HOST_NO_ACCESS, opt.HashesPerDispatch() * 16 * sizeof(cl_uint), NULL, &error);
 		if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create I/O buffer " + std::to_string(i) + ".";
 	}
-	add.nonces = clCreateBuffer(add.ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, (1 + building.OptimisticNonceCountMatch()) * sizeof(cl_uint), NULL, &error);
+	add.nonces = clCreateBuffer(add.ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, (1 + opt.OptimisticNonceCountMatch()) * sizeof(cl_uint), NULL, &error);
 	if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to resulting nonces buffer.";
 
 #if DEBUGBUFFER_SIZE
@@ -107,21 +448,22 @@ asizei QubitMultistepOpenCL12::ValidateSettings(OpenCL12Wrapper &cl, const std::
 	std::unique_ptr<char[]> src;
 	asizei srcLen = 0;
 	auint pieces = 0;
-	for(; (filename = GetSourceFileName(building, pieces)).length(); pieces++) {
+	//! \todo in a multi-device situation we would really be reloading the same stuff from disk multiple times. I really must build a temporary cache for source!
+	for(; (filename = GetSourceFileName(opt, pieces)).length(); pieces++) {
 		filename = "kernels/" + filename;
 		if(!LoadFile(src, srcLen, filename)) throw std::string("OpenCL code must be loaded and compiled explicitly, but \"") + filename + "\" cannot be found.";
 		const char *source = src.get();
 		add.program[pieces] = clCreateProgramWithSource(add.ctx, 1, &source, &srcLen, &error);
 		if(!add.program[pieces] || error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clCreateProgramWithSource.";
-		const std::string defines(GetBuildOptions(building, pieces));
+		const std::string defines(GetBuildOptions(opt, pieces));
 		error = clBuildProgram(add.program[pieces], 1, &use, defines.c_str(), NULL, NULL); // blocking build
 		ProbeProgramBuildInfo(add.program[pieces], use, defines);
 		if(error != CL_SUCCESS) {
 			throw std::string("OpenCL error ") + std::to_string(error) + " returned by clBuildProgram.";
 		}
 
-		add.kernel[pieces] = clCreateKernel(add.program[pieces], GetKernelName(building, pieces).c_str(), &error);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clCreateKernel while trying to create " + GetKernelName(building, pieces);
+		add.kernel[pieces] = clCreateKernel(add.program[pieces], GetKernelName(opt, pieces).c_str(), &error);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clCreateKernel while trying to create " + GetKernelName(opt, pieces);
 
 		cl_uint args = 0;
 		cl_mem input;
@@ -196,385 +538,4 @@ asizei QubitMultistepOpenCL12::ValidateSettings(OpenCL12Wrapper &cl, const std::
 	// 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on \"debugBUFFER\"";
 	// #endif
 	// }
-	algoInstances.push_back(AlgoInstance());
-	AlgoInstance &keep(algoInstances.back());
-	keep.options = building;
-	keep.res = std::move(add);
-	return algoInstances.size() - 1;
-}
-
-
-//! \todo This should really go away, it's just easier to have everything in the ValidateSettings which should get a new name. InitWithSettings()?
-bool QubitMultistepOpenCL12::Ready(asizei resourceSlot) const {
-	return true;
-}
-
-
-//! \todo What was this even supposed to do? Called when Ready returns false... for hot switching algos? Consider simplification.
-void QubitMultistepOpenCL12::Prepare(asizei resourceSlot) {
-	/* * * * * * * * * * * * */
-	throw std::string("TODO");
-	/* * * * * * * * * * * * */
-}
-
-
-void QubitMultistepOpenCL12::Dispatch() {
-#if DEBUGBUFFER_SIZE
-	auto UintHexOut = [](std::ofstream &out, aubyte *bytes, asizei count, bool splitting) -> aubyte* {
-		count *= 4;
-		const char *hex = "0123456789abcdef";
-		for(asizei loop = 0; loop < count; loop++) {
-			if(splitting && loop && (loop % 4) == 0) out<<' ';
-			char hi = bytes[loop] >> 4;
-			char lo = bytes[loop] & 0x0F;
-			out<<hex[hi]<<hex[lo];
-		}
-		return bytes + count;
-	};
-	// Work items in SIMD work transposed.
-	auto UnpackHexOut = [&UintHexOut](std::ofstream &out, aubyte *bytes, asizei count, bool splitting) -> aubyte* {
-		for(asizei loop = 0; loop < count; loop++) {
-			asizei x = loop / 16;
-			asizei y = loop % 16;
-			UintHexOut(out, bytes + (y * 16 + x) * 4, 1, splitting);
-		}
-		return bytes + count * 4;
-	};
-#endif
-	for(asizei loop = 0; loop < algoInstances.size(); loop++) {
-		AlgoInstance &use(algoInstances[loop]);
-		switch(use.step) {
-		case 1: {
-			const asizei woff[1] = { use.nonceBase };
-			const asizei workDim [1] = { use.options.HashesPerDispatch() };
-			const asizei groupDim[1] = { 256 }; // based on observation from profiling slightly better.
-			cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[0], 1, woff, workDim, groupDim, 0, NULL, NULL);
-			if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[0] kernel.";
-			
-#if DEBUGBUFFER_SIZE
-			{
-				const asizei start = 0;
-				const asizei size = 20 + 16;
-				cl_uint hostBuff[size];
-				error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-				if(error != CL_SUCCESS) { return; }
-
-				std::ofstream dbg("debug_LUFFA_OUT.txt");
-				unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-				const char *hex = "0123456789abcdef";
-				for(asizei loop = 0; loop < size * sizeof(hostBuff[0]); loop++) {
-					if(loop == 20 * sizeof(hostBuff[0])) dbg<<std::endl;
-					char hi = bytes[loop] >> 4;
-					char lo = bytes[loop] & 0x0F;
-					dbg<<hex[hi]<<hex[lo];
-				}
-			}
-#endif
-
-
-			break;
-		}
-		case 2: {
-			const asizei woff[2] = { 0, use.nonceBase };
-			const asizei workDim [2] = { 2, use.options.HashesPerDispatch() };
-			const asizei groupDim[2] = { 2, 32 }; // required by 2-way kernel.
-			cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[1], 2, woff, workDim, groupDim, 0, NULL, NULL);
-			if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[1] kernel.";
-
-#if DEBUGBUFFER_SIZE
-			{
-				const asizei start = 0;
-				const asizei size = 16 + // luffa output
-					                16; // cubehash output
-				cl_uint hostBuff[size];
-				error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-				if(error != CL_SUCCESS) { return; }
-
-				unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-				const char *hex = "0123456789abcdef";
-				asizei dump = 0;
-				{
-					std::ofstream dbg("debug_LUFFA_OUT.txt", std::ios::app);
-					dbg<<std::endl;
-					for(; dump < 16 * 4; dump++) {
-						char hi = bytes[dump] >> 4;
-						char lo = bytes[dump] & 0x0F;
-						dbg<<hex[hi]<<hex[lo];
-					}
-				}
-				{
-					std::ofstream dbg("debug_CUBEHASH_OUT.txt");
-					for(; dump < size * sizeof(hostBuff[0]); dump++) {
-						char hi = bytes[dump] >> 4;
-						char lo = bytes[dump] & 0x0F;
-						dbg<<hex[hi]<<hex[lo];
-					}
-				}
-			}
-#endif
-			break;
-		}
-		case 3: {
-			const asizei woff[1] = { use.nonceBase };
-			const asizei workDim [1] = { use.options.HashesPerDispatch() };
-			const asizei groupDim[1] = { 64 }; // required workgroup size... but perhaps 128-256 would be a better idea due to cache trashing
-			cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[2], 1, woff, workDim, groupDim, 0, NULL, NULL);
-			if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[2] kernel.";
-
-#if DEBUGBUFFER_SIZE
-			{
-				const asizei start = 0;
-				const asizei size = 16 + // cubehash output
-					                16; // shavite3 output
-				cl_uint hostBuff[size];
-				error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-				if(error != CL_SUCCESS) { return; }
-
-				unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-				const char *hex = "0123456789abcdef";
-				asizei dump = 0;
-				{
-					std::ofstream dbg("debug_CUBEHASH_OUT.txt", std::ios::app);
-					dbg<<std::endl;
-					for(; dump < 16 * 4; dump++) {
-						char hi = bytes[dump] >> 4;
-						char lo = bytes[dump] & 0x0F;
-						dbg<<hex[hi]<<hex[lo];
-					}
-				}
-				{
-					std::ofstream dbg("debug_SHAVITE3_OUT.txt");
-					asizei end = dump + 4 * 16;
-					for(; dump < end; dump++) {
-						char hi = bytes[dump] >> 4;
-						char lo = bytes[dump] & 0x0F;
-						dbg<<hex[hi]<<hex[lo];
-					}
-				}
-			}
-#endif
-			break;
-		}
-		case 4: {
-			const asizei woff[2] = { 0, use.nonceBase };
-			const asizei workDim [2] = { 16, use.options.HashesPerDispatch() };
-			const asizei groupDim[2] = { 16, 4 };
-			cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[3], 2, woff, workDim, groupDim, 0, NULL, NULL);
-			if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[3] kernel.";
-
-#if DEBUGBUFFER_SIZE
-			{
-				const asizei start = 0;
-				const asizei size = 16 + // shavite3 output
-					                16; // SIMD output
-				cl_uint hostBuff[size];
-				error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-				if(error != CL_SUCCESS) { return; }
-
-				unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-				{
-					std::ofstream dbg("debug_SHAVITE3_OUT.txt", std::ios::app);
-					dbg<<std::endl;
-					bytes = UintHexOut(dbg, bytes, 16, false);
-				}
-				{
-					std::ofstream dbg("debug_SIMD_OUT.txt");
-					bytes = UintHexOut(dbg, bytes, 16, false);
-				}
-			}
-#endif
-			break;
-		}
-		case 5: {
-			const asizei woff[2] = { 0, use.nonceBase };
-			const asizei workDim [2] = { 8, use.options.HashesPerDispatch() };
-			const asizei groupDim[2] = { 8, 8 };
-			cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[4], 2, woff, workDim, groupDim, 0, NULL, NULL);
-			if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[4] kernel.";
-			const asizei size = (1 + use.options.OptimisticNonceCountMatch()) * sizeof(cl_uint);
-			void *raw = clEnqueueMapBuffer(use.res.commandq, use.res.nonces, CL_FALSE, CL_MAP_READ, 0, size, 0, NULL, &use.res.resultsTransferred, &error);
-			use.res.mappedNonceBuff = reinterpret_cast<cl_uint*>(raw);
-			if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueMapBuffer while mapping result nonce buffer.";
-#if DEBUGBUFFER_SIZE
-			{
-				const asizei start = 0;
-				const asizei size = 16 + // SIMD output
-					                16+16+16; // ECHO output
-				cl_uint hostBuff[size];
-				error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-				if(error != CL_SUCCESS) { return; }
-
-				unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-				{
-					std::ofstream dbg("debug_SIMD_OUT.txt", std::ios::app);
-					dbg<<std::endl;
-					bytes = UintHexOut(dbg, bytes, 16, false);
-				}
-				{
-					std::ofstream dbg("debug_ECHO_OUT.txt");
-					dbg<<"ECHO hash out"<<std::endl;
-					bytes = UintHexOut(dbg, bytes, 16, false);
-					dbg<<"\nECHO target"<<std::endl;
-					bytes = UintHexOut(dbg, bytes, 16, false);
-				}
-			}
-#endif
-			break;
-		}
-		default: use.step--;
-		}
-		use.step++;
-	}
-}
-
-
-void QubitMultistepOpenCL12::HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei internalIndex) {
-	/* * * * * * * * * * * * */
-	//! \todo Implement qubit CPU-side hashing for validation.
-	throw std::string("TODO");
-	/* * * * * * * * * * * * */
-}
-
-
-QubitMultiStep_Resources::QubitMultiStep_Resources() {
-	memset(this, 0, sizeof(*this));
-}
-
-
-QubitMultiStep_Resources::~QubitMultiStep_Resources() {
-	// what if the nonce buffer is still mapped? I destroy both the event and the buffer anyway.
-	if(resultsTransferred) clReleaseEvent(resultsTransferred);
-	for(asizei i = 0; i < kernel.size(); i++) if(kernel[i]) clReleaseKernel(kernel[i]);
-	for(asizei i = 0; i < program.size(); i++) if(program[i]) clReleaseProgram(program[i]);
-	for(asizei i = 0; i < io.size(); i++) if(io[i]) clReleaseMemObject(io[i]);
-	if(aesLUTTables) clReleaseMemObject(aesLUTTables);
-	if(alphaTable) clReleaseMemObject(alphaTable);
-	if(betaTable) clReleaseMemObject(betaTable);
-	if(nonces) clReleaseMemObject(nonces);
-	if(dispatchData) clReleaseMemObject(dispatchData);
-	if(wuData) clReleaseMemObject(wuData);
-	if(commandq) clReleaseCommandQueue(commandq);
-	if(ctx) clReleaseContext(ctx);
-}
-
-#define COPYCLEAR(FIELD) FIELD = other.FIELD; other.FIELD = 0;
-
-QubitMultiStep_Resources::QubitMultiStep_Resources(QubitMultiStep_Resources &&other) { // move semantics makes everything easier!
-	COPYCLEAR(resultsTransferred);
-	for(asizei i = 0; i < kernel.size(); i++) { kernel[i] = other.kernel[i];    other.kernel[i] = 0; }
-	for(asizei i = 0; i < program.size(); i++) { program[i] = other.program[i];    other.program[i] = 0; }
-	for(asizei i = 0; i < io.size(); i++) { io[i] = other.io[i];    other.io[i] = 0; };
-	COPYCLEAR(aesLUTTables);
-	COPYCLEAR(alphaTable);
-	COPYCLEAR(betaTable);
-	COPYCLEAR(nonces);
-	COPYCLEAR(dispatchData);
-	COPYCLEAR(wuData);
-	COPYCLEAR(commandq);
-	COPYCLEAR(ctx);
-
-#if DEBUGBUFFER_SIZE
-	COPYCLEAR(debugBUFFER);
-#endif
-	//#undef COPYCLEAR
-}
-
-
-QubitMultiStep_Resources& QubitMultiStep_Resources::operator=(QubitMultiStep_Resources &&other) { // move semantics makes everything easier!
-	COPYCLEAR(resultsTransferred);
-	for(asizei i = 0; i < kernel.size(); i++) { kernel[i] = other.kernel[i];    other.kernel[i] = 0; }
-	for(asizei i = 0; i < program.size(); i++) { program[i] = other.program[i];    other.program[i] = 0; }
-	for(asizei i = 0; i < io.size(); i++) { io[i] = other.io[i];    other.io[i] = 0; };
-	COPYCLEAR(aesLUTTables);
-	COPYCLEAR(alphaTable);
-	COPYCLEAR(betaTable);
-	COPYCLEAR(nonces);
-	COPYCLEAR(dispatchData);
-	COPYCLEAR(wuData);
-	COPYCLEAR(commandq);
-	COPYCLEAR(ctx);
-
-#if DEBUGBUFFER_SIZE
-	COPYCLEAR(debugBUFFER);
-#endif
-	return *this;
-}
-
-#undef COPYCLEAR
-
-
-//! \todo very ugly code repetition from Scrypt1024_Multistep_OpenCL12, need a base class for CL12
-bool QubitMultistepOpenCL12::LoadFile(std::unique_ptr<char[]> &source, asizei &len, const std::string &name) {
-	len = 0;
-	std::ifstream disk(name.c_str(), std::ios_base::binary);
-	if(disk.good() == false) return false;
-	disk.seekg(0, std::ios_base::end);
-	aulong size = disk.tellg();
-	const asizei maxSize = 1024 * 1024 * 8;
-	if(size > maxSize) throw std::string("File ") + name + " is way too big: " + std::to_string(size) + "B, max is " + std::to_string(maxSize) + "B.";
-	disk.seekg(0, std::ios_base::beg);
-	// CL2 is clear on the fact the strings don't need to be NULL-terminated. CL1.2 was rather clear in rationale as well, but it looks like
-	// some AMD APP versions really want this string NULL-terminated.
-	source.reset(new char[asizei(size + 1)]);
-	disk.read(source.get(), size);
-	source.get()[size] = 0;
-	len = asizei(size);
-	return true;
-}
-
-
-void QubitMultistepOpenCL12::ProbeProgramBuildInfo(cl_program program, cl_device_id device, const std::string &defines) const {
-	cl_build_status status;
-	cl_int error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, NULL);
-	if(status == CL_BUILD_NONE || status == CL_BUILD_IN_PROGRESS) return;
-	bool fatal = status == CL_BUILD_ERROR;
-	asizei count = 0;
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &count);
-	std::unique_ptr<char[]> messages(new char[count]);
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, count, messages.get(), NULL);
-	if(messages.get() && count > 1) errorCallback("Program build log:\n", messages.get(), strlen(messages.get()), NULL);
-	if(fatal) throw std::string("Fatal error while building program, see output. Compiling with\n" + defines);
-}
-
-
-std::string QubitMultistepOpenCL12::GetBuildOptions(const Options &opt, const auint index) {
-	std::stringstream build;
-	switch(index) {
-	case 0: build<<"-D LUFFA_HEAD"; break;
-	case 1: break;
-	case 2: break;
-	case 3: break;
-	case 4: build<<"-D AES_TABLE_ROW_1 -D AES_TABLE_ROW_2 -D AES_TABLE_ROW_3 -D ECHO_IS_LAST "; break;
-	}
-#if defined(_DEBUG)
-	//build<<" -g"; //cl2.0 only, even though CodeXL wants it!
-#endif
-	// CL2.0 //
-	//build<<" -cl-uniform-work-group-size";
-	return build.str();
-}
-
-
-std::string QubitMultistepOpenCL12::GetSourceFileName(const Options &opt, auint index) {
-	switch(index) {
-	case 0: return std::string("Luffa_1W.cl");
-	case 1: return std::string("CubeHash_2W.cl");
-	case 2: return std::string("SHAvite3_1W.cl");
-	case 3: return std::string("SIMD_16W.cl");
-	case 4: return std::string("Echo_8W.cl");
-	}
-	return std::string();
-}
-
-
-std::string QubitMultistepOpenCL12::GetKernelName(const Options &opt, auint index) {
-	switch(index) {
-	case 0: return std::string("Luffa_1way");
-	case 1: return std::string("CubeHash_2way");
-	case 2: return std::string("SHAvite3_1way");
-	case 3: return std::string("SIMD_16way");
-	case 4: return std::string("Echo_8way");
-	}
-	return std::string();
-
 }

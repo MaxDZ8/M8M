@@ -5,10 +5,6 @@
 #if defined(_WIN32)
 #include "AsyncNotifyIconPumper.h"
 
-
-#include <iostream> // DBG really, not worth being in header.
-
-
 namespace windows {
 
 const UINT AsyncNotifyIconPumper::WM_APP_DATA_CHANGED       = WM_APP + 0;
@@ -21,44 +17,39 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 	this->iconIndex = totalIconsCHECK++;
 
     return [this]() {
+        using namespace Gdiplus;
+	    GdiplusStartupInput gdipstart;
+        Gdiplus::GdiplusStartupOutput gdipInitResult;
+        ULONG gdiplusToken;
+	    Status res = GdiplusStartup(&gdiplusToken, &gdipstart, &gdipInitResult);
+	    if(res != Ok) throw std::string("Could not init GDI+");
+	    ScopedFuncCall cleargdi([gdiplusToken]() { GdiplusShutdown(gdiplusToken); });
         ScopedFuncCall onTermination([this]() {
 			std::unique_lock<std::mutex> lock(*this->mutex);
 			if(this->asyncOwned.contextMenu) {
 				DestroyMenu(this->asyncOwned.contextMenu);
 				this->asyncOwned.contextMenu = 0;
 			}
+			if(this->asyncOwned.osIcon) { // icon is a function of bitmap so if bitmap goes, the icon will get invalid
+				if(this->asyncOwned.removeFromNotificationArea) {
+					NOTIFYICONDATA iid;
+					memset(&iid, 0, sizeof(iid));
+					iid.cbSize = sizeof(iid);
+					iid.hWnd = asyncOwned.windowHandle;
+					iid.uID = iconIndex;
+					BOOL ret = Shell_NotifyIcon(NIM_DELETE, &iid);
+				}
+				DestroyIcon(this->asyncOwned.osIcon);
+				this->asyncOwned.osIcon = 0;
+			}
 			if(this->asyncOwned.windowHandle) {
 				DestroyWindow(this->asyncOwned.windowHandle);
 				this->asyncOwned.windowHandle = 0;
 			}
+			if(this->asyncOwned.iconGraphics) delete this->asyncOwned.iconGraphics; // this must happen before GDI+ shutdown or it will be considered an incomplete type
 	        if(this->shared) this->shared->guiTerminated = true;
 		});
         try {
-            using namespace Gdiplus;
-	        GdiplusStartupInput gdipstart;
-            Gdiplus::GdiplusStartupOutput gdipInitResult;
-            ULONG gdiplusToken;
-	        Status res = GdiplusStartup(&gdiplusToken, &gdipstart, &gdipInitResult);
-	        if(res != Ok) throw std::string("Could not init GDI+");
-	        ScopedFuncCall cleargdi([gdiplusToken]() { GdiplusShutdown(gdiplusToken); });
-			ScopedFuncCall clearBitmap([this]() {
-				std::unique_lock<std::mutex> lock(*this->mutex);
-				
-				if(this->asyncOwned.osIcon) { // icon is a function of bitmap so if bitmap goes, the icon will get invalid
-					if(this->asyncOwned.removeFromNotificationArea) {
-						NOTIFYICONDATA iid;
-						iid.cbSize = sizeof(iid);
-						iid.hWnd = asyncOwned.windowHandle;
-						iid.uID = iconIndex;
-						Shell_NotifyIcon(NIM_DELETE, &iid);
-					}
-					DestroyIcon(this->asyncOwned.osIcon);
-					this->asyncOwned.osIcon = 0;
-				}
-
-				if(this->asyncOwned.iconGraphics) delete this->asyncOwned.iconGraphics; // this must happen before GDI+ shutdown or it will be considered an incomplete type
-			});
-
 			WNDCLASSEX winClass;
 	        memset(&winClass, 0, sizeof(winClass));
 	        winClass.cbSize = sizeof(winClass);
@@ -88,6 +79,10 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
             MSG message;
             while(go = GetMessage(&message, windowHandle, 0, 0)) {
                 if(go == -1) break; // additional case (function destroyed but still pumping), WM_QUIT returns 0, otherwise message
+				{
+					std::unique_lock<std::mutex> lock(*this->mutex);
+					if(this->shared->terminate) break;
+				}
                 TranslateMessage(&message);
 			    DispatchMessage(&message);
 			}
@@ -177,8 +172,8 @@ LRESULT AsyncNotifyIconPumper::NotifyCallback(WORD msg, int x, int y) {
 	case WM_COMMAND: {
 		break;
 	}
-	default:
-	std::cout<<std::hex<<msg<<std::dec<<std::endl;
+	//default:
+	//std::cout<<std::hex<<msg<<std::dec<<std::endl;
 	}
 	return 1;
 }

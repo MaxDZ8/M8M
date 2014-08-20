@@ -4,7 +4,6 @@
  */
 #pragma once
 #include "AbstractMiner.h"
-#include <set>
 
 template<typename MiningProcessorsProvider>
 class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
@@ -24,154 +23,193 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 
 	struct WUSpecState : public WUSpec {
 		auint hashesSoFar;
-		HPTP inputTime;
-		asizei testedHashes; //!< initialized together with inputTime, maybe we'll have variable intensity a day!
 		const HPTP creationTime;
 		asizei iterations;
 		explicit WUSpecState() : hashesSoFar(0), creationTime(HPCLK::now()), iterations(0) { }
 	};
 
-	static void CheckResults(std::vector<auint> &shares, const WUSpec &algo) {
+	static void CheckResults(std::vector<auint> &shares, AbstractAlgoImplementation<MiningProcessorsProvider> &algo, const stratum::WorkUnit &wu, const AbstractWorkSource *owner, asizei setting, asizei slot) {
 		std::vector<auint> candidates;
 		candidates.reserve(shares.size());
 		std::array<aubyte, 128> header;
 		std::array<aubyte, 32> hash;
 		for(asizei test = 0; test < shares.size(); test++) {
-			memcpy_s(header.data(), sizeof(header), algo.wu.header.data(), sizeof(algo.wu.header[0]) * algo.wu.header.size());
+			memcpy_s(header.data(), sizeof(header), wu.header.data(), sizeof(wu.header[0]) * wu.header.size());
 			const auint lenonce = HTOLE(shares[test]);
 			memcpy_s(header.data() + 64 + 12, 128 - (64 + 12), &lenonce, sizeof(lenonce));
-			algo.params.imp->HashHeader(hash, header, algo.params.internalIndex);
-			const aulong diffone = 0xFFFF0000ull * algo.owner->GetCoinDiffMul();
+			algo.HashHeader(hash, header, setting, slot);
+			const aulong diffone = 0xFFFF0000ull * owner->GetCoinDiffMul();
 			aulong adjusted;
 			memcpy_s(&adjusted, sizeof(adjusted), hash.data() + 24, sizeof(adjusted));
 			if(LETOH(adjusted) <= diffone) candidates.push_back(lenonce); // could still be stale
 		}
 		shares = std::move(candidates);
-	}	
-    //std::function<void(AsyncInput &input, AsyncOutput &output, MiningProcessorsProvider &resourceGenerator)> GetMiningThread() const;
+	}
+    
+    struct AlgoMangling {
+        AbstractAlgoImplementation<MiningProcessorsProvider> &algo;
+        asizei setting, res;
+		const bool checkNonces;
+        AlgoMangling(AbstractAlgoImplementation<MiningProcessorsProvider> &what, asizei optIndex, asizei instIndex, bool nonceCheck)
+			: algo(what), setting(optIndex), res(instIndex), checkNonces(nonceCheck) { }
+	};
 
-public:
-	AbstractThreadedMiner(std::vector< std::unique_ptr< AlgoFamily<MiningProcessorsProvider> > > &algos, const std::function<void(auint sleepms)> sleepFunc)
-		: AbstractMiner(algos) {
-		MiningThreadFunc asyncronousMining = [sleepFunc](AsyncInput &input, AsyncOutput &output, MiningProcessorsProvider &resourceGenerator) {
-			ScopedFuncCall imdone([&output]() { 
-				std::unique_lock<std::mutex> sync(output.beingUsed);
-				output.terminated = true;
-			});
-			cout<<"Miner thread starting."<<endl; cout.flush();
-			std::vector<WUSpecState> processing;
-			asizei sinceLastCheck = 0;
-			bool checkNonces = true;
-			try {
-				while(true) {
-					if(processing.empty()) {
-						// In those cases, there's nothing to do and I go to sleep till next check. Originally I used condition variables here but there's really little point in just having some polling.
-						bool nothing = true;
-						{
-							std::unique_lock<std::mutex> sync(input.beingUsed);
-							if(input.terminate) return;
-							nothing = input.work.empty();
-						}
-						if(nothing) {
-							sleepFunc(1000);
-							continue;
-						}
-					}
-					// either we already have something to do or there might be something new to do.
+	typedef std::vector<typename MiningProcessorsProvider::WaitEvent> WaitList;
+	struct HashStats {
+		std::vector< std::vector<HPTP> > start;
+		std::vector<asizei> count;
+		HashStats(asizei size) : start(size), count(size) { }
+	};
+
+	//! Returns the number of wait events added to the list.
+    static asizei ProcessAI(AlgoMangling &mangle, WUSpecState &processing, HashStats &hash, WaitList &allWait, MPSamples &sampling, AsyncOutput &output) {
+		asizei waiting = 0;
+		stratum::WorkUnit foundWU;
+		std::vector<auint> foundNonces;
+		std::vector<cl_event> algoWait;
+        if(mangle.algo.CanTakeInput(mangle.setting, mangle.res)) {
+			auint prev = processing.hashesSoFar;
+            hash.start[mangle.setting][mangle.res] = HPCLK::now();
+            hash.count[mangle.setting] = mangle.algo.BeginProcessing(mangle.setting, mangle.res, processing.wu, processing.hashesSoFar);
+            processing.hashesSoFar += hash.count[mangle.setting];
+			if(processing.hashesSoFar <= prev) throw std::exception("nonce overflow, need to roll a new WU");
+			//! \todo Really implement this. It really happens!
+		}
+		else if(mangle.algo.ResultsAvailable(foundWU, foundNonces, mangle.setting, mangle.res)) {
+			using namespace std::chrono;
+			HPTP resTime(HPCLK::now());
+			const microseconds took = duration_cast<microseconds>(resTime - hash.start[mangle.setting][mangle.res]);
+
+			if(sampling.sinceEpoch == seconds(0)) sampling.sinceEpoch = duration_cast<seconds>(hash.start[mangle.setting][mangle.res].time_since_epoch());
+			const HPTP sampleStartTime = HPTP(duration_cast<HPTP::duration>(sampling.sinceEpoch));
+			const microseconds toffset = duration_cast<microseconds>(hash.start[mangle.setting][mangle.res] - sampleStartTime);
+			auto clamp = [](aulong value) -> auint { return auint(value < auint(~0)? value : auint(~0)); };
+			sampling.Push(mangle.algo.GetDeviceIndex(mangle.setting, mangle.res), clamp(toffset.count()), clamp(took.count()));
+
+            if(foundNonces.size()) {
+                Nonces result;
+                result.scanPeriod = took;
+				result.owner = processing.owner; //!< \todo Not strictcly true, two pools might have the same job ID... to be fixed by looking up previous WUs? Most likely I could just push the owner to BeginProcessing... maybe also a timestamp.
+				result.job = foundWU.job;
+				result.nonce2 = foundWU.nonce2;
+                result.deviceIndex = mangle.algo.GetDeviceIndex(mangle.setting, mangle.res);
+				result.lastNonceScanAmount = hash.count[mangle.setting];
+                if(processing.wu.job != foundWU.job) result.stale = foundNonces.size();
+				else {
+                    const asizei found = foundNonces.size();
+                    if(mangle.checkNonces) CheckResults(foundNonces, mangle.algo, foundWU, processing.owner, mangle.setting, mangle.res);
+                    result.bad = found - foundNonces.size();
+				}
+			    std::unique_lock<std::mutex> sync(output.beingUsed);
+				result.nonces = std::move(foundNonces);
+				output.found.push_back(result);
+			}
+		}
+		else if(mangle.algo.GetWaitEvents(algoWait, mangle.setting, mangle.res)) {
+            const asizei prev = allWait.size();
+			waiting++;
+            allWait.resize(prev + algoWait.size());
+			for(asizei cp = 0; cp < algoWait.size(); cp++) allWait[prev + cp] = algoWait[cp];
+		}
+		else mangle.algo.Dispatch(mangle.setting, mangle.res);
+		return waiting;
+	}
+
+	void ThreadedMinerMain(AsyncInput &input, AsyncOutput &output, typename MiningProcessorsProvider::ComputeNodes processors) {
+        //! \todo no way! Resource generation is not supposed to work this way, it is not thread protected! All I need is a list of platforms and devices to build resources.
+		ScopedFuncCall imdone([&output]() { 
+			std::unique_lock<std::mutex> sync(output.beingUsed);
+			output.terminated = true;
+		});
+		cout<<"Miner thread starting."<<endl; cout.flush();
+        std::unique_ptr< AbstractAlgoImplementation<MiningProcessorsProvider> > run;
+        {
+			std::unique_lock<std::mutex> sync(input.beingUsed);
+			run = std::move(input.run);
+		}
+        AbstractAlgoImplementation<MiningProcessorsProvider> &algo(*run);
+        std::vector< std::pair<asizei, asizei> > instances(algo.GenResources(processors));
+		HashStats hashStats(instances.size());
+        for(asizei init = 0; init < instances.size(); init++) hashStats.start[init].resize(instances[init].second);
+        asizei numTasks = 0;
+		std::for_each(instances.cbegin(), instances.cend(), [&numTasks](std::pair<asizei, asizei> add) { numTasks += add.second; });
+		WUSpecState processing; // initially this was a vector and allowed to iterate on multiple pools. This is no more considered useful.
+		asizei sinceLastCheck = 0;
+		bool checkNonces = true;
+		MPSamples sampling;
+        cout<<"Miner thread completed initialization."<<endl; cout.flush();
+		try {
+			while(instances.size()) {
+				if(processing.owner == nullptr) {
+					// In those cases, there's nothing to do and I go to sleep till next check. Originally I used condition variables here but there's really little point in just having some polling.
+					bool nothing;
 					{
 						std::unique_lock<std::mutex> sync(input.beingUsed);
 						if(input.terminate) return;
-						checkNonces = input.checkNonces;
-						while(input.work.size()) {
-							const WUSpec &el(input.work.front());
-							const std::vector<WUSpecState>::iterator prev(std::find_if(processing.begin(), processing.end(), [&el](const WUSpecState &test) { return test.owner == el.owner; }));
-							if(prev != processing.end()) {
-								if(prev->params != el.params) {
-									if(el.params.imp == nullptr) std::exception("Source being unregistered, not currently implemented.");
-									throw std::exception("Source requires algorithm change, not currently implemented.");
-								}
-								prev->wu = el.wu;
-								prev->hashesSoFar = 0;
-							}
-							else { // new source
-								WUSpecState newWork;
-								newWork.owner = el.owner;
-								newWork.wu = el.wu;
-								newWork.params = el.params;
-								processing.push_back(newWork);
-							}
-							input.work.pop_front();
-						}
+						nothing = input.work.owner == nullptr;
 					}
-					// From now on, I don't care about the input anymore as everything is in my private list.
-					// As a first thing, initialize algorithms not ready to go. For the time being, this will halt mining.
-					for(asizei loop = 0; loop < processing.size(); loop++) {
-						if(processing[loop].params.imp->Ready(processing[loop].params.internalIndex) == false) {
-							processing[loop].params.imp->Prepare(processing[loop].params.internalIndex);
-						}
+					if(nothing) {
+						UpdateProfilerData(sampling);
+						sleepFunc(1000);
+						continue;
 					}
-					/*Now the real work and we're done. This is still not so easy as each algorithm:
-					1) might be temporarily disabled (ready to go, but no-op work unit)
-					2) might be waiting for a delay to pass before going on for the results
-					3) might be able to accept new inputs (because of internal pipelining?)
-					4) could be able to output resulting shares.
-					I give each algorithm a single chance to perform an action. Other actions will be delayed
-					till next pass. */
-					std::vector<cl_event> allWait;
-					asizei waiting = 0;
-					for(asizei loop = 0; loop < processing.size(); loop++) {
-						WUSpecState &el(processing[loop]);
-						if(el.wu.genTime == 0 || el.wu.ntime == 0) {
-							// no-op workload, this is considered a delay pass until this algo gets something to do.
-							// It will likely take a while but 1 second is likely enough.
-							sleepFunc(1000);
-							continue;
-						}
-						std::vector<auint> foundNonces;
-						stratum::WorkUnit foundWU;
-						std::vector<cl_event> algoWait;
-						if(el.params.imp->CanTakeInput(el.params.internalIndex)) {
-							auint prev = el.hashesSoFar;
-							el.inputTime = HPCLK::now();
-							el.testedHashes = el.params.imp->BeginProcessing(el.params.internalIndex, el.wu, el.hashesSoFar);
-							el.hashesSoFar += el.params.imp->BeginProcessing(el.params.internalIndex, el.wu, el.hashesSoFar);
-							if(el.hashesSoFar <= prev) throw std::exception("nonce overflow, need to roll a new WU");
-						}
-						else if(el.params.imp->ResultsAvailable(foundWU, foundNonces, el.params.internalIndex) && el.wu.job == foundWU.job) {
-							// if job id is not matched, those results are stale for sure.
-							HPTP resTime(HPCLK::now());
-							el.iterations++;
-							if(checkNonces) CheckResults(foundNonces, el);
-							if(foundNonces.size()) {
-								std::unique_lock<std::mutex> sync(output.beingUsed);
-								Nonces add;
-								add.owner = el.owner;
-								add.job = foundWU.job;
-								add.nonce2 = foundWU.nonce2;
-								add.nonces = std::move(foundNonces);
-								add.lastNoncePeriod = resTime - el.inputTime;
-								add.averageNoncePeriod = (resTime - el.creationTime) / el.iterations;
-								add.lastNonceScanAmount = el.testedHashes;
-								output.found.push_back(add);
-							}
-						}
-						else if(el.params.imp->GetWaitEvents(algoWait, el.params.internalIndex)) {
-							waiting++;
-							for(auto el = algoWait.begin(); el != algoWait.end(); ++el) allWait.push_back(*el);
-						}
-						else el.params.imp->Dispatch();
-					}
-					if(waiting == processing.size())
-						clWaitForEvents(allWait.size(), allWait.data());
-					waiting = 0;
-					allWait.clear();
 				}
-			} catch(...) {
-				//! \todo decide how to forward this info to the main thread.
+				/* Either we already have something to do or there might be something new to do (which could eventually be sleeping).
+                That's not really different: it's just a matter of taking the work-unit the main thread gives us. */
+				{
+					std::unique_lock<std::mutex> sync(input.beingUsed);
+					if(input.terminate) return;
+					checkNonces = input.checkNonces;
+                    if(processing.owner != input.work.owner || processing.wu != input.work.wu) {
+                        processing.owner = input.work.owner;
+                        processing.wu = input.work.wu;
+                        if(processing.owner == nullptr) continue;
+					}
+				}
+                /* Now I don't have to care about sync-ing anymore as as everything is in my private stack/pointers.
+				Initially, algorithms had to be initialized here as they used to be registered and de-registered dynamically but
+                this didn't make much sense as estimating hashrate would have been nonsensical.
+                So what I really need to do at this point is to iterate on the various algorithm configs and for each available
+                set of resource (which is a concurrent algorithm instance) evolve it a bit. Each of those entities might be: 
+				1) waiting for a delay to pass before going on for the results
+				2) able to accept new inputs (could be pipelined)
+				3) able to output resulting shares
+                4) just willing to do some work!
+				I give each algorithm a single chance to perform an action. Other actions will be delayed till next pass. */
+				std::vector<MiningProcessorsProvider::WaitEvent> allWait;
+				asizei waiting = 0;
+				for(asizei setting = 0; setting < instances.size(); setting++) {
+                    for(asizei res = 0; res < instances[setting].second; res++) {
+                        AlgoMangling process(algo, setting, res, checkNonces);
+                        waiting += ProcessAI(process, processing, hashStats, allWait, sampling, output);
+					}
+				}
+				if(waiting == numTasks)
+					clWaitForEvents(allWait.size(), allWait.data());
+				waiting = 0;
+				allWait.clear();
+				UpdateProfilerData(sampling);
 			}
-			cout<<"Miner thread exiting!"<<endl; cout.flush();
-		};
-		dispatcher.reset(new std::thread(asyncronousMining, std::ref(toMiner), std::ref(fromMiner), std::ref(GetProcessersProvider())));
-		sleepFunc(1); // give the other thread a chance to go!
+		} catch(std::exception ohno) {
+			//! \todo decide how to forward this info to the main thread.
+			cout<<"Ouch!"<<ohno.what()<<endl; cout.flush();
+		} catch(...) {
+			//! \todo decide how to forward this info to the main thread.
+			cout<<"Ouch!"<<endl; cout.flush();
+		}
+		cout<<"Miner thread exiting!"<<endl; cout.flush();
 	}
+
+
+    MiningThreadFunc GetMiningThread() {
+		return [this](AsyncInput &input, AsyncOutput &output, typename MiningProcessorsProvider::ComputeNodes processors) {
+			ThreadedMinerMain(input, output, processors);
+		};
+	}
+
+    std::function<void(auint sleepms)> sleepFunc;
+
+public:
+	AbstractThreadedMiner(std::vector< std::unique_ptr< AlgoFamily<MiningProcessorsProvider> > > &algos, const std::function<void(auint sleepms)> msSleepFunc)
+		: AbstractMiner(algos), sleepFunc(msSleepFunc) { }
 };

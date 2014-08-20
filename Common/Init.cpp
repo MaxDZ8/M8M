@@ -5,23 +5,21 @@
 #include "Init.h"
 
 
-DEFINE_string(config, "init.json", "File containing settings.");
-
-
-Settings* LoadConfig() {
+Settings* LoadConfig(const wchar_t *filename) {
 	using std::unique_ptr;
 	Json::Reader reader; // kept here, in case persistent data is required.
 	Json::Value root;
-	std::ifstream input(FLAGS_config);
+	std::ifstream input(filename);
 	if(input.bad() || !input.is_open()) throw std::exception("Invalid file to open.");
 	reader.parse(input, root, false);
 	unique_ptr<Settings> ret(new Settings);
 
-	if(root["pools"].isArray() == false) throw std::exception("Invalid pool specification, array expected.");
+	if(root["pools"].isObject() == false) throw std::exception("Invalid pool specification, array expected.");
 	else {
 		auto pools = root["pools"];
+		Json::Value::Members keys(pools.getMemberNames());
 		for(size_t loadIndex = 0; loadIndex < pools.size(); loadIndex++) {
-			Json::Value &load(pools[loadIndex]);
+			Json::Value &load(pools[keys[loadIndex]]); // you're an idiot jsoncpp!
 			if(!load.isObject()) continue; // is this the right thing to do?
 			auto addr = load["url"];
 			auto user = load["user"];
@@ -29,7 +27,8 @@ Settings* LoadConfig() {
 			auto proto = load["protocol"];
 			auto coinDiff = load["coinDiffMul"];
 			auto merkleMode = load["merkleMode"];
-			bool valid = addr.isString() && user.isString() && psw.isString();
+			auto algo = load["algo"];
+			bool valid = addr.isString() && user.isString() && psw.isString() && algo.isString();
 			if(!valid) continue; //!< \todo signal this issue
 			string url = addr.asString();
 			string forced = proto.asString();
@@ -38,7 +37,8 @@ Settings* LoadConfig() {
 					url = forced + "+" + url;
 				}
 			}
-			unique_ptr<PoolInfo> add(new PoolInfo(url, user.asString(), psw.asString()));
+			unique_ptr<PoolInfo> add(new PoolInfo(keys[loadIndex], url, user.asString(), psw.asString()));
+			add->algo = algo.asString();
 			if(coinDiff.isNull() == false && (coinDiff.isUInt() || coinDiff.isInt())) {
 				if(coinDiff.isUInt()) add->diffOneMul = coinDiff.asUInt();
 				else {
@@ -98,7 +98,9 @@ Settings* LoadConfig() {
 			else throw std::exception("Unrecognized scrypt1024 implementation.");
 		}
 		else if(ret->algo == "qubit") {
-			if(!_stricmp(ret->impl.c_str(), "multiStep")) {
+			if(!_stricmp(ret->impl.c_str(), "fiveSteps")) {
+				//! \todo this really sucks. The algorithms themselves should be collaborating here, their parsers should be able
+				//! to get there and mangle everything accordingly so there would be no need for this huge pile of crap and redundancy.
 				paramNames = qubit_multiStep_names;
 				types = qubit_multiStep_types;					
 			}

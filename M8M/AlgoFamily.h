@@ -8,8 +8,8 @@
 
 template<typename MiningProcessorsProvider>
 class AlgoFamily {
-    const char *name;
 public:
+    const char *name; //!< good to have this public as this is often initialized from persistent ctable
 	AlgoFamily(const char *caseInsensitiveName) : name(caseInsensitiveName) { }
     bool AreYou(const char *name) const { return !_stricmp(name, this->name); }
 	std::string GetName() const { return std::string(name); }

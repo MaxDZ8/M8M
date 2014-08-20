@@ -6,7 +6,7 @@
 #include <string>
 #include <atomic>
 #include "../BTC/structs.h"
-#include "../ArenDataTypes.h"
+#include "../AREN/ArenDataTypes.h"
 
 /*! Stratum is message-based.
 Every line is a message or, if you're into marketing buzzword, a RPC call.

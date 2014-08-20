@@ -20,7 +20,6 @@ public:
 	const PoolInfo &fetching;
 	FirstPoolWorkSource(const char *clientPresentation, const PoolInfo &init, NetworkInterface::ConnectedSocketInterface &pipe);
 	~FirstPoolWorkSource();
-	const char* GetName() const { return fetching.host.c_str(); }
 
 	typedef std::function<void(asizei index, int errorCode, const std::string &message)> ErrorFunc;
 	
