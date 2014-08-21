@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<!--
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */-->
+ 
+<head>
+<meta charset="UTF-8">
+<link href="M8M.css" rel="stylesheet" type="text/css" media="all">
+<title>M8M localhost monitor</title>
+<script src="support.js"></script>
+<script src="CLDeviceDesc.js"></script>
+<script src="CLPlatformDesc.js"></script>
+<script src="MinerMonitor.js"></script>
+<script src="presentation.js"></script>
+<script src="onload.js"></script>
+<script src="HRGraphPainter.js"></script>
+<body>
+<div id="initializing">
+	<progress id="waitHint">Please wait while connection is setup.</progress><br>
+	<div>
+		<span id="pre">Connecting to miner</span> <span id="hostname" class="specificText"></span><span id="advancing">...</span>
+	</div>
+</div>
+<div id="monitoring">
+	<div>
+		<h1>Connected to <span id="server" class="specificText"></span></h1>
+		Reply time: <span id="ping">?</span> ms<br>
+		<br>
+		<!-- planned to use <details> and <summary> here but Mozilla does not seem to support them! https://bugzilla.mozilla.org/show_bug.cgi?id=591737
+		Today is 2014-08-06. Sic. Leaving them always open for the time being. -->		
+		<section class="monCategory">
+			<h2 class="monCategoryTitle">System information</h2>
+			<div id="sysInfo">
+				<table>
+					<caption>Computing devices (<span id="M8M_API">API?</span>)</caption>
+					<thead><tr>
+						<th>Platform</th>
+						<th>Processor</th>
+						<th>Memory</th>
+						<th>Configured as</th>
+						<th>Notes</th>
+						<th>Index</th>
+					</tr></thead>
+					<tbody id="sysInfoDevices"></tbody>
+				</table>
+			</div>
+		</section><br>
+		<section class="monCategory">
+			<h2 class="monCategoryTitle">Mining status</h2>
+			<div id="miningStatus">
+				<strong>Hashing <span id="algo">algo?</span></strong> (<span id="implementation">impl?</span>, v<span id="implVersion">implVer?</span>)
+				on <span id="pool">pool?</span> (<span id="poolURL" class="interactivelyShown">url?</span>) as <span id="user">user?</span><br>
+				<table>
+					<caption>Settings and device mapping information</caption>
+					<colgroup class="configStaticProps" span="3" />
+					<colgroup span="2" />
+					<colgroup class="minerThreadShareStats" span="3" />
+					<thead>
+						<tr>
+							<th rowspan="2">Configuration</th>
+							<th rowspan="2">Hash count</th>
+							<th rowspan="2">Memory usage</th>
+							<th rowspan="2">Card used</th>
+							<th class="divth" colspan="5">Hash time [ms]</th>
+							<th class="divth" colspan="3">Nonces</th>
+						</tr>
+						<tr>
+							<th class="subth">Last</th>
+							<th class="subth">Min</th>
+							<th class="subth">Avg<sub id="shortWindow">short</sub></th>
+							<th class="subth">Avg<sub id="longWindow">long</sub></th>
+							<th class="subth">Max</th>
+							<th class="subth">Good</th>
+							<th class="subth">Bad!</th>
+							<th class="subth">Stale</th>
+						</tr>
+					</thead>
+					<tbody id="configInfo"></tbody>
+				</table>
+			</div>
+		</section><br>
+		<section class="monCategory" open>
+			<h2 class="monCategoryTitle">Performance graphs</h2>
+			<div id="computeStatus"></div>
+		</section>
+		<section id="temporarySillySectionDEVEL"></section>
+	</div>
+</div>
+</body>
+</html>

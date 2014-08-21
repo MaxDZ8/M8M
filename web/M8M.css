@@ -1,0 +1,81 @@
+/*
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */
+ 
+ .specificText {
+	font-family: monospace;
+}
+
+.notSoImportant {
+	font-size: 75%;
+}
+
+
+.minerLogin {
+	/* or possibly wallet? */
+}
+
+
+.devicePattern {
+/* used on canvas elements to show the color/pattern being used to represent the device. */
+	border: ridge gray;
+}
+
+
+.monCategory  {
+	border: thin solid black;
+	background: rgba(247, 247, 247, 1.0);
+	border-radius: 4px;
+	box-shadow: 3px 5px 2px 0px rgba(0, 0, 0, 0.5);
+	padding-bottom: .5em;
+	padding-left: 1em;
+}
+
+
+.monCategoryTitle  {
+	font-weight: bolder;
+	font-size: 125%;
+}
+
+div.memoryReport {
+  position: absolute;
+  border: .25em outset rgb(0, 100, 150);
+  background-color: rgb(175, 230, 255);
+  padding: .5em;
+}
+
+
+table {
+	background: white;
+	border-collapse: collapse;
+	border: thin solid black;
+}
+
+
+tr {
+	text-align: center;
+}
+
+
+th {
+	border: thin dotted black;
+	padding-left: .25em;
+	padding-right: .25em;
+	border-bottom: thin solid black;
+}
+
+.divth {
+	border-bottom: none;
+}
+
+.subth {
+	border-top: none;
+	border-bottom: thin solid black;
+}
+
+td {
+	border: thin dotted black;
+	padding-left: .25em;
+	padding-right: .25em;
+}
