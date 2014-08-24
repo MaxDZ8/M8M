@@ -5,7 +5,7 @@
 #pragma once
 #include "../Common/Settings.h"
 #include "../Common/AREN/ArenDataTypes.h"
-#include "../Common/Stratum/WorkUnit.h"
+#include "../Common/Stratum/AbstractWorkUnit.h"
 #include <functional>
 
 //! Not really an AlgoImplementation at this point, mostly bookeeping information.

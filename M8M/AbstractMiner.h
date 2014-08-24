@@ -7,7 +7,6 @@
 #include "AlgoFamily.h"
 #include <thread>
 #include <mutex>
-#include "MiningProfiling.h"
 
 
 /*! This class sets up the basic logic to build a proper mining thread.
@@ -17,20 +16,19 @@ This class however does not really take part in the "dynamic" driving of the thr
 \note None of those calls are performance paths. All the performance issues are contained in the miner thread and even there the main benefit for using
 templates is to keep full type information. */
 template<typename MiningProcessorsProvider>
-class AbstractMiner : public MinerInterface, public AbstractMiningProfiler {
+class AbstractMiner : public MinerInterface {
 protected:
-	struct WUSpec { //!< Used to keep track of input received by Mangle() so outputs can be fed to the right pool. \sa Nonces
-        const AbstractWorkSource *owner;
-        stratum::WorkUnit wu;
-		explicit WUSpec() : owner(nullptr) { }
-	};    
 
     struct AsyncInput { //!< Data from this thread to async mining thread.
         std::mutex beingUsed;
-        WUSpec work; //!< this is the work unit the mining thread is mangling, use owner = nullptr to put it to sleep.
         bool terminate; //!< causes the mining thread to complete execution as fast as possible but gracefully and with proper release.
 		bool checkNonces; //!< if this is false, hashing the nonces to verify them is not required and they're assumed valid.
 		std::unique_ptr< AbstractAlgoImplementation<MiningProcessorsProvider> > run; //!< produced by the main thread but taken away by the worker thread asap
+
+		const AbstractWorkSource *owner; //! You probably want to set this once. Set null to cause go to sleep.
+		std::unique_ptr<stratum::AbstractWorkUnit> wu; //!< if this is null, go over your current wu or keep sleeping if no wu is there. Otherwise, this is your new wu.
+		// if at least one of owner or wu is nullptr then the mining thread will go to sleep.
+
 		explicit AsyncInput() : terminate(false), checkNonces(true) { }
 	};
     
@@ -43,21 +41,6 @@ protected:
 
 	typedef std::function<void(typename AsyncInput &input, typename AsyncOutput &output, typename MiningProcessorsProvider::ComputeNodes procs)> MiningThreadFunc;
 	virtual MiningThreadFunc GetMiningThread() = 0;
-
-	//! Derived classes must build a MPSample struct asynchronously and call this every time possible as only sync point.
-	//! If enough time has passed, the samples will be moved to the main thread and the passed struct will be emptied.
-	void UpdateProfilerData(MPSamples &sampling) {
-		const bool profilerEnabled = true;
-		if(profilerEnabled) {
-			using namespace std::chrono;
-			const seconds flushInterval = seconds(5);
-			seconds now = duration_cast<seconds>(system_clock::now().time_since_epoch());
-			if(sampling.sinceEpoch.count() < now.count() - flushInterval.count()) {
-				this->Push(sampling);
-				sampling.Clear();
-			}
-		}
-	}
 
 private:
 	std::vector< std::unique_ptr< AlgoFamily<MiningProcessorsProvider> > > algoFamilies;
@@ -172,15 +155,15 @@ public:
 		dispatcher.reset(new std::thread(worker, std::ref(toMiner), std::ref(fromMiner), GetProcessersProvider().platforms));
 	}
 
-	void Mangle(const AbstractWorkSource &owner, const stratum::WorkUnit &wu) {
+	void Mangle(const AbstractWorkSource &owner, std::unique_ptr<stratum::AbstractWorkUnit> &wu) {
         std::unique_lock<std::mutex> lock(toMiner.beingUsed);
-		toMiner.work.owner = &owner;
-		toMiner.work.wu = wu;
+		toMiner.owner = &owner;
+		toMiner.wu = std::move(wu);
 	}
 		
 	const AbstractWorkSource* GetCurrentPool() {
         std::unique_lock<std::mutex> lock(toMiner.beingUsed);
-		return toMiner.work.owner;
+		return toMiner.owner;
 	}
 
 	bool SharesFound(std::vector<Nonces> &results) {

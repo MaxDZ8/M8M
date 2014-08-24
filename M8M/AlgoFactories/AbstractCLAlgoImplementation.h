@@ -67,14 +67,16 @@ public:
 	}
 
 
-    auint BeginProcessing(asizei optIndex, asizei instIndex, const stratum::WorkUnit &wu, auint prevHashes) {
+    auint BeginProcessing(asizei optIndex, asizei instIndex, const stratum::AbstractWorkUnit &wu, auint prevHashes) {
         Options &options(settings[optIndex].options);
 		AlgoInstance &use(settings[optIndex].algoInstances[instIndex]);
 		const aubyte *blob = reinterpret_cast<const aubyte*>(wu.target.data());
 		const aulong target = *reinterpret_cast<const aulong*>(blob + 24);
 		FillWorkUnitData(use.res.commandq, use.res.wuData, wu);
 		FillDispatchData(use.res.commandq, use.res.dispatchData, options.Concurrency(), target, options.OptimisticNonceCountMatch());
-		use.wu = wu;
+		use.wu.job = wu.job;
+		use.wu.nonce2 = wu.nonce2;
+		use.wu.header = wu.header;
 		use.nonceBase = prevHashes;
 		use.step = 1;
 		if(use.res.resultsTransferred) clReleaseEvent(use.res.resultsTransferred);
@@ -85,7 +87,7 @@ public:
 	}
 
 
-	bool ResultsAvailable(stratum::WorkUnit &wu, std::vector<auint> &results, asizei optIndex, asizei instIndex) {
+	bool ResultsAvailable(IterationStartInfo &wu, std::vector<auint> &results, asizei optIndex, asizei instIndex) {
 		Options &options(settings[optIndex].options);
 		AlgoInstance &use(settings[optIndex].algoInstances[instIndex]);
 		if(use.step <= NUM_STEPS) return false;
@@ -170,6 +172,8 @@ protected:
 	//! Allocates an object of the derived class so this can copy inside its configs.
 	virtual AbstractCLAlgoImplementation<NUM_STEPS, Options, Resources>* NewDerived() const = 0;
 
+	virtual void PutMidstate(aubyte *dst, const stratum::AbstractWorkUnit &wu) const = 0;
+
 	/*! The DispatchData buffer is a small blob of data available to all kernels implementing CL. Some things are related to hashing
 	and some others to supporting computation. This data is not always useful to all kernels, but handy to have. */
 	static void FillDispatchData(cl_command_queue cq, cl_mem hwbuff, cl_uint concurrency, cl_ulong diffTarget, cl_uint maxNonces) {
@@ -184,12 +188,13 @@ protected:
 	}
 
 	//! \todo Some kernels might use midstate or not. Qubit doesn't, but it really should as first luffa loop is guaranteed to be the same thing.
-	static void FillWorkUnitData(cl_command_queue cq, cl_mem hwbuff, const stratum::WorkUnit &wu) {
+	void FillWorkUnitData(cl_command_queue cq, cl_mem hwbuff, const stratum::AbstractWorkUnit &wu) const {
 		cl_uint buffer[32];
 		aubyte *dst = reinterpret_cast<aubyte*>(buffer);
 		asizei rem = 128;
 		memcpy_s(dst, rem, wu.header.data(), 80);	dst += 80;	rem -= 80;
-		memcpy_s(dst, rem, wu.midstate.data(), 32);	dst += 32;	rem -= 32;
+		PutMidstate(dst, wu);
+		/*memcpy_s(dst, rem, wu.midstate.data(), 32);*/	dst += 32;	rem -= 32;
 		//memcpy_s(dst, rem, &target, 4);				dst += 4;	rem -= 4;
 		cl_int error = clEnqueueWriteBuffer(cq, hwbuff, true, 0, sizeof(buffer), buffer, 0, NULL, NULL);
 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueWriteBuffer while writing to wuData buffer.";
@@ -201,7 +206,7 @@ protected:
 		asizei step;
 		auint nonceBase;
 		OpenCL12Wrapper::Device *device; //!< this is a very convenient way to have way more modular operations instead of a monolithic GenResources.
-		stratum::WorkUnit wu; // job id, nonce2 information
+		IterationStartInfo wu; //!< data taken from WU used to start the scan hash, only required info to send results to server
 		explicit AlgoInstance() : step(0), device(nullptr) { }
 	};
 

@@ -64,6 +64,19 @@ window.onload = function() {
 		// todo: populate information from server first? 
 		document.body.appendChild(window.keepUntilConnect);
 		delete window.keepUntilConnect;
+		
+		compatible.setEventCallback(document.getElementById("perfMode"), "change", function(ev) {
+			var how = this.selectedOptions[0].id;
+			if(how === "perfMode-HR") presentation.perfMode = "hashrate";
+			else presentation.perfMode = "itime";
+			var niceHR = presentation.refreshDevicePerf();			
+			var header = document.getElementById("perfMeasureHeader");
+			if(how === "perfMode-IT") header.textContent = "Hash time [ms]";
+			else {
+				header.innerHTML = "Hashrate [" + niceHR.prefix + "H/s]";
+			}
+		});
+		
 		window.request_system(minerMonitor, function(pdesc, pingTime) {
 			presentation.appendDevicePlatforms(pdesc, pingTime);
 			window.minerMonitor.requestSimple("algo?", function(reply, pingTime) {
@@ -104,6 +117,7 @@ window.onload = function() {
 					continue;
 				}
 				// ^ stupid, nonsensical way to say the device is not used so don't send us stats.
+				server.hw.linearDevice[loop].lastPerf = {};
 				var row = document.getElementById("configInfo").childNodes[active++];
 				var names = ["last", "min", "savg", "lavg", "max"];
 				var mapping = {};
@@ -116,7 +130,21 @@ window.onload = function() {
 				presentation.hashTimeCells.push(mapping);
 				request.devices.push(loop);
 			}
-			window.minerMonitor.requestStream(request, presentation.refreshIterationTime);
+			window.minerMonitor.requestStream(request, function(obj) {
+				presentation.refreshPerfHeaders(obj);
+				var consumed = 0;
+				for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
+					var device = server.hw.linearDevice[loop];
+					if(device.configIndex === undefined) continue;
+					var names = ["last", "min", "savg", "lavg", "max"];
+					for(var cp = 0; cp < names.length; cp++) {
+						var newValue = obj.measurements[consumed][names[cp]];
+						if(newValue !== undefined) device.lastPerf[names[cp]] = newValue;
+					}
+					presentation.refreshDevicePerf(device, server.config[device.linearIndex].hashCount);
+					consumed++;
+				}
+			});
 			
 			request = {
 				command: "deviceShares?",
@@ -140,12 +168,6 @@ window.onload = function() {
 				presentation.noncesCells.push(mapping);
 			}
 			window.minerMonitor.requestStream(request, presentation.refreshDeviceShareStats);
-			request = {
-				command: "profiler?",
-				what: [ "iterationTime" ]
-			};
-			window.minerMonitor.requestStream(request, presentation.refreshShareRateGraph);
-			presentation.makeCanvasGraph();
 		});
 	}
 };

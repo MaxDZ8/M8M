@@ -72,16 +72,32 @@ public:
 
 	void Send();
 
-	void EnqueueClose(CloseReason r, const aubyte *body, asizei byteCount);
+	//! The application here on this peer has requested to shut down.
+	//! To do this, we must wait until the client replies with the shutdown packet.
+	void EnqueueClose(CloseReason r);
 	void EnqueueTextMessage(const char *msg, asizei len);
+	void EnqueueTextMessage(const std::string &str) { EnqueueTextMessage(str.c_str(), str.length()); }
 
 	bool NeedsToSend() const;
-	bool Closed() const { return closeFrame.payload.size() != 0 && closeFrame.sent == closeFrame.payload.size(); }
+
+	enum WebSocketStatus {
+		wss_operational,
+		wss_waitingCloseReply,
+		wss_sendingCloseConfirm,
+		wss_closed
+	};
+	WebSocketStatus GetStatus() const;
 
 protected:
 	//! Mangle the data already in the frame. Called to produce the return value of both both Read() and Next().
 	virtual aubyte* FrameDataUpdated(asizei newData);
 	void SendPong(const aubyte *payload, asizei byteCount);
+
+	/*! Derived classes call this when they receive a close packet from the peer.
+	We might... or might not have to reply the reason depending on this being a close confirm or not.
+	Since I just have to reply with those bytes it sent me, I don't care about converting them.
+	\note Just pass the data here as received, with no ntohs or stuff */
+	void ClosePacketReceived(aushort reason);
 
 private:
 	Network::ConnectedSocketInterface &socket;
@@ -104,7 +120,11 @@ private:
 		ControlFrame() : sent(0) { }
 	} pong[2];
 	asizei nextPongSlot; //!< When requested to send a new pong, put the data here. You can use the same pong slot however if no data has been sent yet.
-	ControlFrame closeFrame;
+
+	struct CloseFrame : ControlFrame {
+		bool waitForReply, replyReceived;
+		CloseFrame() : waitForReply(false), replyReceived(false) { }
+	} closeFrame;
 };
 
 }

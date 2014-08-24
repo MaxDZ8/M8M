@@ -221,7 +221,7 @@ bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 void QubitMultistepOpenCL12::HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei setIndex, asizei resIndex) {
 	/* * * * * * * * * * * * */
 	//! \todo Implement qubit CPU-side hashing for validation.
-	throw std::string("TODO");
+	throw std::string("TODO: qubit hash validation not implemented yet. I cannot be bothered with it!");
 	/* * * * * * * * * * * * */
 }
 
@@ -358,6 +358,12 @@ asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &p
 
 	if(OpenCL12Wrapper::GetDeviceGroupInfo(plat, OpenCL12Wrapper::dgis_profile) != "FULL_PROFILE") badthing("full profile required");
 	if(dev.type.gpu == false) badthing("must be GPU");
+
+	const std::string extensions = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::dis_extensions);
+	const auint vid = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::diu_vendorID);
+	const std::string chip = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::dis_chip);
+	KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vid, chip.c_str(), extensions.c_str());
+	if(arch < KnownHardware::arch_gcn_first || arch > KnownHardware::arch_gcn_last) badthing("must be AMD GCN");
 
 	if(fail) return settings.size();
 

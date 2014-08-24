@@ -68,14 +68,17 @@ void Framer::Send() {
 }
 
 
-void Framer::EnqueueClose(CloseReason r, const aubyte *body, asizei byteCount) {
-	if(closeFrame.sent) throw std::exception("SendClose called twice, not gonna happen!");
+void Framer::EnqueueClose(CloseReason r) {
+	if(closeFrame.sent) return; // Only the first one means something if we started already.
 	aushort reason = static_cast<aushort>(r);
 	reason = htons(reason);
-	closeFrame.payload.resize(byteCount + 2);
-	memcpy_s(closeFrame.payload.data(), closeFrame.payload.size(), &reason, sizeof(reason));
-	memcpy_s(closeFrame.payload.data() + 2, closeFrame.payload.size() - 2, body, byteCount);
-	//! \note Produces a close frame always containing a close reason so always at least 2 bytes payload.
+	closeFrame.payload.resize(sizeof(reason) + 2);
+	const aubyte head = 0x88;
+	const aubyte pllen = 0x02;
+	memcpy_s(closeFrame.payload.data() + 0, closeFrame.payload.size() - 0, &head, sizeof(head));
+	memcpy_s(closeFrame.payload.data() + 1, closeFrame.payload.size() - 1, &pllen, sizeof(pllen));
+	memcpy_s(closeFrame.payload.data() + 2, closeFrame.payload.size() - 2, &reason, sizeof(reason));
+	closeFrame.waitForReply = true;
 }
 
 
@@ -129,6 +132,15 @@ bool Framer::NeedsToSend() const {
 	got |= pong[ponging].payload.size() != 0;
 	got |= outbound.size() != 0;
 	return got;
+}
+
+
+Framer::WebSocketStatus Framer::GetStatus() const {
+	if(closeFrame.payload.size() == 0) return wss_operational;
+	if(closeFrame.waitForReply) {
+		return closeFrame.replyReceived? wss_closed : wss_waitingCloseReply;
+	}
+	return closeFrame.sent == closeFrame.payload.size()? wss_closed : wss_sendingCloseConfirm;
 }
 
 
@@ -196,6 +208,18 @@ void Framer::SendPong(const aubyte *payload, asizei byteCount) {
 	store.payload.resize(byteCount);
 	memcpy_s(store.payload.data(), byteCount, payload, byteCount);
 	store.sent = 0;
+}
+
+
+void Framer::ClosePacketReceived(aushort reason) {
+	if(closeFrame.waitForReply) closeFrame.replyReceived = true;
+	else if(closeFrame.payload.size() == 0) { // then I have to reply...
+		closeFrame.payload.resize(sizeof(reason));
+		memcpy_s(closeFrame.payload.data(), closeFrame.payload.size(), &reason, sizeof(reason));
+		closeFrame.waitForReply = false; // default anyway
+	} else {
+		// ? I just ignore it
+	}
 }
 
 

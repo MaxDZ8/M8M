@@ -28,7 +28,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 		explicit WUSpecState() : hashesSoFar(0), creationTime(HPCLK::now()), iterations(0) { }
 	};
 
-	static void CheckResults(std::vector<auint> &shares, AbstractAlgoImplementation<MiningProcessorsProvider> &algo, const stratum::WorkUnit &wu, const AbstractWorkSource *owner, asizei setting, asizei slot) {
+	static void CheckResults(std::vector<auint> &shares, AbstractAlgoImplementation<MiningProcessorsProvider> &algo, const typename AbstractAlgoImplementation<MiningProcessorsProvider>::IterationStartInfo &wu, const AbstractWorkSource &owner, asizei setting, asizei slot) {
 		std::vector<auint> candidates;
 		candidates.reserve(shares.size());
 		std::array<aubyte, 128> header;
@@ -38,7 +38,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 			const auint lenonce = HTOLE(shares[test]);
 			memcpy_s(header.data() + 64 + 12, 128 - (64 + 12), &lenonce, sizeof(lenonce));
 			algo.HashHeader(hash, header, setting, slot);
-			const aulong diffone = 0xFFFF0000ull * owner->GetCoinDiffMul();
+			const aulong diffone = 0xFFFF0000ull * owner.GetCoinDiffMul();
 			aulong adjusted;
 			memcpy_s(&adjusted, sizeof(adjusted), hash.data() + 24, sizeof(adjusted));
 			if(LETOH(adjusted) <= diffone) candidates.push_back(lenonce); // could still be stale
@@ -61,10 +61,17 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 		HashStats(asizei size) : start(size), count(size) { }
 	};
 
+	struct OwnedWU {
+		const AbstractWorkSource &owner;
+		stratum::AbstractWorkUnit &wu;
+		auint &hashesSoFar;
+		OwnedWU(const AbstractWorkSource &aws, stratum::AbstractWorkUnit &swu, auint &nonce) : owner(aws), wu(swu), hashesSoFar(nonce) { }
+	};
+
 	//! Returns the number of wait events added to the list.
-    static asizei ProcessAI(AlgoMangling &mangle, WUSpecState &processing, HashStats &hash, WaitList &allWait, MPSamples &sampling, AsyncOutput &output) {
+    static asizei ProcessAI(AlgoMangling &mangle, OwnedWU &processing, HashStats &hash, WaitList &allWait, AsyncOutput &output) {
 		asizei waiting = 0;
-		stratum::WorkUnit foundWU;
+		AbstractAlgoImplementation<MiningProcessorsProvider>::IterationStartInfo foundWU;
 		std::vector<auint> foundNonces;
 		std::vector<cl_event> algoWait;
         if(mangle.algo.CanTakeInput(mangle.setting, mangle.res)) {
@@ -72,24 +79,23 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
             hash.start[mangle.setting][mangle.res] = HPCLK::now();
             hash.count[mangle.setting] = mangle.algo.BeginProcessing(mangle.setting, mangle.res, processing.wu, processing.hashesSoFar);
             processing.hashesSoFar += hash.count[mangle.setting];
-			if(processing.hashesSoFar <= prev) throw std::exception("nonce overflow, need to roll a new WU");
-			//! \todo Really implement this. It really happens!
+			if(processing.hashesSoFar <= prev) {
+				std::cout<<"**** Rolling nonce2: "<<processing.wu.nonce2<<" -> "<<processing.wu.nonce2 + 1<<" ****"<<std::endl;
+				asizei prev = processing.wu.nonce2;
+				processing.wu.nonce2++;
+				if(processing.wu.nonce2 <= prev) throw std::exception("nonce2 overflow... wait WHAT???");
+				processing.wu.MakeNoncedHeader();
+				processing.hashesSoFar = 0;
+			}
 		}
 		else if(mangle.algo.ResultsAvailable(foundWU, foundNonces, mangle.setting, mangle.res)) {
 			using namespace std::chrono;
 			HPTP resTime(HPCLK::now());
 			const microseconds took = duration_cast<microseconds>(resTime - hash.start[mangle.setting][mangle.res]);
-
-			if(sampling.sinceEpoch == seconds(0)) sampling.sinceEpoch = duration_cast<seconds>(hash.start[mangle.setting][mangle.res].time_since_epoch());
-			const HPTP sampleStartTime = HPTP(duration_cast<HPTP::duration>(sampling.sinceEpoch));
-			const microseconds toffset = duration_cast<microseconds>(hash.start[mangle.setting][mangle.res] - sampleStartTime);
-			auto clamp = [](aulong value) -> auint { return auint(value < auint(~0)? value : auint(~0)); };
-			sampling.Push(mangle.algo.GetDeviceIndex(mangle.setting, mangle.res), clamp(toffset.count()), clamp(took.count()));
-
             if(foundNonces.size()) {
                 Nonces result;
                 result.scanPeriod = took;
-				result.owner = processing.owner; //!< \todo Not strictcly true, two pools might have the same job ID... to be fixed by looking up previous WUs? Most likely I could just push the owner to BeginProcessing... maybe also a timestamp.
+				result.owner = &processing.owner; //!< \todo Not strictcly true, two pools might have the same job ID... to be fixed by looking up previous WUs? Most likely I could just push the owner to BeginProcessing... maybe also a timestamp.
 				result.job = foundWU.job;
 				result.nonce2 = foundWU.nonce2;
                 result.deviceIndex = mangle.algo.GetDeviceIndex(mangle.setting, mangle.res);
@@ -133,37 +139,28 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
         for(asizei init = 0; init < instances.size(); init++) hashStats.start[init].resize(instances[init].second);
         asizei numTasks = 0;
 		std::for_each(instances.cbegin(), instances.cend(), [&numTasks](std::pair<asizei, asizei> add) { numTasks += add.second; });
-		WUSpecState processing; // initially this was a vector and allowed to iterate on multiple pools. This is no more considered useful.
+		const AbstractWorkSource *owner = nullptr;
+		std::unique_ptr<stratum::AbstractWorkUnit> mangling;
 		asizei sinceLastCheck = 0;
 		bool checkNonces = true;
-		MPSamples sampling;
         cout<<"Miner thread completed initialization."<<endl; cout.flush();
+		auint testedNonces = 0;
 		try {
 			while(instances.size()) {
-				if(processing.owner == nullptr) {
-					// In those cases, there's nothing to do and I go to sleep till next check. Originally I used condition variables here but there's really little point in just having some polling.
-					bool nothing;
-					{
-						std::unique_lock<std::mutex> sync(input.beingUsed);
-						if(input.terminate) return;
-						nothing = input.work.owner == nullptr;
-					}
-					if(nothing) {
-						UpdateProfilerData(sampling);
-						sleepFunc(1000);
-						continue;
-					}
-				}
-				/* Either we already have something to do or there might be something new to do (which could eventually be sleeping).
-                That's not really different: it's just a matter of taking the work-unit the main thread gives us. */
-				{
+				if(true) { // maybe only lock every N iterations? Every 1 second?
 					std::unique_lock<std::mutex> sync(input.beingUsed);
 					if(input.terminate) return;
 					checkNonces = input.checkNonces;
-                    if(processing.owner != input.work.owner || processing.wu != input.work.wu) {
-                        processing.owner = input.work.owner;
-                        processing.wu = input.work.wu;
-                        if(processing.owner == nullptr) continue;
+					owner = input.owner;
+					if(input.wu) {
+						auint prevN2 = mangling? mangling->nonce2 : 0;
+						mangling = std::move(input.wu);
+						if(mangling->restart == false) mangling->nonce2 = prevN2;
+						mangling->MakeNoncedHeader();
+					}
+					if(owner == nullptr || mangling == nullptr) {
+						sleepFunc(1000);
+						continue;
 					}
 				}
                 /* Now I don't have to care about sync-ing anymore as as everything is in my private stack/pointers.
@@ -178,17 +175,17 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 				I give each algorithm a single chance to perform an action. Other actions will be delayed till next pass. */
 				std::vector<MiningProcessorsProvider::WaitEvent> allWait;
 				asizei waiting = 0;
+				OwnedWU processing(*owner, *mangling, testedNonces);
 				for(asizei setting = 0; setting < instances.size(); setting++) {
                     for(asizei res = 0; res < instances[setting].second; res++) {
                         AlgoMangling process(algo, setting, res, checkNonces);
-                        waiting += ProcessAI(process, processing, hashStats, allWait, sampling, output);
+                        waiting += ProcessAI(process, processing, hashStats, allWait, output);
 					}
 				}
 				if(waiting == numTasks)
 					clWaitForEvents(allWait.size(), allWait.data());
 				waiting = 0;
 				allWait.clear();
-				UpdateProfilerData(sampling);
 			}
 		} catch(std::exception ohno) {
 			//! \todo decide how to forward this info to the main thread.

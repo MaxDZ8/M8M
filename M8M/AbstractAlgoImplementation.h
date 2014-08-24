@@ -36,14 +36,20 @@ public:
     
 	/*! Call this to set new input data for a given concurrent algorithm. Calling this is a valid operation only if CanTakeInput(...) returned true.
 	This effectively works as a restart call for the given concurrent algorithm instance. */
-    virtual auint BeginProcessing(asizei setIndex, asizei resIndex, const stratum::WorkUnit &wu, auint prevHashes) = 0;
+    virtual auint BeginProcessing(asizei setIndex, asizei resIndex, const stratum::AbstractWorkUnit &wu, auint prevHashes) = 0;
+
+	struct IterationStartInfo {
+		std::string job;
+		auint nonce2;
+		std::array<aubyte, 128> header; //!< to support hash checking with ease
+	};
     
 	/*! Informs outer code some results are ready to be poured out really quick - no sync or expensive operations involved.
 	When this returns false, results are not available and might not be for two main reasons:
 	1- Algorithm requires multiple steps and only some of them have been executed.
 	2- The algorithm is really complete but it is not possible to produce the results by quickly copying them to the results buffer. 
 	The outer code can understand what to do according to the result of either GetWaitEvents or Dispatch(). */
-	virtual bool ResultsAvailable(stratum::WorkUnit &wu, std::vector<auint> &results, asizei setIndex, asizei resIndex) = 0;
+	virtual bool ResultsAvailable(IterationStartInfo &wu, std::vector<auint> &results, asizei setIndex, asizei resIndex) = 0;
     
 	/*! This is a valid call if ResultsAvailable returned false.
 	In general, if the specific algorithm instance has something to do, this will return 0 and add nothing to the list.

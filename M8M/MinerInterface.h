@@ -5,7 +5,7 @@
 #pragma once
 #include "../Common/AREN/ArenDataTypes.h"
 #include <string>
-#include "../Common/Stratum/WorkUnit.h"
+#include "../Common/Stratum/AbstractWorkUnit.h"
 #include "../Common/Settings.h"
 #include "../Common/AbstractWorkSource.h"
 #include <chrono>
@@ -71,8 +71,10 @@ public:
 
 	The only requirement by the calling code is to use algorithms compatible with the current mining process. 
 	\note It is calling code requirement to ensure WorkUnit::owner to have the same algorithm as the one being mined. This implies that if the code
-	dispatched wrong, it will get wrong nonces. The miner itself is not concerned with this. */
-	virtual void Mangle(const AbstractWorkSource &owner, const stratum::WorkUnit &wu) = 0;
+	dispatched wrong, it will get wrong nonces. The miner itself is not concerned with this. 
+	\note Initially, everything here was passed by value. This is no more the case to allow for flexible WU rolling. Takes ownership of the passed WU
+	and the external code should never use it again. */
+	virtual void Mangle(const AbstractWorkSource &owner, std::unique_ptr<stratum::AbstractWorkUnit> &wu) = 0;
 
 	/*! Returns the pool owner passed at last Mangle call, which could be nullptr. It might (or might not) be the pool being currently mined.
 	Implementations are encouraged in keeping the value returned here coherent with the mining thread as well but it is not required.

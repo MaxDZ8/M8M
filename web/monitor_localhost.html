@@ -15,7 +15,6 @@
 <script src="MinerMonitor.js"></script>
 <script src="presentation.js"></script>
 <script src="onload.js"></script>
-<script src="HRGraphPainter.js"></script>
 <body>
 <div id="initializing">
 	<progress id="waitHint">Please wait while connection is setup.</progress><br>
@@ -63,7 +62,7 @@
 							<th rowspan="2">Hash count</th>
 							<th rowspan="2">Memory usage</th>
 							<th rowspan="2">Card used</th>
-							<th class="divth" colspan="5">Hash time [ms]</th>
+							<th class="divth" colspan="5" id="perfMeasureHeader">Hash time [ms]</th>
 							<th class="divth" colspan="3">Nonces</th>
 						</tr>
 						<tr>
@@ -79,13 +78,12 @@
 					</thead>
 					<tbody id="configInfo"></tbody>
 				</table>
+				Performance as: <select id="perfMode">
+					<option selected id="perfMode-IT">Iteration time</option>
+					<option id="perfMode-HR">Hashrate</option>
+				</select>
 			</div>
-		</section><br>
-		<section class="monCategory" open>
-			<h2 class="monCategoryTitle">Performance graphs</h2>
-			<div id="computeStatus"></div>
 		</section>
-		<section id="temporarySillySectionDEVEL"></section>
 	</div>
 </div>
 </body>

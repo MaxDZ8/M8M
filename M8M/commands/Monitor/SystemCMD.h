@@ -87,7 +87,9 @@ public:
 				{
 					const auint vendor = OpenCL12Wrapper::GetDeviceInfo(device, OpenCL12Wrapper::diu_vendorID);
 					const std::string chipName(procs.GetDeviceInfo(device, procs.dis_chip));
-					const char *hw = KnownHardware::GetArchitecture(vendor, chipName.c_str());
+					const std::string extensions(procs.GetDeviceInfo(device, procs.dis_extensions));
+					KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vendor, chipName.c_str(), extensions.c_str());
+					const char *hw = KnownHardware::GetArchPresentationString(arch, false);
 					if(hw && strlen(hw)) add["arch"] = hw;
 				}
 				devices[dev] = add;

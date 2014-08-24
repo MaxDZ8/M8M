@@ -88,7 +88,6 @@ public:
 
 	enum ClientConnectionEvent {
 		cce_welcome, //!< sent as soon as TCP/IP connection completes - websocket handshake still going on
-		cce_closing, //!< client sent a close request. Return true to automatically append a close confirm.
 		cce_farewell //!< I just destroyed a socket.
 	};
 	std::function<bool(ClientConnectionEvent)> clientConnectionCallback;

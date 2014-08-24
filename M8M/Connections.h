@@ -17,7 +17,8 @@ separated in terms of responsabilities and management as it's really meant to on
 readability benefits. */
 class Connections {
 public:
-	typedef std::function<void(AbstractWorkSource &pool, const stratum::WorkUnit&)> DispatchCallback;
+	//! \note When this is called nobody owns ownership of the work unit, which is ready to generate header but not hashed yet!
+	typedef std::function<void(AbstractWorkSource &pool, stratum::AbstractWorkUnit*)> DispatchCallback;
 
 	Connections(Network &factory, std::vector< unique_ptr<PoolInfo> >::const_iterator &first, asizei count, DispatchCallback df)
 		: network(factory), routes(count), dispatchFunc(df) {

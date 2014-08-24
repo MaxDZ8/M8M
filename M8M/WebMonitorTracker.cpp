@@ -106,18 +106,14 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 	std::for_each(clients.begin(), clients.end(), [this](ClientState &client) {
 		if(client.initializer && client.initializer->Upgraded()) {
 			client.ws.reset(new ws::Connection(client.conn, true));
-			client.ws->closeRequestCallback = [this, &client]() -> bool {
-				if(this->clientConnectionCallback) return this->clientConnectionCallback(cce_closing);
-				return true;
-			};
 			client.initializer.reset();
 		}
 	});
-	// Last pick up new connections.
+	// Last pick up new connections (only if not shutting down).
 	auto newPeer = std::find(toRead.begin(), toRead.end(), landing);
 	if(newPeer != toRead.end()) {
 		auto &pipe(network.BeginConnection(*landing));
-		if(clients.size() >= MAX_MONITORS) network.CloseConnection(pipe); // or maybe I could not even allow it?
+		if(clients.size() >= MAX_MONITORS || shutdownInitiated != TimePoint()) network.CloseConnection(pipe); // or maybe I could not even allow it - I would keep getting waken up
 		else {
 			ScopedFuncCall destroy([&pipe, this]() { network.CloseConnection(pipe); });
 			std::unique_ptr<ws::HandShaker> init(new ws::HandShaker(pipe, "M8M-monitor", "monitor"));
@@ -132,7 +128,7 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 
 void WebMonitorTracker::FillSleepLists(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
 	if(!landing) return;  // it is always shut down after everything else so if that happens nothing is there for sure.
-	toRead.push_back(landing);
+	if(shutdownInitiated == TimePoint()) toRead.push_back(landing); // not going to accept this anymore if shutting down
 	std::for_each(clients.cbegin(), clients.cend(), [&toRead, &toWrite](const ClientState &ua) {
 		if(ua.initializer) {
 			if(ua.initializer->NeedsToSend()) toWrite.push_back(&ua.conn.get());
@@ -150,7 +146,7 @@ void WebMonitorTracker::Refresh(std::vector<Network::SocketInterface*> &toRead, 
 	if(!landing) return;
 	{ // First of all, no matter what, get the rid of all sockets which are closed: they would piss off our logic big way.
 		for(asizei loop = clients.size() - 1; loop < clients.size(); loop--) {
-			bool garbage = clients[loop].ws && clients[loop].ws->Closed();
+			bool garbage = clients[loop].ws && clients[loop].ws->GetStatus() == ws::Connection::wss_closed;
 			garbage |= clients[loop].conn.get().Works() == false;
 			if(garbage) {
 				for(asizei rem = 0; rem < pushing.size(); rem++) {
@@ -185,6 +181,37 @@ void WebMonitorTracker::Refresh(std::vector<Network::SocketInterface*> &toRead, 
 		});
 	}
 	else {
+		pushing.clear();
+		auto destroy = [this](asizei &index) {
+			clients[index].ws.reset();
+			network.CloseConnection(clients[index].conn);
+			clients.erase(clients.begin() + index);
+			index--;
+		};
+		for(asizei loop = 0; loop < clients.size(); loop++) {
+			ClientState &client(clients[loop]);
+			if(client.initializer) {
+				client.initializer.reset();
+				network.CloseConnection(client.conn);
+				clients.erase(clients.begin() + loop);
+				loop--;
+			}
+			else { // client.ws
+				switch(client.ws->GetStatus()) {
+				case ws::Connection::wss_operational: client.ws->EnqueueClose(ws::Connection::cr_away); break;
+				case ws::Connection::wss_closed: destroy(loop); break;
+				}
+			}
+		}
+		// We still have to send all the close requests and get their confirms...
+		NormalNetworkIO(toRead, toWrite); // not quite normal here!
+		// What if a push gets requested while we are shutting down?
+		// I should really sit down and write a serious protocol specification!
+
+		// Oh wait! Above we played nice. But if a peer is not nice to us, we are not nice to it and kill TCP conn.
+		if(shutdownInitiated < std::chrono::system_clock::now() - std::chrono::seconds(5)) {
+			for(asizei loop = clients.size() - 1; loop < clients.size(); loop--) destroy(loop);
+		}
 		if(clients.size() == 0) { // Now all the clients are gone, shut down the listening socket.
 			network.CloseServiceSocket(*landing);
 			landing = nullptr;

@@ -5,6 +5,7 @@
 #pragma once
 #include <CL/cl.h>
 #include <array>
+#include "KnownHardware.h"
 
 /*! OpenCL has a C++ wrapper but it's quite old in terms of revisions (4 years) so I roll my own.
 Hopefully this will make it self-documenting.
@@ -13,9 +14,11 @@ struct OpenCL12Wrapper {
     struct Device {
         cl_device_id clid; //!< \todo are those unique across different platforms? I'd have to re-read.
 		asizei linearIndex;
+		KnownHardware::Architecture architecture;
 		struct Type {
 			bool cpu, gpu, accelerator, /*custom,*/ defaultDevice;
 		} type;
+		Device() : clid(0), linearIndex(0), architecture(KnownHardware::arch_unknown) { }
 	};
     struct Platform {
         cl_platform_id clid;

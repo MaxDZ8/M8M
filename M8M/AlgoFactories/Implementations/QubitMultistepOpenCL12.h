@@ -8,6 +8,7 @@
 #include <iostream>
 #include "../../../Common/aes.h"
 #include <sstream>
+#include "../../KnownHardware.h"
 
 
 #define DEBUGBUFFER_SIZE 0 // (1024 * 1024) // 0 to disable
@@ -86,4 +87,5 @@ private:
 	asizei ChooseSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev, RejectReasonFunc callback);
 	void BuildDeviceResources(QubitMultiStep_Resources &target, cl_platform_id plat, cl_device_id dev, const QubitMultiStep_Options &opt);
 	QubitMultistepOpenCL12* NewDerived() const { return new QubitMultistepOpenCL12(PROFILING_ENABLED, errorCallback); }
+	void PutMidstate(aubyte *dst, const stratum::AbstractWorkUnit &wu) const { } //! \todo Qubit allows midstate, first iteration of luffa. Todo.
 };

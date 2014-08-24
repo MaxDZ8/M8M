@@ -13,6 +13,7 @@ var presentation = {
 	noteCells: [],
 	hashTimeCells: [], // one entry for each device, no matter if enabled or not, by linear index
 	noncesCells: [],
+	perfMode: "itime", // if "iteration time" show performance in milliseconds, else ("hashrate") show in khs/mhs/whatever
 	
 	showReplyTime: function(pings) {
 		document.getElementById("ping").textContent = Math.ceil(pings * 1000);
@@ -320,22 +321,58 @@ var presentation = {
 		}
 	},
 	
-	// note: commands --> update, streams --> refresh
-	refreshIterationTime : function(obj) {
-		if(obj.shortWindow) document.getElementById("shortWindow").textContent = obj.shortWindow;
-		if(obj.longWindow) document.getElementById("longWindow").textContent = obj.longWindow;
-		// the whole point here is that the request sends all enabled devices in order so no trouble		
-		var scan = 0;
-		for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
-			var dst = presentation.hashTimeCells[loop];
-			if(dst === null) continue; // not built so not used!
-			var t = obj.measurements[scan++];
-			var names = ["min", "max", "lavg", "savg", "last"];
-			for(var all = 0; all < names.length; all++) {
-				if(t[names[all]] === undefined) continue;
-				dst[names[all]].textContent = t[names[all]];
+	// To be called when first share has been found to update Avg window.
+	refreshPerfHeaders : function(obj) {
+		if(obj && obj.shortWindow) document.getElementById("shortWindow").textContent = obj.shortWindow;
+		if(obj && obj.longWindow) document.getElementById("longWindow").textContent = obj.longWindow;
+	},
+	
+	refreshDevicePerf : function() {
+		var niceHR;
+		var names = ["min", "max", "lavg", "savg", "last"];
+		for(var loop = 0; loop < server.hw.linearDevice.length; loop++) { // if not hashrate mode, just ignore
+			var check = server.hw.linearDevice[loop];
+			if(check.configIndex === undefined) continue;
+			
+			var slowest = check.lastPerf[names[0]];
+			for(var scan = 1; scan < names.legth; scan++) slowest = Math.max(slowest, check.lastPerf[names[scan]]);
+			var fit = presentation.niceHashrate(1000 / slowest * server.config[check.linearIndex].hashCount);
+			if(!niceHR || fit.divisor < niceHR.divisor) niceHR = fit;
+		}
+		
+		for(var d = 0; d < server.hw.linearDevice.length; d++) {
+			var device = server.hw.linearDevice[d];
+			var cells = this.hashTimeCells[device.linearIndex];
+			if(!cells) continue; // not built so not used!
+			var hashCount = server.config[device.configIndex].hashCount;
+			for(var loop = 0; loop < names.length; loop++) {
+				var t = device.lastPerf? device.lastPerf[names[loop]] : undefined;
+				var dst = cells[names[loop]];
+				if(t === undefined) dst.textContent = "...";
+				else if(this.perfMode === "itime") dst.textContent = t;
+				else {
+					var ips = 1000 / t;
+					if(loop < 2) dst = cells[names[(loop + 1) % 2]]; // min and max must be swapped
+					dst.textContent = Math.floor(hashCount * ips / niceHR.divisor);
+				}
 			}
 		}
+		return niceHR;
+	},
+	
+	// Policy to decide how to visualize an hashrate value. Returns an object prefix and divisor.
+	niceHashrate: function(value) {
+		var ret = {};
+		var prefix = [ "H", "K", "M", "G", "T", "P", "E", "Z", "Y" ];
+		var divisor = 1;
+		var loop;
+		for(loop = 0; loop < prefix.length && divisor < Math.floor(value / divisor) * divisor; loop++)
+			divisor *= 1000;
+		divisor /= 1000;
+		loop--;
+		ret.divisor = divisor;
+		ret.prefix = prefix[loop];
+		return ret;
 	},
 	
 	refreshDeviceShareStats: function(obj) {
@@ -347,37 +384,6 @@ var presentation = {
 				target[names[all]].textContent = obj[names[all]][loop];
 			}
 		}
-	},
-	
-	makeCanvasGraph: function() {
-		var canvas = document.createElement("canvas");
-		var canvasHeight = 256;
-		canvas = document.createElement("canvas");
-		canvas.id = "hashRateGraph";
-		canvas.height = canvasHeight;
-		var container = document.getElementById("computeStatus");
-		canvas.width = container.clientWidth - container.clientWidth % 256;
-		container.appendChild(canvas);
-		return canvas;
-	},
-	
-	refreshShareRateGraph: function(obj) {
-		if(obj.ignore) return;
-		var canvas = document.getElementById("hashRateGraph");
-		if(!presentation.hrPainter) presentation.hrPainter = new HRGraphPainter(canvas, server.hw.linearDevice);
-		presentation.hrPainter.appendData(obj);
-		/*
-		var add = document.getElementById("temporarySillySectionDEVEL");
-		var content = "sinceEpoch=" + obj.sinceEpoch + " --- " + (new Date(obj.sinceEpoch * 1000)) + "<br>";
-		content += "disp=" + obj.displacement + "<br>";
-		for(var loop = 0; loop < obj.device.length; loop++) {
-			content += "d"+obj.device[loop]+",r"+obj.relative[loop]+",it"+obj.iterationTime[loop];
-			if(loop % 2 == 0) content += " --- ";
-			else content += "<br>";
-		}
-		content += "<br><br><br>";
-		add.innerHTML += content;
-		*/
 	},
 	
 	imgFromCanvas: function(canvas) {

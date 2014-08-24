@@ -30,11 +30,10 @@ conflicts to pad gather phase. */
 #include "commands/Monitor/ConfigInfo.h"
 #include "commands/Monitor/ScanTime.h"
 #include "commands/Monitor/DeviceShares.h"
-#include "commands/Monitor/Profiler.h"
 
 #include "TimedValueStream.h"
 
-
+#include "../Common/AREN/SharedUtils/OSUniqueChecker.h"
 
 
 Connections* InstanceConnections(const Settings &settings, Network &manager, Connections::DispatchCallback df) {
@@ -135,11 +134,6 @@ void RegisterMonitorCommands(WebCommands &persist, WebMonitorTracker &mon, Abstr
 	SimpleCommand<ConfigInfoCMD>(persist, mon, miner);
 	SimpleCommand<ScanTime>(persist, mon, tracking);
 	SimpleCommand<DeviceShares>(persist, mon, tracking);
-	{
-		MiningProfilerInterface *profiler = dynamic_cast<MiningProfilerInterface*>(&miner);
-		if(profiler) SimpleCommand<Profiler>(persist, mon, *profiler);
-		else throw std::string("miner with no profiler, not currently supported"); // because I'd have to add a language query.
-	}
 }
 
 
@@ -227,6 +221,23 @@ int main(int argc, char **argv) {
 	handyOutputForDebugging.Enable();
 #endif
 
+	/* M8M is super spiffy and so minimalistic I often forgot it's already running.
+	Running multiple instances might make sense in the future (for example to mine different algos on different cards)
+	but it's not supported for the time being. Having multiple M8M instances doing the same thing will only cause driver work and GPU I$ to work extra hard. */
+	OSUniqueChecker onlyOne;
+	if(onlyOne.CanStart(L"M8M_unique_instance_systemwide_mutex") == false) {
+		const wchar_t *msg = L"It seems you forgot M8M is already running. Check out your notification area!\n"
+				                L"Running multiple instances is not a good idea in general and it's not currently supported.\n"
+								L"This program will now close.";
+		const wchar_t *title = L"Already running!";
+#if defined(_WIN32)
+		MessageBox(NULL, msg, title, MB_ICONINFORMATION | MB_SYSTEMMODAL | MB_SETFOREGROUND);
+#else
+#error Whoops! Tell the user to not do that!
+#endif
+		return 0;
+	}
+
 	unique_ptr<Settings> configuration;
 	try {
 		Network network;
@@ -239,7 +250,6 @@ int main(int argc, char **argv) {
 		webMonitor.clientConnectionCallback = [](WebMonitorTracker::ClientConnectionEvent ev) {
 			switch(ev) {
 			case WebMonitorTracker::cce_welcome: cout<<"--WS: New client connected."<<endl; break;
-			case WebMonitorTracker::cce_closing: cout<<"--WS: Client requested socket close."<<endl; break;
 			case WebMonitorTracker::cce_farewell: cout<<"--WS: A websocket has just been destroyed."<<endl; break;
 			}
 			return true;
@@ -271,11 +281,10 @@ int main(int argc, char **argv) {
 			while(processors->GetDeviceConfig(dummy, numDevices)) numDevices++;
 			stats.Resize(numDevices);
 		}
-		MiningProfilerInterface *profiler = dynamic_cast<MiningProfilerInterface*>(processors.get());
-
 		processors->Start();
-		auto dispatchNWU([&processors](AbstractWorkSource &pool, const stratum::WorkUnit &wu) {
-			processors->Mangle(pool, wu);
+		auto dispatchNWU([&processors](AbstractWorkSource &pool, stratum::AbstractWorkUnit *wu) {
+			std::unique_ptr<stratum::AbstractWorkUnit> own(wu);
+			processors->Mangle(pool, own);
 		});
 		bool showShareStats = false;
 		auto onShareResponse= [&showShareStats](bool ok) { showShareStats = true; };
@@ -283,7 +292,6 @@ int main(int argc, char **argv) {
 		asizei sinceActivity = 0;
 		std::vector<Network::SocketInterface*> toRead, toWrite;
 		while(!quit) {
-			if(profiler) profiler->Tick();
 			notify.Tick();
 			toRead.clear();
 			toWrite.clear();
