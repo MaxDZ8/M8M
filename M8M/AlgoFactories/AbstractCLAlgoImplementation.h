@@ -37,15 +37,26 @@ public:
 
 	/*! Now that SelectSettings put our devices in the correct configurations, generating resources is super easy! */
 	std::vector< std::pair<asizei, asizei> > GenResources(OpenCL12Wrapper::ComputeNodes &procs) {
-		auto getPlat = [&procs](const OpenCL12Wrapper::Device *dev) -> cl_platform_id {
-			auto p = std::find_if(procs.cbegin(), procs.cend(), [dev](const OpenCL12Wrapper::Platform &testp) {
-				for(asizei loop = 0; loop < testp.devices.size(); loop++) {
-					if(testp.devices[loop].clid == dev->clid) return true;
-				}
-				return false;
-			});
-			return p->clid;
+		auto getPlatIndex = [&procs](const OpenCL12Wrapper::Device *dev) -> asizei {
+            for(asizei loop = 0; loop < procs.size(); loop++) {
+                if(procs[loop].IsYours(*dev)) return loop;
+			}
+            return procs.size();
 		};
+        // This is always called from scratch so platContext is empty so we just create the contexts here
+        std::vector<cl_device_id> devices;
+        for(asizei loop = 0; loop < procs.size(); loop++) {
+	        cl_int error;
+			cl_context_properties platform[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(procs[loop].clid), 0, 0 }; // a single zero would suffice
+            devices.resize(procs[loop].devices.size());
+            for(asizei cp = 0; cp < devices.size(); cp++) devices[cp] = procs[loop].devices[cp].clid;
+	        cl_context ctx = clCreateContext(platform, devices.size(), devices.data(), errorCallback, NULL, &error);
+	        if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create context.";
+			ScopedFuncCall clear([ctx]() { clReleaseContext(ctx); });
+            platContext.push_back(ctx);
+            clear.Dont();
+		}
+
 		std::vector< std::pair<asizei, asizei> > ret;
 		for(asizei conf = 0; conf < settings.size(); conf++) {
 			if(settings[conf].algoInstances.size() == 0) continue;
@@ -53,7 +64,7 @@ public:
 			for(asizei dev = 0; dev < settings[conf].algoInstances.size(); dev++) {
 				AlgoInstance &inst(settings[conf].algoInstances[dev]);
 				ScopedFuncCall freeRes([&inst]() { inst.res.Free(); });
-				BuildDeviceResources(settings[conf].algoInstances.back().res, getPlat(inst.device), inst.device->clid, settings[conf].options);
+				BuildDeviceResources(inst.res, platContext[getPlatIndex(inst.device)], inst.device->clid, settings[conf].options);
 				ret.back().second++;
 				freeRes.Dont();
 			}
@@ -154,9 +165,15 @@ public:
 
 	asizei GetDeviceIndex(asizei setting, asizei instance) const { return settings[setting].algoInstances[instance].device->linearIndex; }
 
+	~AbstractCLAlgoImplementation() {
+        while(platContext.size()) {
+            clReleaseContext(platContext.back());
+            platContext.pop_back();
+		}
+	}
 
 protected:
-	AbstractCLAlgoImplementation(const char *name, const char *version) : AbstractAlgoImplementation(name, version) { }
+	AbstractCLAlgoImplementation(const char *name, const char *version, OpenCL12Wrapper::ErrorFunc errorCallback) : AbstractAlgoImplementation(name, version, errorCallback) { }
 
 	/*! Statically mangle the parameter set passed and pull out the values you understand. It's just as simple.
     Just parse it. Additional code around this will ensure the settings are unique, as long as the result is the same by operator==. */
@@ -167,7 +184,7 @@ protected:
 	}
 
 	//! Create a new set of device-specific resources according to the selected settings and store them in target.
-	virtual void BuildDeviceResources(Resources &target, cl_platform_id plat, cl_device_id dev, const Options &opt) = 0;
+	virtual void BuildDeviceResources(Resources &target, cl_context ctx, cl_device_id dev, const Options &opt) = 0;
 
 	//! Allocates an object of the derived class so this can copy inside its configs.
 	virtual AbstractCLAlgoImplementation<NUM_STEPS, Options, Resources>* NewDerived() const = 0;
@@ -219,4 +236,7 @@ protected:
 		AlgoGroup(const Options &opt) : options(opt) { }
 	};
 	std::vector<AlgoGroup> settings; //!< \todo Also contains state so this is quite a bad name.
+
+private:
+    std::vector<cl_context> platContext; //!< every platform gets a context with all the devices so clWaitForEvents is valid across all devices
 };

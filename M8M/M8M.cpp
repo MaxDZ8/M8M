@@ -95,6 +95,7 @@ struct TrackedValues : commands::monitor::ScanTime::DeviceTimeProviderInterface,
 			out.bad = shares[dl].bad;
 			out.good = shares[dl].good;
 			out.stale = shares[dl].stale;
+			out.lastResult = shares[dl].lastResult;
 		}
 		return dl < shares.size();
 	}
@@ -291,6 +292,7 @@ int main(int argc, char **argv) {
 		remote.reset(InstanceConnections(*configuration, network, dispatchNWU));
 		asizei sinceActivity = 0;
 		std::vector<Network::SocketInterface*> toRead, toWrite;
+		bool ignoreMinerTermination = false;
 		while(!quit) {
 			notify.Tick();
 			toRead.clear();
@@ -312,6 +314,7 @@ int main(int argc, char **argv) {
 				remote->Refresh(toRead, toWrite);
 				webMonitor.Refresh(toRead, toWrite);
 			}
+			std::string errorDesc;
 			std::vector<MinerInterface::Nonces> sharesFound;
 			if(processors->SharesFound(sharesFound)) {
 				std::cout.setf(std::ios::dec);
@@ -322,6 +325,7 @@ int main(int argc, char **argv) {
 				}
 				for(auto el = sharesFound.cbegin(); el != sharesFound.cend(); ++el) {
 					stats.shareTime[el->deviceIndex].Took(el->scanPeriod);
+					stats.shares[el->deviceIndex].lastResult = time(NULL); // seconds since epoch is fine.
 					stats.shares[el->deviceIndex].good += el->nonces.size();
 					stats.shares[el->deviceIndex].bad += el->bad;
 					stats.shares[el->deviceIndex].stale += el->stale;
@@ -356,6 +360,27 @@ int main(int argc, char **argv) {
 					remote->SendShares(*el);
 					showShareStats = true;
 				}
+			}
+			else if(!ignoreMinerTermination && processors->UnexpectedlyTerminated(errorDesc)) {
+				auto makeWide = [](const std::string &blah) -> std::wstring {
+					std::vector<wchar_t> chars(blah.length() + 1);
+					for(asizei cp = 0; cp < blah.length(); cp++) chars[cp] = blah[cp];
+					chars[blah.length()] = 0;
+					return std::wstring(chars.data());
+				};
+				std::wstring ohno(L"Something caused hashing to fail.");
+				if(errorDesc.empty()) ohno += L"\nIt seems to have failed big way, as I don't have any information on what happened!";
+				else ohno += L" Apparent cause seems to be:\n\"" + makeWide(errorDesc) + L'"';
+				ohno += L"\n\nPlease report this.";
+				ohno += L"\nI'm doing nothing now. No numbers are getting processed, you probably just want to restart this program.";
+				ohno += L"\nDo you want me to keep running (so you can check status)?";
+				const wchar_t *title = L"Ouch!";
+			#if defined(_WIN32)
+				if(IDNO == MessageBox(NULL, ohno.c_str(), title, MB_ICONERROR | MB_SYSTEMMODAL | MB_SETFOREGROUND | MB_YESNO)) return -1;
+			#else
+			#error Do something else very invasive.
+			#endif
+				ignoreMinerTermination = true;
 			}
 			if(showShareStats) {
 				remote->ShowStats();

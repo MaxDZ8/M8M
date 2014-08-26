@@ -13,7 +13,8 @@ class DeviceShares : public AbstractStreamingCommand {
 public:
 	struct ShareStats {
 		aulong good, bad, stale;
-		ShareStats() : good(0), bad(0), stale(0) { }
+		time_t lastResult;
+		ShareStats() : good(0), bad(0), stale(0), lastResult(0) { }
 	};
 	class ValueSourceInterface {
 	public:
@@ -32,7 +33,6 @@ private:
 	struct TrackedStats : public ShareStats {
 		asizei linearIndex;
 		bool operator==(const TrackedStats &other) const {
-			// mempcy would also suffice but not logically correct operation in C++
 			return other.linearIndex == linearIndex && other.good == good && other.bad == bad && other.stale == stale;
 		}
 		bool operator!=(const TrackedStats &other) const { return !(*this == other); }
@@ -41,8 +41,10 @@ private:
 	class Pusher : public AbstractInternalPush {
 		ValueSourceInterface &devices;
 		std::vector<TrackedStats> poll;
+		bool isRefresh;
+
 	public:
-		Pusher(ValueSourceInterface &getters) : devices(getters) { }
+		Pusher(ValueSourceInterface &getters) : devices(getters), isRefresh(false) { }
 		bool MyCommand(const std::string &signature) const { return strcmp(signature.c_str(), "deviceShares!") == 0; }
 		std::string GetPushName() const { return std::string("deviceShares!"); }
 		ReplyAction SetState(std::string &error, const Json::Value &input) {
@@ -69,22 +71,24 @@ private:
 			build["bad"] = Json::Value(Json::arrayValue);
 			build["stale"] = Json::Value(Json::arrayValue);
 			build["linearIndex"] = Json::Value(Json::arrayValue);
+			build["lastResult"] = Json::Value(Json::arrayValue);
 			Json::Value &good(build["good"]);
 			Json::Value &bad(build["bad"]);
 			Json::Value &stale(build["stale"]);
 			Json::Value &linearIndex(build["linearIndex"]);
-			TrackedStats zero;
+			Json::Value &lastResult(build["lastResult"]);
 			for(asizei loop = 0; loop < poll.size(); loop++) {
 				TrackedStats previously = poll[loop];
 				devices.GetDSS(poll[loop], poll[loop].linearIndex);
-				previously.linearIndex = poll[loop].linearIndex;
-				if(previously == poll[loop] && previously != zero) continue;
+				if(previously == poll[loop] && isRefresh) continue;
 				changes = true;
 				linearIndex[linearIndex.size()] = previously.linearIndex;
 				bad[bad.size()] = clamp(poll[loop].bad);
 				good[good.size()] = clamp(poll[loop].good);
 				stale[stale.size()] = clamp(poll[loop].stale);
+				lastResult[lastResult.size()] = clamp(poll[loop].lastResult);
 			}
+			isRefresh = true;
 			return changes;
 		}
 	};

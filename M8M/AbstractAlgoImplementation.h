@@ -11,9 +11,10 @@ class AbstractAlgoImplementation : public AlgoImplementationInterface {
     const char *name;
 	const char *version;
 public:
-	AbstractAlgoImplementation(const char *caseInsensitiveName, const char *presentationVersionString)
-		: name(caseInsensitiveName), version(presentationVersionString) { }
-	virtual ~AbstractAlgoImplementation() { }
+	typename MiningProcessorsProvider::ErrorFunc errorCallback;
+	AbstractAlgoImplementation(const char *caseInsensitiveName, const char *presentationVersionString, typename MiningProcessorsProvider::ErrorFunc f)
+		: name(caseInsensitiveName), version(presentationVersionString), errorCallback(f) { }
+	~AbstractAlgoImplementation() { }
     
 	bool AreYou(const char *name) const { return !_stricmp(name, this->name); }
 	std::string GetName() const { return std::string(name); }
@@ -25,7 +26,8 @@ public:
 	/* Probe all the available computing devices provided by the MiningProcessorProvider and figure out which set of parameters is more appropriate
 	for each device. After each device has been assigned to its settings, allocate the required resources.
 	\returns First element of the pair identifies the internal setting being used while the second is the number of concurrent algo instances
-	being run with those settings. Those values were really produced by SelectSettings. */
+	being run with those settings. Those values were really produced by SelectSettings.
+	\sa GetWaitEvents */
 	virtual std::vector< std::pair<asizei, asizei> > GenResources(typename MiningProcessorsProvider::ComputeNodes &procs) = 0;
 
 	//! Clear all the resources (but not the settings!) associated with this implementation, for all devices.
@@ -60,7 +62,10 @@ public:
 	encompass different algorithms) will be marked as ready. Therefore, it could be possible for an algorithm to be
 	spuriously woken up.
 	\note This function must be lightweight, a mere getter conceptually. All structures required to make it work must
-	be generated at the end of the last pass. */
+	be generated at the end of the last pass.
+	\note The miner thread will collect a single set of wait events. It is therefore necessary those events to be coherent and meaningful
+	as a whole. This does not make sense at this level of abstraction unfortunately: it's OpenCL stuff. Wait events to be in a single
+	wait call must come from the same context. */
     virtual auint GetWaitEvents(std::vector<typename MiningProcessorsProvider::WaitEvent> &list, asizei setIndex, asizei resIndex) const = 0;
 
     //! Try to advance the tasks one step. Implementations should try to not cause the thread to block.

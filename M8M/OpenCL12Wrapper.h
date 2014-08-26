@@ -70,6 +70,19 @@ struct OpenCL12Wrapper {
 			}
 			if(tried == 5) throw std::exception("Something fishy is going on with device enumeration!");
 		}
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+        asizei match = REPLICATE_CLDEVICE_LINEARINDEX;
+		asizei li = 0;
+		for(asizei loop = 0; loop < platforms.size(); loop++) li += platforms[loop].devices.size();
+        for(asizei loop = 0; loop < platforms.size(); loop++) {
+            if(match < platforms[loop].devices.size()) {
+                platforms[loop].devices.push_back(platforms[loop].devices[match]);
+				platforms[loop].devices.back().linearIndex = li++;
+                break;
+			}
+            match -= platforms[loop].devices.size();
+		}            
+#endif
 	}
 
 	std::pair<auint, auint> ExtractCLVersion(char *string) {

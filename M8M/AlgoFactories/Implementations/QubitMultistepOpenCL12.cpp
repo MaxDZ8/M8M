@@ -371,21 +371,17 @@ asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &p
 }
 
 
-void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add, cl_platform_id plat, cl_device_id use, const QubitMultiStep_Options &opt) {
+void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add, cl_context ctx, cl_device_id use, const QubitMultiStep_Options &opt) {
 	cl_int error;
-	cl_context_properties platform[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(plat), 0, 0 }; // a single zero would suffice
-	add.ctx = clCreateContext(platform, 1, &use, errorCallback, NULL, &error);
-	if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create context.";
-
 	cl_command_queue_properties cqprops = PROFILING_ENABLED? CL_QUEUE_PROFILING_ENABLE : 0;
-	add.commandq = clCreateCommandQueue(add.ctx, use, cqprops, &error);
+	add.commandq = clCreateCommandQueue(ctx, use, cqprops, &error);
 	if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create command queue.";
 
 	size_t byteCount = 128; // 80+32=112 used but be multiple of uint4 like D3D11
-	add.wuData = clCreateBuffer(add.ctx, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, byteCount, NULL, &error);
+	add.wuData = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, byteCount, NULL, &error);
 	if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create wuData buffer.";
 	byteCount = 5 * sizeof(cl_uint);
-	add.dispatchData = clCreateBuffer(add.ctx, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, byteCount, NULL, &error);
+	add.dispatchData = clCreateBuffer(ctx, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, byteCount, NULL, &error);
 	if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create dispatchData buffer.";
 
 	{
@@ -397,7 +393,7 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 		for(asizei i = 0; i < 256; i++) lut[3][i] = _rotl(lut[2][i], 8);
 
 		cl_int error;
-		add.aesLUTTables = clCreateBuffer(add.ctx, CL_MEM_HOST_NO_ACCESS | CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(lut), lut, &error);
+		add.aesLUTTables = clCreateBuffer(ctx, CL_MEM_HOST_NO_ACCESS | CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(lut), lut, &error);
 		if(error) throw std::exception("could not init AES LUT buffer.");
 	}
 	{
@@ -416,7 +412,7 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 			power = (power * base) % 257;
 		}
 		cl_int error;
-		add.alphaTable = clCreateBuffer(add.ctx, CL_MEM_HOST_NO_ACCESS | CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(alphaValue), alphaValue, &error);
+		add.alphaTable = clCreateBuffer(ctx, CL_MEM_HOST_NO_ACCESS | CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(alphaValue), alphaValue, &error);
 		if(error) throw std::exception("could not init AES LUT buffer.");
 	}
 	{
@@ -433,20 +429,20 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 		// but only in the "final" message expansion. So we need to do nothing more.
 		// For some reason the beta value table is called "yoff_b_n" in legacy kernels by lib-SPH... 
 		cl_int error;
-		add.betaTable = clCreateBuffer(add.ctx, CL_MEM_HOST_NO_ACCESS | CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(betaValue), betaValue, &error);
+		add.betaTable = clCreateBuffer(ctx, CL_MEM_HOST_NO_ACCESS | CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(betaValue), betaValue, &error);
 		if(error) throw std::exception("could not init AES LUT buffer.");
 
 	}
 
 	for(auint i = 0; i < add.io.size(); i++) {
-		add.io[i] = clCreateBuffer(add.ctx, CL_MEM_HOST_NO_ACCESS, opt.HashesPerDispatch() * 16 * sizeof(cl_uint), NULL, &error);
+		add.io[i] = clCreateBuffer(ctx, CL_MEM_HOST_NO_ACCESS, opt.HashesPerDispatch() * 16 * sizeof(cl_uint), NULL, &error);
 		if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create I/O buffer " + std::to_string(i) + ".";
 	}
-	add.nonces = clCreateBuffer(add.ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, (1 + opt.OptimisticNonceCountMatch()) * sizeof(cl_uint), NULL, &error);
+	add.nonces = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, (1 + opt.OptimisticNonceCountMatch()) * sizeof(cl_uint), NULL, &error);
 	if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to resulting nonces buffer.";
 
 #if DEBUGBUFFER_SIZE
-	add.debugBUFFER = clCreateBuffer(add.ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, DEBUGBUFFER_SIZE, NULL, &error);
+	add.debugBUFFER = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, DEBUGBUFFER_SIZE, NULL, &error);
 	if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to resulting debug buffer.";
 #endif
 
@@ -459,7 +455,7 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 		filename = "kernels/" + filename;
 		if(!LoadFile(src, srcLen, filename)) throw std::string("OpenCL code must be loaded and compiled explicitly, but \"") + filename + "\" cannot be found.";
 		const char *source = src.get();
-		add.program[pieces] = clCreateProgramWithSource(add.ctx, 1, &source, &srcLen, &error);
+		add.program[pieces] = clCreateProgramWithSource(ctx, 1, &source, &srcLen, &error);
 		if(!add.program[pieces] || error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clCreateProgramWithSource.";
 		const std::string defines(GetBuildOptions(opt, pieces));
 		error = clBuildProgram(add.program[pieces], 1, &use, defines.c_str(), NULL, NULL); // blocking build

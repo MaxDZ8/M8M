@@ -145,6 +145,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 		bool checkNonces = true;
         cout<<"Miner thread completed initialization."<<endl; cout.flush();
 		auint testedNonces = 0;
+		std::string exceptionDesc;
 		try {
 			while(instances.size()) {
 				if(true) { // maybe only lock every N iterations? Every 1 second?
@@ -179,20 +180,26 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 				for(asizei setting = 0; setting < instances.size(); setting++) {
                     for(asizei res = 0; res < instances[setting].second; res++) {
                         AlgoMangling process(algo, setting, res, checkNonces);
-                        waiting += ProcessAI(process, processing, hashStats, allWait, output);
+                        if(ProcessAI(process, processing, hashStats, allWait, output)) waiting++;
 					}
 				}
-				if(waiting == numTasks)
+				if(waiting == numTasks) {
 					clWaitForEvents(allWait.size(), allWait.data());
-				waiting = 0;
-				allWait.clear();
+				}
 			}
 		} catch(std::exception ohno) {
-			//! \todo decide how to forward this info to the main thread.
 			cout<<"Ouch!"<<ohno.what()<<endl; cout.flush();
+			exceptionDesc = ohno.what();
+		} catch(std::string ohno) {
+			cout<<"Ouch!"<<ohno<<endl; cout.flush();
+			exceptionDesc = std::move(ohno);
 		} catch(...) {
-			//! \todo decide how to forward this info to the main thread.
-			cout<<"Ouch!"<<endl; cout.flush();
+			cout<<"Ouch fatal error in miner thread processing, and I don't even know what it is!"<<endl; cout.flush();
+		}
+		if(exceptionDesc.length()) {
+			std::unique_lock<std::mutex> sync(input.beingUsed);
+			output.error.second = std::move(exceptionDesc);
+			output.error.first = true;
 		}
 		cout<<"Miner thread exiting!"<<endl; cout.flush();
 	}

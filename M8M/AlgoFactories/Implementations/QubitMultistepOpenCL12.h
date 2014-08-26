@@ -29,7 +29,6 @@ struct QubitMultiStep_Options {
 /*! Resource structures are used by the AbstractCLAlgoImplementation and the AbstractThreadedMiner as placeholders, handy structs to group stuff together.
 They DO NOT own the resources pointed - outer code does and provides proper RAII semantics. Those must be PODs. */
 struct QubitMultiStep_Resources {
-	cl_context ctx;
 	cl_command_queue commandq;
 	cl_mem wuData, dispatchData; //!< constant buffer input to various stages, input
 	std::array<cl_mem, 2> io; //!< 1st step takes from wuData, dispatchData, outputs to 0. N+1 step takes from N%2, outputs to (N+1)%2
@@ -58,7 +57,6 @@ struct QubitMultiStep_Resources {
 		if(dispatchData) clReleaseMemObject(dispatchData);
 		if(wuData) clReleaseMemObject(wuData);
 		if(commandq) clReleaseCommandQueue(commandq);
-		if(ctx) clReleaseContext(ctx);
 	}
 };
 
@@ -67,9 +65,8 @@ class QubitMultistepOpenCL12 : public AbstractCLAlgoImplementation<5, QubitMulti
 public:
 	const bool PROFILING_ENABLED;
 	const static auint MAX_CONCURRENCY;
-	OpenCL12Wrapper::ErrorFunc errorCallback;
 
-	QubitMultistepOpenCL12(bool profiling, OpenCL12Wrapper::ErrorFunc f = nullptr) : PROFILING_ENABLED(profiling), AbstractCLAlgoImplementation("fiveSteps", "1"), errorCallback(f) {	}
+	QubitMultistepOpenCL12(bool profiling, OpenCL12Wrapper::ErrorFunc f = nullptr) : PROFILING_ENABLED(profiling), AbstractCLAlgoImplementation("fiveSteps", "1", f) {	}
 	bool Dispatch(asizei setIndex, asizei slotIndex);
 	void HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei setIndex, asizei slotIndex);
 
@@ -85,7 +82,7 @@ private:
 	static std::string GetKernelName(const QubitMultiStep_Options &opt, auint index);
 	void Parse(QubitMultiStep_Options &opt, const std::vector<Settings::ImplParam> &params);
 	asizei ChooseSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev, RejectReasonFunc callback);
-	void BuildDeviceResources(QubitMultiStep_Resources &target, cl_platform_id plat, cl_device_id dev, const QubitMultiStep_Options &opt);
+	void BuildDeviceResources(QubitMultiStep_Resources &target, cl_context ctx, cl_device_id dev, const QubitMultiStep_Options &opt);
 	QubitMultistepOpenCL12* NewDerived() const { return new QubitMultistepOpenCL12(PROFILING_ENABLED, errorCallback); }
 	void PutMidstate(aubyte *dst, const stratum::AbstractWorkUnit &wu) const { } //! \todo Qubit allows midstate, first iteration of luffa. Todo.
 };

@@ -120,8 +120,10 @@ public:
 	everybody understands. If the device is mapped, then the returned array is empty. */
 	virtual std::vector<std::string> GetBadConfigReasons(asizei device) const = 0;
 
-	//!< \todo Getters are starting to pile up. It would be nice to refactor them out to another interface.
+	//! \todo Getters are starting to pile up. It would be nice to refactor them out to another interface.
 	virtual const AlgoImplementationInterface* GetAI(const char *family, const char *impl) const = 0;
 
-
+    //! If the mining operations get terminated for some reason without being requested, return true. Optionally pass a description.
+    //! Caller must assume this "consumes" the termination reason and further calls might return an empty string... or a different string.
+    virtual bool UnexpectedlyTerminated(std::string &desc) = 0;
 };

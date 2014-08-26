@@ -36,7 +36,11 @@ protected:
         std::mutex beingUsed;
         std::vector<Nonces> found;
         bool terminated; //!< Guaranteed to be set to true at thread exit... supposed it started in the first place, no deadlocks occur and thread is not terminated forcefully
-		explicit AsyncOutput() : terminated(false) { }
+        /*! If a thread is .terminated without having been requested to .terminate then it was an abnormal termination.
+        Those are to be carried out with care and might - or might not - be able to produce a descriptive error message.
+		On abnormal termination, set the string of this pair first. If this suceeeds, then set the bool to indicate validity. */
+        std::pair<bool, std::string> error;
+		explicit AsyncOutput() : terminated(false) { error.first = false; }
 	};
 
 	typedef std::function<void(typename AsyncInput &input, typename AsyncOutput &output, typename MiningProcessorsProvider::ComputeNodes procs)> MiningThreadFunc;
@@ -226,5 +230,14 @@ public:
 			}
 		}
 		return nullptr;
+	}
+    bool UnexpectedlyTerminated(std::string &desc) {
+        std::unique_lock<std::mutex> lockto(toMiner.beingUsed);
+        std::unique_lock<std::mutex> lockfrom(fromMiner.beingUsed);
+        if(toMiner.terminate == false && fromMiner.terminated) {
+            if(fromMiner.error.first) desc = std::move(fromMiner.error.second);
+            return true;
+		}
+        return false;        
 	}
 };
