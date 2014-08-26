@@ -9,11 +9,10 @@ They manipulate the DOM tree and respond to various messages from server.
 Mostly presentation. It comes handy to evolve state as well. */
 
 var presentation = {
-	configCells: [],
-	noteCells: [],
 	hashTimeCells: [], // one entry for each device, no matter if enabled or not, by linear index
 	noncesCells: [],
 	perfMode: "itime", // if "iteration time" show performance in milliseconds, else ("hashrate") show in khs/mhs/whatever
+	resultTimeElapsedRefresh: null,
 	
 	showReplyTime: function(pings) {
 		document.getElementById("ping").textContent = Math.ceil(pings * 1000);
@@ -23,8 +22,6 @@ var presentation = {
 		document.getElementById("M8M_API").textContent = pdesc.API;
 		var sysInfoCont = document.getElementById("sysInfoDevices");
 		var linearIndex = 0;
-		presentation.configCells = [];
-		presentation.noteCells = [];
 		for(var i = 0; i < pdesc.platforms.length; i++) {
 			var row = document.createElement("tr");
 			var cell = document.createElement("td");
@@ -83,8 +80,8 @@ var presentation = {
 				if(device.ldsType == "global") lds += "(emu)";
 			}
 			addCell(global + '<br>' + cache + '<br>' + lds);
-			presentation.configCells.push(addCell("..."));
-			presentation.noteCells.push(addCell("..."));
+			device.configCell = addCell("...");
+			device.noteCell = addCell("...");
 			addCell(device.linearIndex);
 			
 			function addCell(text) {
@@ -174,10 +171,10 @@ var presentation = {
 		var tbody = document.getElementById("sysInfoDevices");
 		var used = 0;
 		for(var loop = 0; loop < devConfs.length; loop++) {
-			var cell = presentation.configCells[loop];
-			if(devConfs[loop] === "off") cell.innerHTML = "Not used";
+			var dev = server.hw.linearDevice[loop];
+			if(devConfs[loop] === "off") dev.configCell.innerHTML = "Not used";
 			else {
-				cell.textContent = "Using [" + devConfs[loop] + ']';
+				dev.configCell.textContent = "Using [" + devConfs[loop] + ']';
 				used++;
 			}
 		}
@@ -193,25 +190,27 @@ var presentation = {
 				device.configIndex = devConfs[device.linearIndex];
 				
 				var separator = document.createTextNode(",");
-				presentation.configCells[take].appendChild(separator);
-				presentation.configCells[take].appendChild(document.createElement("br"));
-				presentation.configCells[take].appendChild(thumbs[take]);
+				
+				device.configCell.appendChild(separator);
+				device.configCell.appendChild(document.createElement("br"));
+				device.configCell.appendChild(thumbs[take]);
 				take++;				
 			}
 		}
 	},
 	
 	updateRejectElements: function(rejInfo) {
-		var cells = this.noteCells;
 		if(rejInfo.algo) {
 			for(var loop = 0; loop <  rejInfo.algo.length; loop++) {
-				if(rejInfo.algo[loop] === null) cells[loop].textContent = '\u2714';
+				var device = server.hw.linearDevice[loop];
+				if(rejInfo.algo[loop] === null) device.noteCell.textContent = '\u2714';
 				else {
-					cells[loop].textContent = "";
+					var put = "";
 					for(var inner = 0; inner < rejInfo.algo[loop].length; inner++) {
-						if(inner) cells[loop].textContent += ", ";
-						cells[loop].textContent += rejInfo.algo[loop][inner];
+						if(inner) put += "<br>";
+						put += rejInfo.algo[loop][inner];
 					}
+					device.noteCell.innerHTML = put;
 				}
 			}
 		}
@@ -308,6 +307,7 @@ var presentation = {
 			table.appendChild(section);			
 			div.appendChild(table);
 			div.appendChild(makeReportButton(index, div, "Close"));
+			makeMovable(div, index);
 			return div;
 			
 			function concat(arr) {
@@ -318,6 +318,33 @@ var presentation = {
 				}
 				return ret;
 			}
+			function extractPXMeasure(str) { return str.substr(0, str.length - 2); }
+			function makeMovable(div, index) { // Attach drag functionality
+				var reference = document.getElementById("miningStatus");
+				div.style.left = 10 * index + "px";
+				div.style.top  = 10 * index + reference.offsetTop + "px";
+				var moveState = {};
+				compatible.setEventCallback(div, "mousemove", function(event) {
+					if(event.target !== div) return;
+					if(!moveState.pushPoint) {
+						if(event.buttons === 1) moveState.pushPoint = [ event.clientX, event.clientY ];
+						return;
+					}
+					else if(event.buttons !== 1) {
+						moveState.pushPoint = undefined;
+						return;
+					}
+					var dx = event.clientX - moveState.pushPoint[0];
+					var dy = event.clientY - moveState.pushPoint[1];
+					var x = 1 * extractPXMeasure(div.style.left);
+					var y = 1 * extractPXMeasure(div.style.top );
+					div.style.left = (x + dx) + "px";
+					div.style.top  = (y + dy) + "px";
+					moveState.pushPoint = [ event.clientX, event.clientY ];
+				}, false);
+				compatible.setEventCallback(div, "mouseout", function(event) { moveState.pushPoint = undefined; }, false);
+			}
+		
 		}
 	},
 	
@@ -335,8 +362,15 @@ var presentation = {
 			if(check.configIndex === undefined) continue;
 			
 			var slowest = check.lastPerf[names[0]];
-			for(var scan = 1; scan < names.legth; scan++) slowest = Math.max(slowest, check.lastPerf[names[scan]]);
-			var fit = presentation.niceHashrate(1000 / slowest * server.config[check.linearIndex].hashCount);
+			if(slowest === undefined) slowest = 0;
+			for(var scan = 1; scan < names.legth; scan++) {
+				var candidate = check.lastPerf[names[scan]];
+				slowest = Math.max(slowest, candidate || 0);
+			}
+			var config = server.config[check.configIndex];
+			var fit;
+			if(slowest) fit = presentation.niceHashrate(1000 / slowest * config.hashCount);
+			else continue; // this device does not contribute to choosing a divisor
 			if(!niceHR || fit.divisor < niceHR.divisor) niceHR = fit;
 		}
 		
@@ -357,19 +391,21 @@ var presentation = {
 				}
 			}
 		}
-		return niceHR;
+		return niceHR? niceHR : presentation.niceHashrate(1);
 	},
 	
 	// Policy to decide how to visualize an hashrate value. Returns an object prefix and divisor.
 	niceHashrate: function(value) {
 		var ret = {};
-		var prefix = [ "H", "K", "M", "G", "T", "P", "E", "Z", "Y" ];
+		var prefix = [ "", "K", "M", "G", "T", "P", "E", "Z", "Y" ];
 		var divisor = 1;
 		var loop;
 		for(loop = 0; loop < prefix.length && divisor < Math.floor(value / divisor) * divisor; loop++)
 			divisor *= 1000;
-		divisor /= 1000;
-		loop--;
+		if(loop) {
+			divisor /= 1000;
+			loop--;
+		}
 		ret.divisor = divisor;
 		ret.prefix = prefix[loop];
 		return ret;
@@ -377,11 +413,59 @@ var presentation = {
 	
 	refreshDeviceShareStats: function(obj) {
 		for(var loop = 0; loop < obj.linearIndex.length; loop++) {
-			if(presentation.noncesCells[loop] === null) continue;
+			var target = presentation.noncesCells[obj.linearIndex[loop]];
+			if(target === null) continue;
 			var names = ["good", "bad", "stale"];
-			var target = presentation.noncesCells[loop];
 			for(var all = 0; all < names.length; all++) {
 				target[names[all]].textContent = obj[names[all]][loop];
+			}
+			var last = obj.lastResult[loop];  // seconds since epoch
+			server.hw.linearDevice[obj.linearIndex[loop]].lastResultSSE = last;
+		}
+	},
+	
+	refreshResultTimeElapsed: function() {
+		for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
+			if(presentation.noncesCells[loop] === null) continue;
+			var target = presentation.noncesCells[loop].lastResult;
+			if(target.childNodes.length === 0) {
+				// note: not the <time> element! That element must identify a specific date in gregorian calendar.
+				// I want to measure elapsed time instead, use something more generic
+				var wait = document.createElement("data");
+				compatible.modClass(wait, "elapsedTime", "add");
+				wait.textContent = "...";
+				target.appendChild(wait);
+			}
+				
+			if(server.hw.linearDevice[loop].lastResultSSE) {
+				var initial = Date.now() - server.hw.linearDevice[loop].lastResultSSE * 1000;
+				var elapsed = initial;
+				elapsed = Math.floor(elapsed / 1000);
+				var count = Math.floor(elapsed / (60 * 60));
+				var readable = "";
+				if(count) {
+					readable += count;
+					elapsed -= count * 60 * 60;
+				}
+				count = Math.floor(elapsed / 60);
+				if(count || readable.length) {
+					if(readable.length) {
+						readable += ":";
+						if(elapsed < 10) readable += "0";
+					}
+					readable += "" + count;
+					elapsed -= count * 60;
+				}
+				if(elapsed || readable.length) {
+					if(readable.length) {
+						readable += ":";
+						if(elapsed < 10) readable += "0";
+					}
+					readable += "" + elapsed;
+				}
+				else if(readable.length === 0) readable = "0";
+				target.firstChild.value = Math.floor(initial / 1000);
+				target.firstChild.textContent = readable;
 			}
 		}
 	},

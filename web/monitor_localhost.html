@@ -52,7 +52,7 @@
 				<strong>Hashing <span id="algo">algo?</span></strong> (<span id="implementation">impl?</span>, v<span id="implVersion">implVer?</span>)
 				on <span id="pool">pool?</span> (<span id="poolURL" class="interactivelyShown">url?</span>) as <span id="user">user?</span><br>
 				<table>
-					<caption>Settings and device mapping information</caption>
+					<caption>Settings and device information</caption>
 					<colgroup class="configStaticProps" span="3" />
 					<colgroup span="2" />
 					<colgroup class="minerThreadShareStats" span="3" />
@@ -61,8 +61,8 @@
 							<th rowspan="2">Configuration</th>
 							<th rowspan="2">Hash count</th>
 							<th rowspan="2">Memory usage</th>
-							<th rowspan="2">Card used</th>
-							<th class="divth" colspan="5" id="perfMeasureHeader">Hash time [ms]</th>
+							<th rowspan="2">Device used</th>
+							<th class="divth" colspan="5" id="perfMeasureHeader">Scan time [ms]</th>
 							<th class="divth" colspan="3">Nonces</th>
 						</tr>
 						<tr>
@@ -74,6 +74,7 @@
 							<th class="subth">Good</th>
 							<th class="subth">Bad!</th>
 							<th class="subth">Stale</th>
+							<th class="subth">Since last result</th>
 						</tr>
 					</thead>
 					<tbody id="configInfo"></tbody>

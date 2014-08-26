@@ -1,9 +1,14 @@
+
 /*
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
  
- .specificText {
+.specificText {
+	font-family: monospace;
+}
+
+.elapsedTime {
 	font-family: monospace;
 }
 
@@ -39,10 +44,13 @@
 }
 
 div.memoryReport {
+  background-color: white;
   position: absolute;
-  border: .25em outset rgb(0, 100, 150);
-  background-color: rgb(175, 230, 255);
-  padding: .5em;
+  border: .125em black solid;
+  border-top-width: 1em;
+  padding: 1.0em;
+  padding-top: .25em;
+  top: 10px;
 }
 
 

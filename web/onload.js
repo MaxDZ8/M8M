@@ -71,9 +71,9 @@ window.onload = function() {
 			else presentation.perfMode = "itime";
 			var niceHR = presentation.refreshDevicePerf();			
 			var header = document.getElementById("perfMeasureHeader");
-			if(how === "perfMode-IT") header.textContent = "Hash time [ms]";
+			if(how === "perfMode-IT") header.textContent = "Scan time [ms]";
 			else {
-				header.innerHTML = "Hashrate [" + niceHR.prefix + "H/s]";
+				header.textContent = "Hashrate [" + niceHR.prefix + "H/s]";
 			}
 		});
 		
@@ -131,6 +131,7 @@ window.onload = function() {
 				request.devices.push(loop);
 			}
 			window.minerMonitor.requestStream(request, function(obj) {
+				var how = presentation.perfMode;
 				presentation.refreshPerfHeaders(obj);
 				var consumed = 0;
 				for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
@@ -141,9 +142,13 @@ window.onload = function() {
 						var newValue = obj.measurements[consumed][names[cp]];
 						if(newValue !== undefined) device.lastPerf[names[cp]] = newValue;
 					}
-					presentation.refreshDevicePerf(device, server.config[device.linearIndex].hashCount);
+					presentation.refreshDevicePerf(device, server.config[device.configIndex].hashCount);
 					consumed++;
 				}
+				var niceHR = presentation.refreshDevicePerf();
+				var header = document.getElementById("perfMeasureHeader");
+				if(how === "itime") header.textContent = "Scan time [ms]";
+				else header.textContent = "Hashrate [" + niceHR.prefix + "H/s]";
 			});
 			
 			request = {
@@ -158,7 +163,7 @@ window.onload = function() {
 				}
 				request.devices.push(loop);
 				var row = document.getElementById("configInfo").childNodes[active++];
-				names = [ "good", "bad", "stale" ];
+				names = [ "good", "bad", "stale", "lastResult" ];
 				mapping = {};
 				for(var gen = 0; gen < names.length; gen++) {
 					var key = names[gen];
@@ -168,6 +173,10 @@ window.onload = function() {
 				presentation.noncesCells.push(mapping);
 			}
 			window.minerMonitor.requestStream(request, presentation.refreshDeviceShareStats);
+			
+			presentation.resultTimeElapsedRefresh = window.setInterval(function() {
+				presentation.refreshResultTimeElapsed();
+			}, 1000);
 		});
 	}
 };
