@@ -12,10 +12,6 @@
 	font-family: monospace;
 }
 
-.notSoImportant {
-	font-size: 75%;
-}
-
 
 .minerLogin {
 	/* or possibly wallet? */
@@ -43,14 +39,15 @@
 	font-size: 125%;
 }
 
-div.memoryReport {
+div.detailsBox {
   background-color: white;
-  position: absolute;
+  position: fixed;
   border: .125em black solid;
   border-top-width: 1em;
   padding: 1.0em;
   padding-top: .25em;
   top: 10px;
+  box-shadow: 3px 5px 1px 0px rgba(0, 0, 0, 0.50);
 }
 
 

@@ -49,32 +49,35 @@
 		<section class="monCategory">
 			<h2 class="monCategoryTitle">Mining status</h2>
 			<div id="miningStatus">
-				<strong>Hashing <span id="algo">algo?</span></strong> (<span id="implementation">impl?</span>, v<span id="implVersion">implVer?</span>)
-				on <span id="pool">pool?</span> (<span id="poolURL" class="interactivelyShown">url?</span>) as <span id="user">user?</span><br>
+				Hashing <span id="algo">algo?</span> @ <span id="totalHashrate">totHash?</span> <button id="algoDetails">Details</button><br>
+				Work to <span id="pool">pool?</span> <span id="poolAuthWarning"></span> <button id="poolDetails">Details</button><br>
+				Nonces accepted / sent (rejected%): <span id="poolNonceStats">none produced yet</span>
 				<table>
 					<caption>Settings and device information</caption>
 					<colgroup class="configStaticProps" span="3" />
-					<colgroup span="2" />
-					<colgroup class="minerThreadShareStats" span="3" />
+					<colgroup span="1" />
+					<colgroup span="5" />
+					<colgroup span="3" />
+					<colgroup span="1" />
 					<thead>
 						<tr>
-							<th rowspan="2">Configuration</th>
-							<th rowspan="2">Hash count</th>
-							<th rowspan="2">Memory usage</th>
-							<th rowspan="2">Device used</th>
+							<th rowspan="2" rowspan="2">Configuration</th>
+							<th rowspan="2" rowspan="2">Hash count</th>
+							<th rowspan="2" rowspan="2">Memory usage</th>
+							<th rowspan="2" rowspan="2">Device used</th>
 							<th class="divth" colspan="5" id="perfMeasureHeader">Scan time [ms]</th>
 							<th class="divth" colspan="3">Nonces</th>
+							<th rowspan="2">Since last result</th>
 						</tr>
 						<tr>
 							<th class="subth">Last</th>
+							<th class="subth">Avg<sub>s</sub></th>
+							<th class="subth">Avg<sub id="twindow">T</sub></th>
 							<th class="subth">Min</th>
-							<th class="subth">Avg<sub id="shortWindow">short</sub></th>
-							<th class="subth">Avg<sub id="longWindow">long</sub></th>
 							<th class="subth">Max</th>
 							<th class="subth">Good</th>
 							<th class="subth">Bad!</th>
 							<th class="subth">Stale</th>
-							<th class="subth">Since last result</th>
 						</tr>
 					</thead>
 					<tbody id="configInfo"></tbody>

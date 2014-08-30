@@ -3,7 +3,7 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
- 
+
 window.server = {
 	hw: {
 		platforms: [],
@@ -65,6 +65,8 @@ window.onload = function() {
 		document.body.appendChild(window.keepUntilConnect);
 		delete window.keepUntilConnect;
 		
+		document.getElementById("totalHashrate").textContent = "... H/s";
+		
 		compatible.setEventCallback(document.getElementById("perfMode"), "change", function(ev) {
 			var how = this.selectedOptions[0].id;
 			if(how === "perfMode-HR") presentation.perfMode = "hashrate";
@@ -82,14 +84,48 @@ window.onload = function() {
 			window.minerMonitor.requestSimple("algo?", function(reply, pingTime) {
 				presentation.updateMiningElements(reply, pingTime);
 				window.minerMonitor.requestSimple("currentPool?", function(poolinfo, pingTime) {
-					presentation.updatePoolElements(poolinfo, pingTime);
+					presentation.updatePoolElements(poolinfo);
+					
+					/*! \todo This will have to be moved a day so updatePoolElements will work on stored state instead! */
+					server.remote = {};
+					server.remote[poolinfo.name] = {};
+					server.remote[poolinfo.name].url = poolinfo.url;
+					server.remote[poolinfo.name].worker = [];
+					var w = server.remote[poolinfo.name].worker;
+					for(var init = 0; init < poolinfo.users.length; init++) {
+						var build = {};
+						build.sent = 0;
+						build.accepted = 0;
+						build.rejected = 0;
+						build.name = poolinfo.users[init].login;
+						w.push(build);
+					}
+					
 					window.minerMonitor.requestSimple("deviceConfig?", function(configInfo, pingTime) {
 						presentation.updateConfigElements(configInfo, pingTime);
 						window.minerMonitor.requestSimple("whyRejected?", function(rejInfo, pingTime) {
 							presentation.updateRejectElements(rejInfo, pingTime);
 							fillConfigTable();
 						});
-					})
+					});
+					
+					var cmd = {
+						command: "poolShares?",
+						enable: true,
+					};					
+					window.minerMonitor.requestStream(cmd, function(pinfo) {
+						for(var key in pinfo) {
+							if(key === "pushing") continue; // ugly, I should really figure out a better protocol
+							var src = pinfo[key];
+							var dst = window.server.remote[key];
+							for(var cp = 0; cp < src.sent.length; cp++) {
+								dst.worker[cp].sent = src.sent[cp];
+								dst.worker[cp].accepted = src.accepted[cp];
+								dst.worker[cp].rejected = src.rejected[cp];
+							}
+						}
+						presentation.refreshPoolWorkerStats();
+					});
 				});
 			});
 		});
@@ -119,7 +155,7 @@ window.onload = function() {
 				// ^ stupid, nonsensical way to say the device is not used so don't send us stats.
 				server.hw.linearDevice[loop].lastPerf = {};
 				var row = document.getElementById("configInfo").childNodes[active++];
-				var names = ["last", "min", "savg", "lavg", "max"];
+				var names = ["last", "min", "slrAvg", "slidingAvg", "max"];
 				var mapping = {};
 				for(var gen = 0; gen < names.length; gen++) {
 					var key = names[gen];
@@ -134,10 +170,10 @@ window.onload = function() {
 				var how = presentation.perfMode;
 				presentation.refreshPerfHeaders(obj);
 				var consumed = 0;
+				var names = ["last", "min", "slrAvg", "slidingAvg", "max"];
 				for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
 					var device = server.hw.linearDevice[loop];
 					if(device.configIndex === undefined) continue;
-					var names = ["last", "min", "savg", "lavg", "max"];
 					for(var cp = 0; cp < names.length; cp++) {
 						var newValue = obj.measurements[consumed][names[cp]];
 						if(newValue !== undefined) device.lastPerf[names[cp]] = newValue;

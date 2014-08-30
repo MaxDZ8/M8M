@@ -3,7 +3,7 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
- 
+
 function MinerMonitor(hostname, port, callbacks) {
 	if(!callbacks) callbacks = { };
 	var pendingReply = [];
@@ -47,8 +47,11 @@ function MinerMonitor(hostname, port, callbacks) {
 	
 	function service(message) {
 		if(message.data.substr(0, 2) == "!!") {
-			if(pendingReply.length) pendingReply.pop();
-			alert(message);
+			if(pendingReply.length) {
+				for(var back = 0; back < pendingReply.length - 1; back++) pendingReply[back] = pendingReply[back + 1];
+				pendingReply.pop();
+			}
+			return;
 		}
 		var object = JSON.parse(message.data);
 		if(object.pushing !== undefined) {

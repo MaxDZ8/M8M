@@ -3,7 +3,7 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
- /* This file contains various helper functions closely bound to HTML source.
+/* This file contains various helper functions closely bound to HTML source.
 They manipulate the DOM tree and respond to various messages from server. 
 ...
 Mostly presentation. It comes handy to evolve state as well. */
@@ -96,75 +96,118 @@ var presentation = {
 
 	updateMiningElements: function(reply) {
 		var algo = document.getElementById("algo");
+		var algoTitle = document.getElementById("algoTitle");
 		var impl = document.getElementById("implementation");
 		var version = document.getElementById("implVersion");
+		
+		if(!algoTitle) { // first time, generate
+			var div = document.createElement("div");
+			compatible.modClass(div, "detailsBox", "add");
+			div.style.display = "none";
+			div.style.zIndex = 10;
+			var string = "<h3>Algorithm details</h3>";
+			string += "<strong>Name:</strong> <span id='algoTitle'></span><br>";
+			string += "<strong>Implementation:</strong> <span id='implementation'></span><br>";
+			string += "<strong>Version signature:</strong> <span id='implVersion'></span><br>";
+			div.innerHTML = string;
+			document.getElementById("miningStatus").appendChild(div);
+			var shbutton = presentation.support.makeDetailShowHideButton(div, "Close");
+			compatible.setEventCallback(document.getElementById("algoDetails"), "click", function(click) {
+				presentation.support.showHideBTNFunc(this, div, click);
+			});
+			div.appendChild(shbutton);
+			presentation.support.makeMovable(div);
+			algoTitle = document.getElementById("algoTitle");
+			impl = document.getElementById("implementation");
+			version = document.getElementById("implVersion");
+		}
+		
 		if(!reply.algo) {
-			compatible.modClass([algo, impl, version], "hugeError", "add");
-			algo.textContent = "!! nothing !!";
+			compatible.modClass([algo, algoTitle, impl, version], "hugeError", "add");
+			algo.textContent = algoTitle.textContent = "!! nothing !!";
 			impl.textContent = "!! N/A !!";
 			version.textContent = "!! N/A !!";
 		}
 		else if(!reply.impl || !reply.version) { // in general, either both or none will be defined
-			compatible.modClass(algo, "hugeError", "remove");
+			compatible.modClass([algo, algoTitle], "hugeError", "remove");
 			compatible.modClass([impl, version], "hugeError", "add");
-			algo.innerHTML = reply.algo;
+			algo.innerHTML = algoTitle.innerHTML = reply.algo;
 			impl.textContent = "!! ??? !!";
 			version.textContent = "!! ??? !!"; // will likely never happen	
 		}
 		else {
-			compatible.modClass([algo, impl, version], "hugeError", "remove");
-			algo.innerHTML = reply.algo;
+			compatible.modClass([algo, algoTitle, impl, version], "hugeError", "remove");
+			algo.innerHTML = algoTitle.innerHTML = reply.algo;
 			impl.textContent = reply.impl;
 			version.textContent = reply.version;
 		}
 	},
 
 
-	updatePoolElements: function(object, pingTime) {
+	updatePoolElements: function(object) {
 		var pool = document.getElementById("pool");
+		var poolName = document.getElementById("poolName");
 		var purl = document.getElementById("poolURL");
 		var user = document.getElementById("user");
-		if(object.name === undefined) {
-			compatible.modClass([algo, impl, version], "hugeError", "add");
-			pool.textContent = "!! nothing !!";
-			purl.textContent = "!! N/A !!";
-			user.textContent = "!! N/A !!";		
-		}
-		else {
-			pool.textContent = object.name;
-			purl.textContent = object.url;
-			compatible.modClass(purl, ["notSoImportant"], "add");
-			if(object.users === undefined || object.users.length == 0) { // 0, undefined, all the same
-				compatible.modClass(user, "hugeError", "add");
-				user.textContent = "!! no workers found !!";
-			}
-			else {
-				while(user.lastChild) user.removeChild(user.lastChild);
-				var len = object.users.length;
-				for(var i = 0; i < len; i++) {
-					if(i) {
-						var separate = document.createTextNode();
-						separate.textContent = ", ";
-						user.appendChild(separate);
-					}
-					user.appendChild(describeWorker(object.users[i]));
-				}
-			}
+		var authStatus = document.getElementById("authStatus");
+		var authWarning = document.getElementById("poolAuthWarning");
+		
+		if(!poolName) { // first time, generate
+			var div = document.createElement("div");
+			compatible.modClass(div, "detailsBox", "add");
+			div.style.display = "none";
+			div.style.zIndex = 11;
+			var string = "<h3>Pool details</h3>";
+			string += "<strong>Name:</strong> <span id='poolName'></span><br>";
+			string += "<strong>URL:</strong> <span id='poolURL'></span><br>";
+			string += "<strong>Login:</strong> <span id='user'></span><br>";
+			string += "<strong>Authentication status:</strong> <span id='authStatus'></span><br>";
+			div.innerHTML = string;
+			document.getElementById("miningStatus").appendChild(div);
+			var shbutton = presentation.support.makeDetailShowHideButton(div, "Close");
+			compatible.setEventCallback(document.getElementById("poolDetails"), "click", function(click) {
+				presentation.support.showHideBTNFunc(this, div, click);
+			});
+			div.appendChild(shbutton);
+			presentation.support.makeMovable(div);
+			poolName = document.getElementById("poolName");
+			purl = document.getElementById("poolURL");
+			user = document.getElementById("user");
+			authStatus = document.getElementById("authStatus");
 		}
 		
-		function describeWorker(worker) {
-			var el = document.createElement("span");
-			compatible.modClass(el, ["specificText", "minerLogin"], "add");
-			el.textContent = worker.login;
-			if(!worker.authorized) {
-				compatible.modClass(el, "hugeError", "add");
-				var note = document.createElement("span");
-				compatible.modClass(note, "notSoImportant", "add"); // well, that's very important indeed but it's a less important detail of an huge error!
-				note.textContent = " (failed authorization)";
-				el.appendChild(note);
-			}
-			return el;		
+		pool.textContent = poolName.textContent = object.name;
+		purl.textContent = object.url;
+		if(object.users.length !== 1) {
+			var errormsg = "Multiple workers, not yet supported by client.";
+			alert(errormsg);
+			throw errormsg;
 		}
+		var refresh = false;
+		user.textContent = object.users[0].login;
+		switch(object.users[0].authorized) {
+		case false: 
+			authStatus.innerHTML = "<strong>failed</strong>";
+			authWarning.innerHTML = "<strong>failed authorization<strong>";
+			break;
+		case true:
+			authStatus.textContent = "authorized";
+			authWarning.textContent = "";
+			break;
+		case "pending":
+			authStatus.textContent = "pending";
+			authWarning.textContent = "(waiting for authorization)";
+			refresh = true;
+			break;
+		case "inferred":
+			authStatus.innerHTML = "<em>shares accepted</em>";
+			authWarning.textContent = "";
+			break;
+		case "open":
+			authStatus.innerHTML = "<em>not required</em>";
+			authWarning.textContent = "";
+		}
+		return refresh;
 	},
 	
 	updateConfigElements: function(devConfs) {
@@ -231,7 +274,7 @@ var presentation = {
 			server.config[conf].memReport = report;
 			server.config[conf].hashCount = cinfo[conf].hashCount;
 			mem.appendChild(document.createElement("br"));
-			mem.appendChild(makeReportButton(conf, report, "Details"));
+			mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
 			document.getElementById("miningStatus").appendChild(report);
 			
 			for(var d = 0; d < devices.length; d++) {
@@ -271,18 +314,9 @@ var presentation = {
 			for(var loop = 0; loop < values.length; loop++) total += values[loop].footprint;
 			return total;
 		}
-		function makeReportButton(index, div, desc) {
-			var btn = document.createElement("button");
-			btn.textContent = desc;
-			compatible.setEventCallback(btn, "click", function() {
-				if(div.style.display === "none") div.style.display = "block";
-				else div.style.display = "none";
-			});
-			return btn;
-		}
 		function makeMemoryReport(index, reslist) {
 			var div = document.createElement("div");
-			compatible.modClass(div, "memoryReport", "add");
+			compatible.modClass(div, "detailsBox", "add");
 			div.style.display = "none";
 			div.style.zIndex = index * 10 + 50;
 			div.innerHTML = "<h3>Memory usage estimation</h3>Due to driver policies, this is a <em>lower bound</em>.";			
@@ -306,8 +340,8 @@ var presentation = {
 			}
 			table.appendChild(section);			
 			div.appendChild(table);
-			div.appendChild(makeReportButton(index, div, "Close"));
-			makeMovable(div, index);
+			div.appendChild(presentation.support.makeDetailShowHideButton(div, "Close"));
+			presentation.support.makeMovable(div);
 			return div;
 			
 			function concat(arr) {
@@ -318,45 +352,17 @@ var presentation = {
 				}
 				return ret;
 			}
-			function extractPXMeasure(str) { return str.substr(0, str.length - 2); }
-			function makeMovable(div, index) { // Attach drag functionality
-				var reference = document.getElementById("miningStatus");
-				div.style.left = 10 * index + "px";
-				div.style.top  = 10 * index + reference.offsetTop + "px";
-				var moveState = {};
-				compatible.setEventCallback(div, "mousemove", function(event) {
-					if(event.target !== div) return;
-					if(!moveState.pushPoint) {
-						if(event.buttons === 1) moveState.pushPoint = [ event.clientX, event.clientY ];
-						return;
-					}
-					else if(event.buttons !== 1) {
-						moveState.pushPoint = undefined;
-						return;
-					}
-					var dx = event.clientX - moveState.pushPoint[0];
-					var dy = event.clientY - moveState.pushPoint[1];
-					var x = 1 * extractPXMeasure(div.style.left);
-					var y = 1 * extractPXMeasure(div.style.top );
-					div.style.left = (x + dx) + "px";
-					div.style.top  = (y + dy) + "px";
-					moveState.pushPoint = [ event.clientX, event.clientY ];
-				}, false);
-				compatible.setEventCallback(div, "mouseout", function(event) { moveState.pushPoint = undefined; }, false);
-			}
-		
 		}
 	},
 	
 	// To be called when first share has been found to update Avg window.
 	refreshPerfHeaders : function(obj) {
-		if(obj && obj.shortWindow) document.getElementById("shortWindow").textContent = obj.shortWindow;
-		if(obj && obj.longWindow) document.getElementById("longWindow").textContent = obj.longWindow;
+		if(obj && obj.twindow) document.getElementById("twindow").textContent = obj.twindow;
 	},
 	
 	refreshDevicePerf : function() {
 		var niceHR;
-		var names = ["min", "max", "lavg", "savg", "last"];
+		var names = ["min", "max", "last", "slrAvg", "slidingAvg"];
 		for(var loop = 0; loop < server.hw.linearDevice.length; loop++) { // if not hashrate mode, just ignore
 			var check = server.hw.linearDevice[loop];
 			if(check.configIndex === undefined) continue;
@@ -374,6 +380,7 @@ var presentation = {
 			if(!niceHR || fit.divisor < niceHR.divisor) niceHR = fit;
 		}
 		
+		var totalHR = 0;
 		for(var d = 0; d < server.hw.linearDevice.length; d++) {
 			var device = server.hw.linearDevice[d];
 			var cells = this.hashTimeCells[device.linearIndex];
@@ -382,30 +389,39 @@ var presentation = {
 			for(var loop = 0; loop < names.length; loop++) {
 				var t = device.lastPerf? device.lastPerf[names[loop]] : undefined;
 				var dst = cells[names[loop]];
-				if(t === undefined) dst.textContent = "...";
-				else if(this.perfMode === "itime") dst.textContent = t;
+				if(t === undefined) {
+					dst.textContent = "...";
+					continue;
+				}
+				var ips = 1000 / t;
+				if(names[loop] === "last") totalHR += hashCount * ips;
+				if(this.perfMode === "itime") dst.textContent = t;
 				else {
-					var ips = 1000 / t;
 					if(loop < 2) dst = cells[names[(loop + 1) % 2]]; // min and max must be swapped
 					dst.textContent = Math.floor(hashCount * ips / niceHR.divisor);
 				}
 			}
 		}
+		var big = presentation.niceHashrate(totalHR);
+		document.getElementById("totalHashrate").textContent = "" + Math.floor(totalHR / big.divisor) + " " + big.prefix + "H/s";
 		return niceHR? niceHR : presentation.niceHashrate(1);
 	},
 	
 	// Policy to decide how to visualize an hashrate value. Returns an object prefix and divisor.
-	niceHashrate: function(value) {
+	niceHashrate: function(accurate) {
 		var ret = {};
 		var prefix = [ "", "K", "M", "G", "T", "P", "E", "Z", "Y" ];
 		var divisor = 1;
-		var loop;
-		for(loop = 0; loop < prefix.length && divisor < Math.floor(value / divisor) * divisor; loop++)
+		var diff, loop = 0;
+		do {
+			var value = Math.floor(accurate / divisor);
+			diff = Math.abs(accurate - value);
 			divisor *= 1000;
-		if(loop) {
-			divisor /= 1000;
-			loop--;
-		}
+			loop++;
+			
+		} while(diff < accurate * .01);
+		divisor /= 1000;
+		loop--;
 		ret.divisor = divisor;
 		ret.prefix = prefix[loop];
 		return ret;
@@ -467,6 +483,85 @@ var presentation = {
 				target.firstChild.value = Math.floor(initial / 1000);
 				target.firstChild.textContent = readable;
 			}
+		}
+	},
+	
+	refreshPoolWorkerStats: function() {
+		var accepted = 0, rejected = 0, sent = 0;
+		for(var pi in server.remote) {
+			var pool = server.remote[pi];
+			for(var w = 0; w < pool.worker.length; w++) {
+				accepted += pool.worker[w].accepted;
+				rejected += pool.worker[w].rejected;
+				sent += pool.worker[w].sent;
+			}
+		}
+		if(sent === 0) return;
+		var string = "" + accepted + "/" + sent + " (";
+		string += Math.floor(rejected / sent * 1000) / 10 + "%)";
+		document.getElementById("poolNonceStats").textContent = string;
+	},
+	
+	support: {
+		extractPXMeasure: function(str) { return str.substr(0, str.length - 2); },
+		makeMovable: function(div) { // Attach drag functionality
+			/*! Ugly shit about browsers. Gecko has it right. It has a 'buttons' property being a bitmask of buttons pushed.
+			It seems recent IE also has it. CHROME NOT.
+			Ok, so the 'button' property, signal the index of the pressed button. Besides it can only signal a single button state, indices
+			start at 0 so there's no way to know if no button is pressed! WTF W3C !!!
+			No problem. There's .which. It's 0 if not pressed or 1+button. Firefox always sets this to 1 !!! 
+			So here we go for the ugly shit that follows: register mouseup and mousedown so we know what's down and what's not. */
+			var moveState = {};
+			compatible.setEventCallback(div, "mousedown", function(event) {
+				if(event.target !== div) return;
+				if(event.button === 0) moveState.pushPoint = [ event.clientX, event.clientY ];
+				console.log("set");
+			}, false);
+			compatible.setEventCallback(div, "mouseup", function(event) {
+				// don't miss up events in contained rects (+ or -), will leave dragging state off... fairly odd to see
+				if(event.target !== div && div.contains(event.target) === false) return;
+				if(event.button === 0) moveState.pushPoint = undefined;
+				console.log("clear");
+			}, false);
+			compatible.setEventCallback(div, "mousemove", function(event) {
+				if(!moveState.pushPoint) return;
+				if(event.target !== div) return;
+				var dx = event.clientX - moveState.pushPoint[0];
+				var dy = event.clientY - moveState.pushPoint[1];
+				console.log("drag");
+				var x = 1 * presentation.support.extractPXMeasure(div.style.left);
+				var y = 1 * presentation.support.extractPXMeasure(div.style.top );
+				div.style.left = (x + dx) + "px";
+				div.style.top  = (y + dy) + "px";
+				moveState.pushPoint = [ event.clientX, event.clientY ];
+			}, false);
+			// Is the above sufficient? Of course not! In theory if the dragging goes out of the rectangle (which is likely, as we
+			// move the rectangle AFTER the mouse moved) then we have to cancel dragging operation:
+			compatible.setEventCallback(div, "mouseleave", function(event) { 
+				if(event.target !== div) return;
+				moveState.pushPoint = undefined; 
+				console.log("clear");}, false);
+			// ^ this makes dragging slightly inconvenient: one might want to allow some pixels of tolerance and keep memory of the
+			// dragging operation. That's not so easy as we might click on the hide button after that.
+			// Mouse capture would probably be the right tool for the job here but it just doesn't seem worth the effort!
+		},
+		makeDetailShowHideButton: function(div, desc) {
+			var btn = document.createElement("button");
+			btn.textContent = desc;
+			compatible.setEventCallback(btn, "click", function(click) {
+				presentation.support.showHideBTNFunc(btn, div, click);
+			});
+			return btn;
+		},
+		showHideBTNFunc: function(btn, div, click) {
+			if(div.style.display === "none") {
+				div.style.display = "block"; // get sized bro!
+				if(div.style.top === "") {
+					div.style.top = (click.screenY - div.clientHeight) + "px";
+					div.style.left = "50px";
+				}
+			}
+			else div.style.display = "none";
 		}
 	},
 	
