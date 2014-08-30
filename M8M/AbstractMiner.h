@@ -136,11 +136,11 @@ public:
 		if(fam == algoFamilies.cend()) return nullptr; // likely because not yet set.
 		return fam->get()->name;
 	}
-	bool GetMiningAlgoImpInfo(std::string &name, std::string &version) const {
+	bool GetMiningAlgoImpInfo(std::string &name, aulong &verSignature) const {
 		const AbstractAlgoImplementation<MiningProcessorsProvider> *imp = GetMiningAlgoImp();
 		if(!imp) return false;
 		name = imp->GetName();
-		version = imp->GetVersion();
+		verSignature = imp->GetVersioningHash();
 		return true;
 	}
 

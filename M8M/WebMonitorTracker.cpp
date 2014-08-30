@@ -46,29 +46,36 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 			Json::Value object;
 			if(!parser.parse(begin, limit, object)) throw std::exception("Invalid JSON received.");
 			if(object["command"].isString() == false) throw std::exception("Not a command object.");
-			auto matched = commands.find(object["command"].asCString());
-			if(matched == commands.cend() && object["push"].isNull() == false) {
-				// Maybe some streamer can consume this?
-				auto pusher = std::find_if(pushing.begin(), pushing.end(), [skt](const PushList &test) { return test.source == skt; });
-				if(pusher == pushing.cend()) throw std::exception("Invalid command."); //!< \todo this is most definetely brittle!
-				using namespace commands;
-				bool processed = false;
-				for(asizei mangler = 0; mangler < pusher->active.size(); mangler++) {
-					std::string reply;
-					PushInterface::ReplyAction result = pusher->active[mangler]->Mangle(reply, object);
-					switch(result) {
-					case PushInterface::ra_delete: {
-						pusher->active.erase(pusher->active.begin() + mangler);
-						processed = true;
-						break;
-					}
-					case PushInterface::ra_consumed:
-						if(reply.length()) el->ws->EnqueueTextMessage(reply);
-						processed = true;
-					}
+			const std::string command(object["command"].asString());
+			auto matched = commands.find(command.c_str());
+			if(matched == commands.cend()) {
+				if(object["push"].isNull()) { // this must be a command, but we don't support this.
+					el->ws->EnqueueTextMessage(std::string("!!ERROR: unsupported command!!"));
+					continue;
 				}
-				if(processed) continue;
-				throw std::exception("Unmatched command, but no PUSH matched either!");
+				else {
+					// Maybe some streamer can consume this?
+					auto pusher = std::find_if(pushing.begin(), pushing.end(), [skt](const PushList &test) { return test.source == skt; });
+					if(pusher == pushing.cend()) throw std::exception("Invalid command."); //!< \todo this is most definetely brittle!
+					using namespace commands;
+					bool processed = false;
+					for(asizei mangler = 0; mangler < pusher->active.size(); mangler++) {
+						std::string reply;
+						PushInterface::ReplyAction result = pusher->active[mangler]->Mangle(reply, object);
+						switch(result) {
+						case PushInterface::ra_delete: {
+							pusher->active.erase(pusher->active.begin() + mangler);
+							processed = true;
+							break;
+						}
+						case PushInterface::ra_consumed:
+							if(reply.length()) el->ws->EnqueueTextMessage(reply);
+							processed = true;
+						}
+					}
+					if(processed) continue;
+					throw std::exception("Unmatched command, but no PUSH matched either!");
+				}
 			}
 			std::string reply;
 			std::unique_ptr<commands::PushInterface> stream(matched->second->Mangle(reply, object));
@@ -96,8 +103,8 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 		ClientState &client(clients[loop]);
 		auto r = std::find(toRead.begin(), toRead.end(), &client.conn.get());
 		auto w = std::find(toWrite.begin(), toWrite.end(), &client.conn.get());
-		if(r == toRead.end() && w == toWrite.end()) return;
-		if(client.ws) return; // this one is for HTTP->WS upgrade, already mangled above
+		if(r == toRead.end() && w == toWrite.end()) continue;
+		if(client.ws) continue; // this one is for HTTP->WS upgrade, already mangled above
 		else {
 			if(r != toRead.end()) client.initializer->Receive();
 			if(w != toWrite.end()) client.initializer->Send();

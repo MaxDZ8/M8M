@@ -251,7 +251,8 @@ asizei Framer::HeaderByteCount() const {
 	asizei sure = 1 + 1; // bits,opcode,   MASK,payload
 	if(server) sure += 4; // masking bits
 	if(plLen <= 125) return sure;
-	return sure + (plLen == 126? 2 : 8);
+	// plLen is not the payload length field! It's the decoded value so no compare to magic values 126/127 here
+	return sure + (plLen <= aushort(~0)? 2 : 8);
 }
 
 }

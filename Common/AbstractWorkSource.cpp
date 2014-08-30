@@ -77,12 +77,14 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
 				idvalue = strtoul(id.asCString(), NULL, 10);
 				break;
 			}
-			Json::Value &result(object["result"]);
-			Json::Value &error(object["error"]);
-			if(result.isNull() == false) MangleResponse(idvalue, result);
-			else if(error.isNull() == false) MangleError(idvalue, error);
-			else if(method.isString() && method.asCString()) MangleMessageFromServer(idstr, method.asCString(), object["params"]);
-
+			/* If you read the minimalistic documentation of stratum you get the idea you can trust on some things.
+			No, you don't. The only real thing you can do is figure out if something is a request from the server or a reply. */
+			if(method.isString()) {
+				if(method.asCString()) MangleMessageFromServer(idstr, method.asCString(), object["params"]);
+			}
+			else { // I consider it a reply. Then it has .result or .error... MAYBE. P2Pool for example sends .result=.error=null as AUTH replies to say it doesn't care about who's logging in!
+				MangleReplyFromServer(idvalue, object["result"], object["error"]);
+			}
 			pos = lastEndl + 1;
 		}
 	}
@@ -100,13 +102,6 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
 }
 
 
-const stratum::WorkUnit AbstractWorkSource::GenWorkUnit() {
-	if(stratum.RestartWork()) nonce2 = 0;
-	std::unique_ptr<stratum::WorkUnit> copy(stratum.GenWorkUnit(nonce2));
-	return *copy;
-}
-
-
 bool AbstractWorkSource::NeedsToSend() const {
 	return stratum.pending.size() != 0; // notice on construction this contains the subscription message
 }
@@ -115,7 +110,7 @@ bool AbstractWorkSource::NeedsToSend() const {
 aulong AbstractWorkSource::GetCoinDiffMul() const { return stratum.coinDiffMul; }
 
 
-void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, bool> > &list) const {
+void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, StratumState::AuthStatus> > &list) const {
 	const asizei prev = list.size();
 	list.resize(prev + stratum.GetNumWorkers());
 	for(asizei loop = 0; loop < list.size(); loop++) list[loop] = stratum.GetWorkerInfo(loop);
@@ -129,7 +124,7 @@ AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poo
 	stratumDump.open("stratumTraffic.txt");
 #endif
 	stratum.shareResponseCallback = [this](bool ok) {
-		if(ok) stats.shares.accepted++;
+		// if(ok) stats.shares.accepted++;
 		if(this->shareResponseCallback) this->shareResponseCallback(ok);
 	};
 }

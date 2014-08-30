@@ -12,7 +12,6 @@ conflicts to pad gather phase. */
 #include <string>
 #include <iostream>
 #include "Connections.h"
-#include "../Common/Exceptions.h"
 #include "../Common/Init.h"
 #include "AbstractThreadedMiner.h"
 #include "AlgoFactories/QubitCL12.h"
@@ -30,6 +29,7 @@ conflicts to pad gather phase. */
 #include "commands/Monitor/ConfigInfo.h"
 #include "commands/Monitor/ScanTime.h"
 #include "commands/Monitor/DeviceShares.h"
+#include "commands/Monitor/PoolShares.h"
 
 #include "TimedValueStream.h"
 
@@ -54,9 +54,12 @@ void _stdcall ErrorsToSTDOUT(const char *err, const void *priv, size_t privSz, v
 	cout.flush();
 }
 
-struct TrackedValues : commands::monitor::ScanTime::DeviceTimeProviderInterface, commands::monitor::DeviceShares::ValueSourceInterface {
+struct TrackedValues : commands::monitor::ScanTime::DeviceTimeProviderInterface, commands::monitor::DeviceShares::ValueSourceInterface, commands::monitor::PoolShares::ShareProviderInterface {
 	std::vector<TimedValueStream> shareTime;
 	std::vector<commands::monitor::DeviceShares::ShareStats> shares;
+	const Connections &servers;
+
+	TrackedValues(const Connections &src) : servers(src) { }
 
 	void Resize(asizei numDevices) {
 		shareTime.resize(numDevices);
@@ -72,22 +75,18 @@ struct TrackedValues : commands::monitor::ScanTime::DeviceTimeProviderInterface,
 		return devIndex < shareTime.size();
 	}
 
-	bool GetSTAvg(std::chrono::microseconds &shortAvg, std::chrono::microseconds &longAvg, asizei devIndex) const {
-		if(devIndex < shareTime.size()) {
-			shortAvg = shareTime[devIndex].GetShortAverage();
-			longAvg  = shareTime[devIndex].GetLongAverage();
-		}
+	bool GetSTSlidingAvg(std::chrono::microseconds &window, asizei devIndex) const {
+		if(devIndex < shareTime.size()) window = shareTime[devIndex].GetAverage();
 		return devIndex < shareTime.size();
 	}
 	
-	virtual bool GetSTLast(std::chrono::microseconds &last, asizei devIndex) const { 
-		if(devIndex < shareTime.size()) last = shareTime[devIndex].GetLast();
+	bool GetSTLast(std::chrono::microseconds &last, std::chrono::microseconds &avg, asizei devIndex) const {
+		if(devIndex < shareTime.size()) shareTime[devIndex].GetLast(last, avg);
 		return devIndex < shareTime.size();
 	}
 
-	void GetSTWindow(std::chrono::minutes &shortWindow, std::chrono::minutes &longWindow) const {
-		shortWindow = shareTime[0].GetShortWindow();
-		longWindow  = shareTime[0].GetLongWindow();
+	void GetSTWindow(std::chrono::minutes &sliding) const {
+		sliding = shareTime[0].GetWindow();
 	}
 	
 	bool GetDSS(commands::monitor::DeviceShares::ShareStats &out, asizei dl) {
@@ -99,6 +98,12 @@ struct TrackedValues : commands::monitor::ScanTime::DeviceTimeProviderInterface,
 		}
 		return dl < shares.size();
 	}
+
+	
+	asizei GetNumPools() const { return servers.GetNumServers(); }
+	std::string GetPoolName(asizei pool) const { return std::string(servers.GetServer(pool).name); }
+	asizei GetNumWorkers(asizei pool) const {  return servers.GetServer(pool).GetNumUsers(); }
+	StratumState::WorkerNonceStats GetWorkerStats(asizei pool, asizei worker) { return servers.GetServer(pool).GetUserShareStats(worker); }
 
 };
 
@@ -135,6 +140,7 @@ void RegisterMonitorCommands(WebCommands &persist, WebMonitorTracker &mon, Abstr
 	SimpleCommand<ConfigInfoCMD>(persist, mon, miner);
 	SimpleCommand<ScanTime>(persist, mon, tracking);
 	SimpleCommand<DeviceShares>(persist, mon, tracking);
+	SimpleCommand<PoolShares>(persist, mon, tracking);
 }
 
 
@@ -267,10 +273,24 @@ int main(int argc, char **argv) {
 		notify.BuildMenu();
 		notify.Tick();
 
-		TrackedValues stats;
 		bool firstShare = true;
 		WebCommands parsers;
-		std::unique_ptr<MinerInterface> processors(InstanceProcessingNodes(parsers, *configuration, webMonitor, remote, stats));
+		std::unique_ptr<MinerInterface> processors;
+		auto dispatchNWU([&processors](AbstractWorkSource &pool, stratum::AbstractWorkUnit *wu) {
+			std::unique_ptr<stratum::AbstractWorkUnit> own(wu);
+			processors->Mangle(pool, own);
+		});
+		auto onAllWorkersFailedAuth = []() {
+			const wchar_t *title = L"No workers authorized!";
+			const wchar_t *msg = L"Looks like no worker can successfully login to server.\n"
+				L"This implies I can do nothing. I'll keep running so you can check the stats and config file.";
+			MessageBox(NULL, msg, title, MB_ICONERROR);
+		};
+		remote.reset(InstanceConnections(*configuration, network, dispatchNWU));
+		remote->SetNoAuthorizedWorkerCallback(onAllWorkersFailedAuth);
+		TrackedValues stats(*remote);
+		processors.reset(InstanceProcessingNodes(parsers, *configuration, webMonitor, remote, stats));
+
 		ScopedFuncCall forceParserGoodbye([&parsers]() { parsers.clear(); }); // they must go away before the API wrapper bites the dust.
 		if(!processors->SetCurrentAlgo(configuration->algo.c_str(), configuration->impl.c_str())) {
 			throw std::string("Algorithm \"") + configuration->algo + '.' + configuration->impl + ", not found.";
@@ -283,13 +303,8 @@ int main(int argc, char **argv) {
 			stats.Resize(numDevices);
 		}
 		processors->Start();
-		auto dispatchNWU([&processors](AbstractWorkSource &pool, stratum::AbstractWorkUnit *wu) {
-			std::unique_ptr<stratum::AbstractWorkUnit> own(wu);
-			processors->Mangle(pool, own);
-		});
 		bool showShareStats = false;
 		auto onShareResponse= [&showShareStats](bool ok) { showShareStats = true; };
-		remote.reset(InstanceConnections(*configuration, network, dispatchNWU));
 		asizei sinceActivity = 0;
 		std::vector<Network::SocketInterface*> toRead, toWrite;
 		bool ignoreMinerTermination = false;
@@ -324,7 +339,7 @@ int main(int argc, char **argv) {
 					notify.ShowMessage(L"Found my first share!\nNumbers are being crunched as expected.");
 				}
 				for(auto el = sharesFound.cbegin(); el != sharesFound.cend(); ++el) {
-					stats.shareTime[el->deviceIndex].Took(el->scanPeriod);
+					stats.shareTime[el->deviceIndex].Took(el->scanPeriod, el->avgSLR);
 					stats.shares[el->deviceIndex].lastResult = time(NULL); // seconds since epoch is fine.
 					stats.shares[el->deviceIndex].good += el->nonces.size();
 					stats.shares[el->deviceIndex].bad += el->bad;
@@ -335,16 +350,18 @@ int main(int argc, char **argv) {
 						std::cout<<"Share time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
 					}
 					{
-						adouble took = stats.shareTime[el->deviceIndex].GetShortAverage().count() / 1000000.0;
+						std::chrono::microseconds inst, avg;
+						stats.shareTime[el->deviceIndex].GetLast(inst, avg);
+						adouble took = avg.count() / 1000000.0;
 						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0; // this does not make any sense.
 						// ^ I should be tracking the number of hashes instead but it's still something.
 						// ^ as long intensity is constant, this is correct anyway
-						std::cout<<"Average time (short) = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+						std::cout<<"Average time (since last) = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
 					}
 					{
-						adouble took = stats.shareTime[el->deviceIndex].GetLongAverage().count() / 1000000.0;
+						adouble took = stats.shareTime[el->deviceIndex].GetAverage().count() / 1000000.0;
 						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;
-						std::cout<<"Average time (long) = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
+						std::cout<<"Average time (sliding window) = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
 					}
 					{
 						adouble took = stats.shareTime[el->deviceIndex].GetMin().count() / 1000000.0;
@@ -357,7 +374,9 @@ int main(int argc, char **argv) {
 						std::cout<<"Max time = "<<took<<" ( "<<auint(rate)<<" kh/s )"<<std::endl;
 					}
 					std::cout<<"Shares found: "<<el->nonces.size()<<", bad: "<<el->bad<<", stale: "<<el->stale<<std::endl;
-					remote->SendShares(*el);
+					asizei count = el->nonces.size();
+					asizei sent = remote->SendShares(*el);
+					stats.shares[el->deviceIndex].stale += count - sent;
 					showShareStats = true;
 				}
 			}
@@ -383,7 +402,17 @@ int main(int argc, char **argv) {
 				ignoreMinerTermination = true;
 			}
 			if(showShareStats) {
-				remote->ShowStats();
+				for(asizei p = 0; p < remote->GetNumServers(); p++) {
+					const AbstractWorkSource &server(remote->GetServer(p));
+					asizei sent = 0, rejected = 0, accepted= 0;
+					for(asizei w = 0; w < server.GetNumUsers(); w++) {
+						StratumState::WorkerNonceStats stat(server.GetUserShareStats(w));
+						sent += stat.sent;
+						rejected += stat.rejected;
+						accepted += stat.accepted;
+					}
+					cout<<"pool \""<<server.name<<"\" sent accepted rejected "<<sent<<' '<<accepted<<' '<<rejected<<endl;
+				}
 				showShareStats = false;
 			}
 		}
@@ -395,12 +424,7 @@ int main(int argc, char **argv) {
 		///////////if(FLAGS_errorBox) MessageBoxA(NULL, msg.what(), "M8M - Fatal error", MB_OK);
 		if(true) MessageBoxA(NULL, msg.what(), "M8M - Fatal error", MB_OK);
 		else std::cout<<msg.what();
-	} catch(Exception *msg) {
-		///////////if(FLAGS_errorBox) MessageBoxA(NULL, "numbered exception (deprecated)", "M8M - Fatal error", MB_OK);
-		if(true) MessageBoxA(NULL, "numbered exception (deprecated)", "M8M - Fatal error", MB_OK);
-		else std::cout<<"numbered exception (deprecated)";
-		delete msg;
-	}  
+	}
 
 	return 0;
 }

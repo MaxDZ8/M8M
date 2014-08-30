@@ -49,56 +49,37 @@ StratumState::StratumState(const char *presentation, aulong diffOneMul, PoolInfo
 }
 
 
-stratum::WorkUnit* StratumState::GenWorkUnit(auint nonce2) const {
+stratum::AbstractWorkUnit* StratumState::GenWorkUnit() const {
 	// First step is to generate the coin base, which is a function of the nonce and the block.
+	const auint nonce2 = 0; // not really used anymore. We always generate starting from (0,0) now.
 	if(sizeof(nonce2) != subscription.extraNonceTwoSZ)  throw std::exception("nonce2 size mismatch");
 	if(difficulty <= 0.0) throw std::exception("I need to check out this to work with diff 0");
-	const asizei takes = block.coinBaseOne.size() + subscription.extraNonceOne.size() + subscription.extraNonceTwoSZ + block.coinBaseTwo.size();
-	std::vector<aubyte> coinbase(takes);
-	{
-		asizei off = 0;
-		memcpy_s(coinbase.data() + off, takes - off, block.coinBaseOne.data(), block.coinBaseOne.size());					off += block.coinBaseOne.size();
-		memcpy_s(coinbase.data() + off, takes - off, subscription.extraNonceOne.data(), subscription.extraNonceOne.size());	off += subscription.extraNonceOne.size();
-		memcpy_s(coinbase.data() + off, takes - off, &nonce2, sizeof(nonce2));												off += sizeof(nonce2);
-		memcpy_s(coinbase.data() + off, takes - off, block.coinBaseTwo.data(), block.coinBaseTwo.size());
-	}
-	// Then we have the merkle root, we left it blank in the header.
-	std::array<aubyte, 32> merkleRoot;
+	
+	// The difficulty parameter here should always be non-zero. In some other cases instead it will be 0, 
+	// in that case, produce the difficulty value by the work target string. We check it above anyway but worth a note.
+	stratum::WUJobInfo wuJob(subscription.extraNonceOne, block.job);
+	stratum::WUDifficulty wuDiff(difficulty, btc::MakeTargetBits(difficulty, adouble(coinDiffMul)));
+	std::unique_ptr<stratum::AbstractWorkUnit> retwu;
 	switch(merkleMode) {
-	case PoolInfo::mm_SHA256D: btc::SHA256Based(merkleRoot, coinbase.data(), coinbase.size()); break;
-	case PoolInfo::mm_singleSHA256: {
-		using hashing::BTCSHA256;
-		BTCSHA256 hasher(BTCSHA256(coinbase.data(), coinbase.size()));
-		hasher.GetHash(merkleRoot);
-		break;
-	}
+	case PoolInfo::mm_SHA256D: retwu.reset(new stratum::DoubleSHA2WorkUnit(wuJob, block.ntime, wuDiff, blankHeader)); break;
+	case PoolInfo::mm_singleSHA256: retwu.reset(new stratum::SingleSHA2WorkUnit(wuJob, block.ntime, wuDiff, blankHeader)); break;
 	default:
 		throw std::exception("Code out of sync. Unknown merkle mode.");
 	}
-	std::array<aubyte, 64> merkleSHA;
-	std::copy(merkleRoot.cbegin(), merkleRoot.cend(), merkleSHA.begin());
-	for(asizei loop = 0; loop < block.merkles.size(); loop++) {
-		auto &sign(block.merkles[loop].hash);
-		std::copy(sign.cbegin(), sign.cend(), merkleSHA.begin() + 32);
-		btc::SHA256Based(DestinationStream(merkleRoot.data(), sizeof(merkleRoot)), merkleSHA);
-		std::copy(merkleRoot.cbegin(), merkleRoot.cend(), merkleSHA.begin());
-	}
-	btc::FlipIntegerBytes<8>(merkleRoot.data(), merkleSHA.data());
+	const asizei takes = block.coinBaseOne.size() + subscription.extraNonceOne.size() + subscription.extraNonceTwoSZ + block.coinBaseTwo.size();
+	retwu->coinbase.binary.resize(takes);
+	asizei off = 0;
+	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, block.coinBaseOne.data(), block.coinBaseOne.size());						off += block.coinBaseOne.size();
+	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, subscription.extraNonceOne.data(), subscription.extraNonceOne.size());	off += subscription.extraNonceOne.size();
+	retwu->coinbase.nonceTwoOff = off;
+	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, &nonce2, sizeof(nonce2));												off += sizeof(nonce2);
+	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, block.coinBaseTwo.data(), block.coinBaseTwo.size());
 
-	std::array<aubyte, 128> signature;
-	aubyte *header = signature.data();
-	memcpy_s(header, 128, blankHeader.data(), sizeof(blankHeader));
-	header += merkleOffset;
-	memcpy_s(header, 128 - merkleOffset, merkleRoot.data(), sizeof(merkleRoot));
-
-	// The difficulty parameter here should always be non-zero. In some other cases instead it will be 0, 
-	// in that case, produce the difficulty value by the work target string.
-	stratum::WorkUnit *ret = new stratum::WorkUnit(
-		stratum::WUJobInfo(subscription.extraNonceOne, block.job),
-		block.ntime,
-		stratum::WUDifficulty(difficulty, btc::MakeTargetBits(difficulty, adouble(coinDiffMul))),
-		signature, nonce2);
-	return ret;
+	retwu->coinbase.merkles.resize(block.merkles.size());
+	for(asizei cp = 0; cp < block.merkles.size(); cp++) retwu->coinbase.merkles[cp] = block.merkles[cp];
+	retwu->coinbase.merkleOff = merkleOffset;
+	retwu->restart = block.clear;
+	return retwu.release();
 }
 
 
@@ -125,18 +106,17 @@ bool StratumState::IsWorker(const char *name) const {
 }
 
 
-std::pair<bool, bool> StratumState::CanSendWork(const char *name) const {
+StratumState::AuthStatus StratumState::GetAuthenticationStatus(const char *name) const {
 	auto match(std::find_if(workers.cbegin(), workers.cend(), [name](const Worker &test) { return test.name == name; }));
-	if(match == workers.cend()) return std::make_pair(false, false);
-	bool reply = match->authorized != 0;
-	return std::make_pair(reply, reply? match->canWork : false);
+	if(match == workers.cend()) return as_failed;
+	return match->authStatus;
 }
 
 
 void StratumState::SendWork(auint ntime, auint nonce2, auint nonce) {
 	const char *user = workers[0].name.c_str(); //!< \todo quick hack to match, should be tracked by worker!
-	auto worker(std::find_if(workers.cbegin(), workers.cend(), [user](const Worker &test) { return test.name == user; }));
-	if(worker == workers.cend()) return; //!< \todo maybe I should pop an error here
+	auto worker(std::find_if(workers.begin(), workers.end(), [user](const Worker &test) { return test.name == user; }));
+	if(worker == workers.end()) return; //!< \todo maybe I should pop an error here
 
 	const char *sep = "\", \"";
 	std::stringstream params;
@@ -148,8 +128,12 @@ void StratumState::SendWork(auint ntime, auint nonce2, auint nonce) {
 	const std::string message(params.str());
 	size_t used = PushMethod("mining.submit", KeyValue("params", message, false));
 	ScopedFuncCall popMsg([this]() { this->pending.pop(); });
+	submittedWork.insert(std::make_pair(used, &(*worker)));
+	ScopedFuncCall popSubmitted([this, used]() { this->submittedWork.erase(used); });
 	pendingRequests.insert(std::make_pair(used, "mining.submit"));
 	popMsg.Dont();
+	popSubmitted.Dont();
+	worker->nonces.sent++;
 }
 
 
@@ -166,20 +150,36 @@ const char* StratumState::Response(size_t id) const {
 
 
 void StratumState::Response(asizei id, const stratum::MiningAuthorizeResponse &msg) {
-	if(msg.authorized == false) {
-		throw std::exception("Worker failed authorization, check your config file, this is not tolerated!");
-	}
 	auto w(std::find_if(workers.begin(), workers.end(), [id](const Worker &test) { return test.id == id; }));
-	if(w != workers.end()) {
-		if(w->authorized == 0) w->authorized = time(NULL);
-		w->canWork = true;
+	if(w == workers.end()) return; // impossible
+	if(w->authorized == 0) w->authorized = time(NULL);
+	if(msg.authorized == msg.ar_bad) w->authStatus = as_failed;
+	else if(msg.authorized == msg.ar_notRequired) w->authStatus = as_notRequired;
+	else if(msg.authorized == msg.ar_pass) w->authStatus = as_accepted;
+	if(msg.authorized == false) {
+		asizei failed = 0;
+		for(asizei loop = 0; loop < workers.size(); loop++) {
+			if(workers[loop].authorized) {
+				AuthStatus s = workers[loop].authStatus;
+				if(s == as_failed) failed++;
+			}
+		}
+		if(failed == workers.size() && allWorkersFailedAuthCallback) allWorkersFailedAuthCallback();
 	}
-	else throw std::exception("authorization response unmatched worker, not supposed to happen");
-	// glitch? coincidence? Is that fatal? Most likely just won't happen.
 }
 
 
 void StratumState::Response(asizei id, const stratum::MiningSubmitResponse &msg) {
+	ScopedFuncCall erase([id, this]() { submittedWork.erase(id); });
+	auto w = submittedWork.find(id);
+	if(w != submittedWork.end()) { // always happens... but if not, just consider NOP
+		if(msg.accepted) w->second->nonces.accepted++;
+		else w->second->nonces.rejected++;
+		if(w->second->authorized == 0) {
+			w->second->authorized = time(NULL);
+			w->second->authStatus = as_inferred;
+		}
+	}
 	if(shareResponseCallback) shareResponseCallback(msg.accepted);
 }
 
@@ -212,4 +212,13 @@ void StratumState::Notify(const stratum::MiningNotify &msg) {
 	block = msg;
 	blankHeader = newHeader;
 	dataTimestamp = time(NULL);
+}
+
+
+void StratumState::RequestReplyReceived(asizei id, bool error) {
+	ScopedFuncCall clear([this, id]() { pendingRequests.erase(pendingRequests.find(id)); });
+	if(error) {
+		ScopedFuncCall inc([this]() { this->errorCount++; });
+		if(std::string(Response(id)) == "mining.submit") Response(id, stratum::MiningSubmitResponse(false));
+	}
 }

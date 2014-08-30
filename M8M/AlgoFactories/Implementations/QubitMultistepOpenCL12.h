@@ -85,4 +85,5 @@ private:
 	void BuildDeviceResources(QubitMultiStep_Resources &target, cl_context ctx, cl_device_id dev, const QubitMultiStep_Options &opt);
 	QubitMultistepOpenCL12* NewDerived() const { return new QubitMultistepOpenCL12(PROFILING_ENABLED, errorCallback); }
 	void PutMidstate(aubyte *dst, const stratum::AbstractWorkUnit &wu) const { } //! \todo Qubit allows midstate, first iteration of luffa. Todo.
+	std::string CustomVersioningStrings() const;
 };

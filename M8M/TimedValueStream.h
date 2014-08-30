@@ -19,42 +19,38 @@ class TimedValueStream {
 public:
 	typedef std::chrono::system_clock::time_point TimePoint; //!< used to mark when I got a new stat
 	
-	TimedValueStream(auint windowDuration = 5, aushort longTerm = 6)
-		: tshort(windowDuration), tlong(windowDuration * longTerm), longest(0) {
+	TimedValueStream(auint windowDuration = 15)
+		: tavg(windowDuration), longest(0) {
 		TimePoint epoch(std::chrono::system_clock::from_time_t(time_t(0)));
 		auto longTime = std::chrono::system_clock::now() - epoch;
 		shortest = std::chrono::duration_cast<std::chrono::microseconds>(longTime);
 	}
 
-	void Took(const std::chrono::microseconds &t) {
+	void Took(const std::chrono::microseconds &t, const std::chrono::microseconds &avg) {
 		Sample add;
 		add.received = std::chrono::system_clock::now();
 		add.took = t;
-		Sample old;
-		if(Push(old, shortw, add, tshort)) Push(old, longw, old, tlong);
+		add.avgIterationTime = avg;
+		Push(add, tavg);
 		if(t > longest) longest = t;
 		if(t < shortest) shortest = t;
 
 	}
-	std::chrono::microseconds GetLast() const { 
-		if(shortw.sample.size() == 0) return std::chrono::microseconds(0);
-		asizei last = shortw.old - 1;
-		last %= shortw.sample.size();
-		return std::chrono::microseconds(shortw.sample[last].took); 
+	void GetLast(std::chrono::microseconds &instant, std::chrono::microseconds &avgslr) const { 
+		if(sliding.sample.size() == 0) {
+			std::chrono::microseconds zero(0);
+			instant = avgslr = zero;
+		}
+		else {
+			asizei last = sliding.old - 1;
+			last %= sliding.sample.size();
+			instant = sliding.sample[last].took; 
+			avgslr = sliding.sample[last].avgIterationTime;
+		}
 	}
-	std::chrono::microseconds GetShortAverage() const {
-		if(!shortw.len) std::chrono::microseconds(0);
-		return std::chrono::microseconds(aulong(Average(shortw.sample)));
-	}
-	std::chrono::microseconds GetLongAverage() const {
-		if(!longw.len) return GetShortAverage();
-		const double early = Average(shortw.sample);
-		const double late = Average(longw.sample);
-		const asizei both = shortw.sample.size() + longw.sample.size();
-		double wearly = double(shortw.sample.size()) / double(both);
-		double wlate = double(longw.sample.size()) / double(both);
-		double avg = early * wearly + late * wlate;
-		return std::chrono::microseconds(aulong(avg));
+	std::chrono::microseconds GetAverage() const {
+		if(!sliding.len) std::chrono::microseconds(0);
+		return std::chrono::microseconds(aulong(Average(sliding.sample)));
 	}
 
 	void ResetMinmax() {
@@ -64,19 +60,19 @@ public:
 		shortest = std::chrono::duration_cast<std::chrono::microseconds>(longTime);
 	}
 
-	std::chrono::microseconds GetMin() const { return shortw.len? shortest : std::chrono::microseconds(0); }
+	std::chrono::microseconds GetMin() const { return sliding.len? shortest : std::chrono::microseconds(0); }
 	std::chrono::microseconds GetMax() const { return longest; }
 
-	std::chrono::minutes GetShortWindow() const { return tshort; }
-	std::chrono::minutes GetLongWindow() const { return tlong; }
+	std::chrono::minutes GetWindow() const { return tavg; }
 
 private:
-	std::chrono::minutes tshort, tlong; //!< initially const. Does it make sense to allow them to be changed dynamically?
+	std::chrono::minutes tavg; //!< initially const. Does it make sense to allow them to be changed dynamically?
 	std::chrono::microseconds shortest, longest;
 
 	struct Sample {
 		TimePoint received;
 		std::chrono::microseconds took;
+		std::chrono::microseconds avgIterationTime;
 	};
 	/*! Samples get put there as soon as they are received. Old samples get pulled out if they exceed the 5-min time window. */
 	struct SlidingWindow {
@@ -85,17 +81,17 @@ private:
 		SlidingWindow() : old(0), len(0) { }
 		Sample& Oldest() { return sample[old]; }
 		void ResetOld(const Sample &val) { sample[old++] = val;    old %= sample.size(); }
-	} shortw, longw;
+	} sliding;
 
 	//! Does really work only for positive durations.
-	static bool Push(Sample &out, SlidingWindow &sliding, const Sample &last, const std::chrono::seconds &maxAge) {
+	bool Push(const Sample &last, const std::chrono::seconds &maxAge) {
 		if(!sliding.sample.size()) {
 			sliding.sample.push_back(last);
 			sliding.len++;
 			return false;
 		}
 		using std::chrono::system_clock;
-		out = sliding.Oldest();
+		Sample out = sliding.Oldest();
 		if(system_clock::now() - out.received > maxAge) {
 			sliding.ResetOld(last);
 			return true;

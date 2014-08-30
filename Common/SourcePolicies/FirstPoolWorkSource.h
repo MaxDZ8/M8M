@@ -7,7 +7,6 @@
 #include "../../Common/Init.h"
 #include "../../Common/ScopedFuncCall.h"
 #include "../../Common/Stratum/parsing.h"
-#include "../Exceptions.h"
 #include "../../Common/BTC/Funcs.h"
 #include "../Network.h"
 #include <functional>
@@ -37,8 +36,6 @@ public:
 
 private:
 	NetworkInterface::ConnectedSocketInterface &pipe;
-	auint nonce2;
-	std::unique_ptr<stratum::WorkUnit> wu;
 	
 	template<typename Parser>
 	void MangleResult(bool &processed, const char *originally, size_t id, const Json::Value &object, Parser &parser) {
@@ -71,9 +68,7 @@ private:
 	}
 
 protected:
-	void MangleError(size_t id, const Json::Value &error);
-	void MangleResponse(size_t id, const Json::Value &result);
-	//! To be called only when signature is not nullptr.
+	void MangleReplyFromServer(size_t id, const Json::Value &result, const Json::Value &error);
 	void MangleMessageFromServer(const std::string &idstr, const char *signature, const Json::Value &notification);
 	asizei Send(const abyte *data, const asizei count);
 	asizei Receive(abyte *storage, asizei rem);

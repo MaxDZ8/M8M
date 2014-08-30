@@ -140,7 +140,9 @@ struct MiningAuthorize : public AbstractParser {
 	typedef MiningAuthorizeResponse Product;
 	MiningAuthorize() : AbstractParser("mining.authorize") { }
 	Product* Mangle(const Json::Value &root) {
-		return new Product(root.asBool());
+		if(root.isNull()) return new Product(MiningAuthorizeResponse::ar_notRequired);
+		if(!root.isBool()) throw std::exception("mining.authorize .result is not a valid authorization response.");
+		return new Product(root.asBool()? MiningAuthorizeResponse::ar_pass : MiningAuthorizeResponse::ar_bad);
 	}
 };
 

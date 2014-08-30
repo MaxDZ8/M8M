@@ -541,3 +541,23 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 	// #endif
 	// }
 }
+
+
+std::string QubitMultistepOpenCL12::CustomVersioningStrings() const {
+	// NOTE: this must be statically defined... so I cannot use options or anything, just be sure everything is taken in consideration.
+	const char *files[] = { "Luffa_1W.cl", "CubeHash_2W.cl", "SHAvite3_1W.cl", "SIMD_16W.cl", "Echo_8W.cl", nullptr };
+	const char *kname[] = { "Luffa_1way", "CubeHash_2way", "SHAvite3_1way", "SIMD_16way", "Echo_8way" };
+	std::string ret;
+	std::unique_ptr<char[]> src;
+	asizei srcLen = 0;
+	for(asizei load = 0; files[load]; load++) {
+		std::string filename("kernels/");
+		filename += files[load];
+		if(!LoadFile(src, srcLen, filename.c_str())) throw std::string("Failed to load \"") + filename + "\" to produce versioning string.";
+		ret += files[load];
+		ret += kname[load];
+		ret.append(src.get(), src.get() + srcLen);
+	}
+	return ret;
+}
+

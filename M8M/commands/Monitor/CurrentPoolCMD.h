@@ -27,7 +27,7 @@ public:
 		build["name"] = pool->GetName();
 		build["url"] = getPoolURL(*pool);
 		
-		std::vector< std::pair<const char*, bool> > workers;
+		std::vector< std::pair<const char*, StratumState::AuthStatus> > workers;
 		pool->GetUserNames(workers);
 		if(workers.size()) {
 			build["users"] = Json::Value(Json::arrayValue);
@@ -36,7 +36,14 @@ public:
 				arr[loop] = Json::Value(Json::objectValue);
 				Json::Value &add(arr[loop]);
 				add["login"] = workers[loop].first;
-				add["authorized"] = workers[loop].second;
+				switch(workers[loop].second) {
+				case StratumState::as_accepted: add["authorized"] = true; break;
+				case StratumState::as_failed: add["authorized"] = false; break;
+				case StratumState::as_inferred: add["authorized"] = "inferred"; break;
+				case StratumState::as_pending: add["authorized"] = "pending"; break;
+				case StratumState::as_notRequired: add["authorized"] = "open"; break;
+				default: throw std::exception("Code out of sync? This is impossible!");
+				}
 			}
 		}
 		return nullptr;

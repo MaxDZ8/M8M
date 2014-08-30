@@ -36,7 +36,8 @@ public:
 			if(!strcmp("hashCount", params[loop].asCString())) hashCount = true;
 			else if(!strcmp("memUsage", params[loop].asCString())) memUsage = true;
 		}
-		std::string impl, version;
+		std::string impl;
+		aulong version;
 		const char *algo = miner.GetMiningAlgo();
 		miner.GetMiningAlgoImpInfo(impl, version);
 		const AlgoImplementationInterface *ai = miner.GetAI(algo, impl.c_str());

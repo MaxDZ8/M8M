@@ -47,7 +47,7 @@ public:
 	virtual const char* GetMiningAlgo() const = 0;
 
 	/*! Returns false if no algorithm currently selected. Otherwise, updates the two strings by probing the algorithm. */
-	virtual bool GetMiningAlgoImpInfo(std::string &name, std::string &version) const = 0;
+	virtual bool GetMiningAlgoImpInfo(std::string &name, aulong &verSignature) const = 0;
 
 	/*! Given an algorithm implementation, it might be useful to define a different set of configs to run the algorithm.
 	The typical example is the primary video card for an interactive computer, which will have to stay at higher degrees of interactivity
@@ -96,6 +96,7 @@ public:
 		std::vector<auint> nonces; //!< how many good nonces have been found with this nonce2, can be empty if all nonces were stale or discarded!
 		asizei deviceIndex; //!< a number, uniquely identifying the device used to produce those numbers, suitable to be used with a bounded vector/array.
 		std::chrono::microseconds scanPeriod; //!< time took from algo start to pulling out the values
+		std::chrono::microseconds avgSLR; //!< average scan period since last nonce was produced (or mining started)
 		asizei lastNonceScanAmount; //!< how many hashes tested in this algo iteration
 		asizei stale; //!< number of nonces discarded because they were not matching the job id anymore (they likely get all discarded and nonces.size() will be 0)
 		asizei bad; //!< how many nonces, after verification turned out to be wrong and thus not included in the nonce list.

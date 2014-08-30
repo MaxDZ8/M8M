@@ -96,17 +96,12 @@ public:
 		asizei enqueued = 0;
 		for(asizei loop = 0; loop < routes.size(); loop++) {
 			if(routes[loop].pool.get() != found.owner) continue;
-			routes[loop].pool->Shares(found.job, found.nonce2, found.nonces);
-			enqueued++;
+			if(routes[loop].pool->SendShares(found.job, found.nonce2, found.nonces)) {
+				enqueued += found.nonces.size();
+				break;
+			}
 		}
 		return enqueued;
-	}
-
-	void ShowStats() {
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			const AbstractWorkSource::PoolStats &stats(routes[loop].pool->stats);
-			cout<<"pool["<<loop<<"] found sent accepted = "<<stats.shares.found<<' '<<stats.shares.sent<<' '<<stats.shares.accepted<<endl;
-		}
 	}
 
 	const Network::ConnectedSocketInterface& GetConnection(const AbstractWorkSource &wsrc) const {
@@ -115,6 +110,14 @@ public:
 		}
 		throw std::exception("Impossible, I manage everything!");
 	}
+
+	template<typename Func>
+	void SetNoAuthorizedWorkerCallback(Func &&callback) {
+		for(asizei loop = 0; loop < routes.size(); loop++) routes[loop].pool->SetNoAuthorizedWorkerCallback(callback);
+	}
+
+	asizei GetNumServers() const { return routes.size(); }
+	const AbstractWorkSource& GetServer(asizei pool) const { return *routes[pool].pool; }
 
 private:
 	Network &network;

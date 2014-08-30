@@ -3,14 +3,13 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include "../Common/Stratum/WorkUnit.h"
+#include "../Common/Stratum/AbstractWorkUnit.h"
 #include "../Common/StratumState.h"
 #include <memory>
 #include <map>
 #include <time.h>
 #include <json/json.h>
 #include "../Common/AREN/ArenDataTypes.h"
-#include "../Common/Exceptions.h"
 
 
 // #define M8M_STRATUM_DUMPTRAFFIC
@@ -36,13 +35,6 @@ public:
 		e_gotRemoteInput,
 		e_newWork
 	};
-
-	struct PoolStats {
-		struct ShareStats {
-			asizei found, sent, accepted;
-			ShareStats() : found(0), sent(0), accepted(0) { }
-		} shares;
-	} stats;
 	
 	std::function<void(bool success)> shareResponseCallback;
 
@@ -56,17 +48,14 @@ public:
 	\note Because Send and Receive are supposed to be nonblocking anyway parameters are somewhat redundant.*/
 	virtual Event Refresh(bool canRead, bool canWrite);
 
-	void Shares(const std::string &job, auint nonce2, const std::vector<auint> &nonces) { 
+	bool SendShares(const std::string &job, auint nonce2, const std::vector<auint> &nonces) { 
 		auint ntime = stratum.GetJobNetworkTime(job);
-		stats.shares.found += nonces.size();
-		if(!ntime) return;
-		for(asizei loop = 0; loop < nonces.size(); loop++) {
-			stratum.SendWork(ntime, nonce2, nonces[loop]);
-			stats.shares.sent++; // because it could throw and it wouldn't be sent.
-		}
+		if(!ntime) return false;
+		for(asizei loop = 0; loop < nonces.size(); loop++) stratum.SendWork(ntime, nonce2, nonces[loop]);
+		return true;
 	}
 
-	const stratum::WorkUnit GenWorkUnit();
+	stratum::AbstractWorkUnit* GenWorkUnit() { return stratum.GenWorkUnit(); }
 
 	//! Apparently stratum supports unsubscribing, but I cannot found the documentation right now.
 	virtual void Shutdown() { }
@@ -79,7 +68,13 @@ public:
 	const char* GetName() const { return name.c_str(); }
 
 	aulong GetCoinDiffMul() const;
-	void GetUserNames(std::vector< std::pair<const char*, bool> > &list) const;
+	void GetUserNames(std::vector< std::pair<const char*, StratumState::AuthStatus> > &list) const;
+
+	template<typename Func>
+	void SetNoAuthorizedWorkerCallback(Func &&callback) { stratum.allWorkersFailedAuthCallback = callback; }
+
+	asizei GetNumUsers() const { return stratum.GetNumWorkers(); }
+	StratumState::WorkerNonceStats GetUserShareStats(asizei ui) const { return stratum.GetWorkerStats(ui); }
 
 protected:
 	/*! Used to enumerate workers to register to this remote server.
@@ -87,12 +82,11 @@ protected:
 	typedef std::vector< std::pair<const char*, const char*> > Credentials;
 	AbstractWorkSource(const char *presentation, const char *name, const char *algo, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v);
 
-	virtual void MangleError(size_t id, const Json::Value &error) = 0;
-	virtual void MangleResponse(size_t id, const Json::Value &result) = 0;
+	virtual void MangleReplyFromServer(size_t id, const Json::Value &result, const Json::Value &error) = 0;
 
 	/*! The original stratum implementation was fairly clear on what was a notification (no need to confirm <-> no id)
 	and what was a request (confirmed by id). Author of P2Pool decided it would have been a nice idea to attach ids to everything,
-	so I cannot tell the difference anymore. */
+	so I cannot tell the difference anymore. To be called with non-null signature. */
 	virtual void MangleMessageFromServer(const std::string &idstr, const char *signature, const Json::Value &notification) = 0;
 
 	/*! Sending and receiving data is left to a derived class. This call tries to send stratum blobs.
@@ -131,7 +125,8 @@ private:
 		// Is  it worth it? Probably not.
 	} recvBuffer;
 	Json::Reader json;
-	auint nonce2;
+	// Iterating on nonces is fully miner's responsability now. We only tell it if it can go on or not.
+	//auint nonce2;
 
 #if defined(M8M_STRATUM_DUMPTRAFFIC)
 	std::ofstream stratumDump;

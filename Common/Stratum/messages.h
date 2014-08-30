@@ -112,8 +112,12 @@ struct MiningSetDifficultyNotify {
 
 
 struct MiningAuthorizeResponse {
-	bool authorized;
-	MiningAuthorizeResponse(bool ok = false) : authorized(ok) { }
+	enum AuthorizationResult {
+		ar_notRequired, //!< usually p2pool, .result is null
+		ar_pass, //!< MPOS, login correct. Password not always checked but not really relevant
+		ar_bad //!< MPOS, not accepted
+	} authorized;
+	MiningAuthorizeResponse(AuthorizationResult status = ar_notRequired) : authorized(status) { }
 };
 
 

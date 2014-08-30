@@ -5,6 +5,7 @@
 #pragma once
 #include <functional>
 #include "AlgoImplementationInterface.h"
+#include "../Common/hashing.h"
 
 template<typename MiningProcessorsProvider>
 class AbstractAlgoImplementation : public AlgoImplementationInterface {
@@ -18,7 +19,20 @@ public:
     
 	bool AreYou(const char *name) const { return !_stricmp(name, this->name); }
 	std::string GetName() const { return std::string(name); }
-	std::string GetVersion() const { return std::string(version); }
+	aulong GetVersioningHash() const { 
+		std::string sign(version);
+		sign += CustomVersioningStrings();
+		hashing::SHA256 blah(reinterpret_cast<const aubyte*>(sign.c_str()), sign.length());
+		hashing::SHA256::Digest blobby;
+		blah.GetHash(blobby);
+		aulong ret = 0; // ignore endianess here so we get to know host endianess by algo signature
+		for(asizei loop = 0; loop < blobby.size(); loop += 8) {
+			aulong temp;
+			memcpy_s(&temp, sizeof(temp), blobby.data() + loop, sizeof(temp));
+			ret ^= temp;
+		}
+		return ret;
+	}
 
 	/*! Call this after a sequence of AddSettings call to have your devices mapped to the most appropriate config.*/
 	virtual void SelectSettings(typename MiningProcessorsProvider::ComputeNodes &nodes) = 0;
@@ -109,4 +123,8 @@ protected:
 	As M8M tries to be educational (and thus informative) this can also take a function to call to collect the various reasons the device is not eligible
 	to a certain configuration. */
 	virtual asizei ChooseSettings(const typename MiningProcessorsProvider::Platform &plat, const typename MiningProcessorsProvider::Device &dev, RejectReasonFunc callback) = 0;
+
+	/*! Algorithm implementation version is no more to be used "as is". Instead, I request each algo implementation to produce a string describing itself.
+	That string is concatenated to algorithm version (which is not a "custom" value but rather common) and hashed in a very stupid way. */
+	virtual std::string CustomVersioningStrings() const = 0;
 };

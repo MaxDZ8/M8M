@@ -18,11 +18,11 @@ public:
 		// Return time appropriately based for a device matching its linear index.
 		// Return false for device not found - if a client requests unmatched device it is his business, not ours. Values unused.
 		virtual bool GetSTMinMax(std::chrono::microseconds &min, std::chrono::microseconds &max, asizei devIndex) const = 0;
-		virtual bool GetSTAvg(std::chrono::microseconds &shortAvg, std::chrono::microseconds &longAvg, asizei devIndex) const = 0;
-		virtual bool GetSTLast(std::chrono::microseconds &last, asizei devIndex) const = 0;
+		virtual bool GetSTSlidingAvg(std::chrono::microseconds &window, asizei devIndex) const = 0;
+		virtual bool GetSTLast(std::chrono::microseconds &last, std::chrono::microseconds &avg, asizei devIndex) const = 0;
 
 		//! Time window for computing averages. Must be constant across all devices.
-		virtual void GetSTWindow(std::chrono::minutes &shortWindow, std::chrono::minutes &longWindow) const = 0;
+		virtual void GetSTWindow(std::chrono::minutes &window) const = 0;
 	};
 
 	ScanTime(DeviceTimeProviderInterface &src) : devices(src), AbstractStreamingCommand("scanTime?") { }
@@ -34,7 +34,7 @@ private:
 
 	struct DevStats {
 		std::chrono::milliseconds min, max;
-		std::chrono::milliseconds lavg, savg;
+		std::chrono::milliseconds slidingAvg, slrAvg;
 		std::chrono::milliseconds last;
 		asizei linearIndex;
 	};
@@ -43,8 +43,8 @@ private:
 		DeviceTimeProviderInterface &devices;
 		std::vector<DevStats> poll;
 		struct Enable {
-			bool min, max, lavg, savg, last;
-			Enable() { min = max = lavg = savg = last = false; }
+			bool min, max, slidingAvg, slrAvg, last;
+			Enable() { min = max = slidingAvg = slrAvg = last = false; }
 		} enabled;
 	public:
 		Pusher(DeviceTimeProviderInterface &getters) : devices(getters) { }
@@ -68,23 +68,22 @@ private:
 			#define ENABLE(WHAT) if(what[#WHAT].isNull() == false && what[#WHAT].isConvertibleTo(Json::booleanValue)) enabled.WHAT = what[#WHAT].asBool();
 			ENABLE(min);
 			ENABLE(max);
-			ENABLE(savg);
-			ENABLE(lavg);
+			ENABLE(slidingAvg);
+			ENABLE(slrAvg);
 			ENABLE(last);
 			#undef ENABLE
 			return ra_consumed;
 		}
 		bool RefreshAndReply(Json::Value &build, bool changes) {
 			using namespace std::chrono;
-			minutes shortw, longw;
-			devices.GetSTWindow(shortw, longw);
+			minutes shortw;
+			devices.GetSTWindow(shortw);
 			auto clamp = [](aulong value) -> auint { 
 				aulong biggest(aulong(auint(~0)));
 				return auint(value < biggest? value : biggest);
 			};
 			Changer change(changes);
-			build["shortWindow"] = clamp(shortw.count());
-			build["longWindow"] = clamp(longw.count());
+			build["twindow"] = clamp(shortw.count());
 			build["measurements"] = Json::Value(Json::arrayValue);
 			Json::Value &arr(build["measurements"]);
 			#define MANGLE(WHAT) if(enabled.WHAT && dev.WHAT != WHAT) { \
@@ -96,16 +95,16 @@ private:
 
 			for(asizei loop = 0; loop < poll.size(); loop++) {
 				DevStats &dev(poll[loop]);
-				microseconds min, max, lavg, savg, last;
+				microseconds min, max, slidingAvg, slrAvg, last;
 				minutes swin, lwin;
-				devices.GetSTAvg(savg, lavg, dev.linearIndex);
+				devices.GetSTSlidingAvg(slidingAvg, dev.linearIndex);
 				devices.GetSTMinMax(min, max, dev.linearIndex);
-				devices.GetSTLast(last, dev.linearIndex);
+				devices.GetSTLast(last, slrAvg, dev.linearIndex);
 				Json::Value yours(Json::objectValue);
 				MANGLE(min);
 				MANGLE(max);
-				MANGLE(lavg);
-				MANGLE(savg);
+				MANGLE(slidingAvg);
+				MANGLE(slrAvg);
 				MANGLE(last);
 				arr[arr.size()] = yours; // I always add an object, even if empty so client has it easy!
 			}

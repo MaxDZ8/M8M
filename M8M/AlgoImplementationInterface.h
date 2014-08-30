@@ -15,7 +15,7 @@ public:
     
 	virtual bool AreYou(const char *name) const = 0;
 	virtual std::string GetName() const = 0;
-	virtual std::string GetVersion() const = 0;
+	virtual aulong GetVersioningHash() const = 0;
     
     /*! Algorithm implementations parse the set of parameters to internal structures, only them can have understanding of the parameters to use
 	and how to sanity-check them. Implementations are encouraged in keeping the settings unique.

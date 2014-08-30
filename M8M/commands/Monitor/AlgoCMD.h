@@ -19,10 +19,13 @@ public:
 		build = Json::Value(Json::objectValue);
 		const char *algo = miner.GetMiningAlgo();
 		if(algo) build["algo"] = algo;
-		std::string impl, ver;
+		std::string impl;
+		aulong ver;
+		char buffer[20]; // 8*2+1 would be sufficient for aulong
 		if(miner.GetMiningAlgoImpInfo(impl, ver)) {
+			_ui64toa_s(ver, buffer, sizeof(buffer), 16);
 			build["impl"] = impl;
-			build["version"] = ver;
+			build["version"] = buffer;
 		}
 		return nullptr;
 	}

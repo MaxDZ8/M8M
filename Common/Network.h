@@ -9,7 +9,6 @@
 #include <memory>
 #include <map>
 #include <set>
-#include "Exceptions.h"
 
 #if defined(_WIN32)
 #include <WinSock2.h>

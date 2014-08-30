@@ -55,10 +55,13 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 	};
 
 	typedef std::vector<typename MiningProcessorsProvider::WaitEvent> WaitList;
+
 	struct HashStats {
 		std::vector< std::vector<HPTP> > start;
 		std::vector<asizei> count;
-		HashStats(asizei size) : start(size), count(size) { }
+		std::vector< std::vector<HPTP> > lastNonceFound;
+		std::vector< std::vector<asizei> > numIterations;
+		HashStats(asizei size) : start(size), count(size), lastNonceFound(size), numIterations(size) { }
 	};
 
 	struct OwnedWU {
@@ -78,6 +81,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 			auint prev = processing.hashesSoFar;
             hash.start[mangle.setting][mangle.res] = HPCLK::now();
             hash.count[mangle.setting] = mangle.algo.BeginProcessing(mangle.setting, mangle.res, processing.wu, processing.hashesSoFar);
+			hash.numIterations[mangle.setting][mangle.res]++;
             processing.hashesSoFar += hash.count[mangle.setting];
 			if(processing.hashesSoFar <= prev) {
 				std::cout<<"**** Rolling nonce2: "<<processing.wu.nonce2<<" -> "<<processing.wu.nonce2 + 1<<" ****"<<std::endl;
@@ -106,6 +110,12 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
                     if(mangle.checkNonces) CheckResults(foundNonces, mangle.algo, foundWU, processing.owner, mangle.setting, mangle.res);
                     result.bad = found - foundNonces.size();
 				}
+				asizei &numIterations(hash.numIterations[mangle.setting][mangle.res]);
+				HPTP &lastNonceFound(hash.lastNonceFound[mangle.setting][mangle.res]);
+				microseconds elapsed = duration_cast<microseconds>(hash.start[mangle.setting][mangle.res] - lastNonceFound);
+				result.avgSLR = microseconds(elapsed.count() / numIterations);
+				numIterations = 0;
+				lastNonceFound = resTime;
 			    std::unique_lock<std::mutex> sync(output.beingUsed);
 				result.nonces = std::move(foundNonces);
 				output.found.push_back(result);
@@ -136,7 +146,18 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
         AbstractAlgoImplementation<MiningProcessorsProvider> &algo(*run);
         std::vector< std::pair<asizei, asizei> > instances(algo.GenResources(processors));
 		HashStats hashStats(instances.size());
-        for(asizei init = 0; init < instances.size(); init++) hashStats.start[init].resize(instances[init].second);
+        {
+			HPTP now(HPCLK::now());
+			for(asizei init = 0; init < instances.size(); init++) {
+				hashStats.start[init].resize(instances[init].second);
+				hashStats.lastNonceFound[init].resize(instances[init].second);
+				hashStats.numIterations[init].resize(instances[init].second);
+				for(asizei cp = 0; cp < instances[init].second; cp++) {
+					hashStats.numIterations[init][cp] = 0;
+					hashStats.lastNonceFound[init][cp] = now;
+				}
+			}
+		}
         asizei numTasks = 0;
 		std::for_each(instances.cbegin(), instances.cend(), [&numTasks](std::pair<asizei, asizei> add) { numTasks += add.second; });
 		const AbstractWorkSource *owner = nullptr;
