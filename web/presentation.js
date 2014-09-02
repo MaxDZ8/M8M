@@ -515,20 +515,17 @@ var presentation = {
 			compatible.setEventCallback(div, "mousedown", function(event) {
 				if(event.target !== div) return;
 				if(event.button === 0) moveState.pushPoint = [ event.clientX, event.clientY ];
-				console.log("set");
 			}, false);
 			compatible.setEventCallback(div, "mouseup", function(event) {
 				// don't miss up events in contained rects (+ or -), will leave dragging state off... fairly odd to see
 				if(event.target !== div && div.contains(event.target) === false) return;
 				if(event.button === 0) moveState.pushPoint = undefined;
-				console.log("clear");
 			}, false);
 			compatible.setEventCallback(div, "mousemove", function(event) {
 				if(!moveState.pushPoint) return;
 				if(event.target !== div) return;
 				var dx = event.clientX - moveState.pushPoint[0];
 				var dy = event.clientY - moveState.pushPoint[1];
-				console.log("drag");
 				var x = 1 * presentation.support.extractPXMeasure(div.style.left);
 				var y = 1 * presentation.support.extractPXMeasure(div.style.top );
 				div.style.left = (x + dx) + "px";
@@ -539,8 +536,8 @@ var presentation = {
 			// move the rectangle AFTER the mouse moved) then we have to cancel dragging operation:
 			compatible.setEventCallback(div, "mouseleave", function(event) { 
 				if(event.target !== div) return;
-				moveState.pushPoint = undefined; 
-				console.log("clear");}, false);
+				moveState.pushPoint = undefined;
+			}, false);
 			// ^ this makes dragging slightly inconvenient: one might want to allow some pixels of tolerance and keep memory of the
 			// dragging operation. That's not so easy as we might click on the hide button after that.
 			// Mouse capture would probably be the right tool for the job here but it just doesn't seem worth the effort!
