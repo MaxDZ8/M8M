@@ -10,22 +10,18 @@
 namespace commands {
 namespace monitor {
 
-class WhyRejectedCMD : public AbstractCommand {
+class RejectReasonCMD : public AbstractCommand {
 	MinerInterface &miner;
 public:
-	WhyRejectedCMD(MinerInterface &worker) : miner(worker), AbstractCommand("whyRejected?") { }
+	RejectReasonCMD(MinerInterface &worker) : miner(worker), AbstractCommand("rejectReason") { }
 	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
-		// In theory this could take various forms such as enumerating only specific devices...
-		// But I really don't care. For the time being I just map'em all!
-		build = Json::Value(Json::objectValue); // Can this be an array directly?
-		build["algo"] = Json::Value(Json::arrayValue);
-		Json::Value &algo(build["algo"]);
+		build = Json::Value(Json::arrayValue);
 		asizei index, device = 0;
 		while(miner.GetDeviceConfig(index, device)) {
-			if(index) algo[device] = Json::Value(Json::nullValue);
+			if(index) build[device] = Json::Value(Json::nullValue);
 			else {
-				algo[device] = Json::Value(Json::arrayValue);
-				Json::Value &reason(algo[device]);
+				build[device] = Json::Value(Json::arrayValue);
+				Json::Value &reason(build[device]);
 				std::vector<std::string> algoReason(miner.GetBadConfigReasons(device));
 				for(asizei loop = 0; loop < algoReason.size(); loop++) reason[loop] = algoReason[loop];
 			}

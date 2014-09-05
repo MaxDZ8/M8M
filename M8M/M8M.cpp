@@ -21,12 +21,12 @@ conflicts to pad gather phase. */
 #include "WebMonitorTracker.h"
 #include "../Common/AREN/SharedUtils/AutoConsole.h"
 
-#include "commands/Monitor/SystemCMD.h"
+#include "commands/Monitor/SystemInfoCMD.h"
 #include "commands/Monitor/AlgoCMD.h"
-#include "commands/Monitor/CurrentPoolCMD.h"
+#include "commands/Monitor/PoolCMD.h"
 #include "commands/Monitor/DeviceConfigCMD.h"
-#include "commands/Monitor/WhyRejectedCMD.h"
-#include "commands/Monitor/ConfigInfo.h"
+#include "commands/Monitor/RejectReasonCMD.h"
+#include "commands/Monitor/ConfigInfoCMD.h"
 #include "commands/Monitor/ScanTime.h"
 #include "commands/Monitor/DeviceShares.h"
 #include "commands/Monitor/PoolShares.h"
@@ -122,7 +122,7 @@ template<typename MiningProcessorsProvider>
 void RegisterMonitorCommands(WebCommands &persist, WebMonitorTracker &mon, AbstractMiner<MiningProcessorsProvider> &miner, const std::unique_ptr<Connections> &connections, TrackedValues &tracking) {
 	using namespace commands::monitor;
 	MiningProcessorsProvider &procs(miner.GetProcessersProvider());
-	SimpleCommand< SystemCMD<MiningProcessorsProvider> >(persist, mon, procs);
+	SimpleCommand< SystemInfoCMD<MiningProcessorsProvider> >(persist, mon, procs);
 	SimpleCommand<AlgoCMD>(persist, mon, miner);
 	{
 		auto getPoolURL = [&connections](const AbstractWorkSource &pool) -> std::string {
@@ -131,12 +131,12 @@ void RegisterMonitorCommands(WebCommands &persist, WebMonitorTracker &mon, Abstr
 			const Network::ConnectedSocketInterface &socket(connections->GetConnection(pool));
 			return socket.PeerHost() + ':' + socket.PeerPort();
 		};
-		std::unique_ptr<CurrentPoolCMD> build(new CurrentPoolCMD(miner, getPoolURL));
+		std::unique_ptr<PoolCMD> build(new PoolCMD(miner, getPoolURL));
 		mon.RegisterCommand(*build);
 		persist.push_back(std::move(build));
 	}
 	SimpleCommand<DeviceConfigCMD>(persist, mon, miner);
-	SimpleCommand<WhyRejectedCMD>(persist, mon, miner);
+	SimpleCommand<RejectReasonCMD>(persist, mon, miner);
 	SimpleCommand<ConfigInfoCMD>(persist, mon, miner);
 	SimpleCommand<ScanTime>(persist, mon, tracking);
 	SimpleCommand<DeviceShares>(persist, mon, tracking);
@@ -344,6 +344,7 @@ int main(int argc, char **argv) {
 					stats.shares[el->deviceIndex].good += el->nonces.size();
 					stats.shares[el->deviceIndex].bad += el->bad;
 					stats.shares[el->deviceIndex].stale += el->stale;
+					std::cout<<"Device "<<el->deviceIndex<<" found a nonce."<<std::endl;
 					{
 						adouble took = el->scanPeriod.count() / 1000000.0;
 						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;

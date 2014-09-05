@@ -13,7 +13,7 @@ namespace monitor {
 class DeviceConfigCMD : public AbstractCommand {
 	MinerInterface &miner;
 public:
-	DeviceConfigCMD(MinerInterface &worker) : miner(worker), AbstractCommand("deviceConfig?") { }
+	DeviceConfigCMD(MinerInterface &worker) : miner(worker), AbstractCommand("deviceConfig") { }
 	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
 		// In theory this could take various forms such as enumerating only specific devices...
 		// But I really don't care. For the time being I just map'em all!

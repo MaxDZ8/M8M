@@ -12,15 +12,28 @@ namespace commands {
 namespace monitor {
 
 
-class CurrentPoolCMD : public AbstractCommand {
+class PoolCMD : public AbstractCommand {
 	MinerInterface &miner;
 public:
 	typedef std::function<std::string(const AbstractWorkSource&)> PoolURLFunc;
 	const PoolURLFunc getPoolURL;
 
-	CurrentPoolCMD(MinerInterface &worker, const PoolURLFunc &getName) : miner(worker), getPoolURL(getName), AbstractCommand("currentPool?") { }
+	PoolCMD(MinerInterface &worker, const PoolURLFunc &getName) : miner(worker), getPoolURL(getName), AbstractCommand("pool") { }
 	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
-		// no params
+		// Specification mandates there should be 1 parameter of value "primary".
+		// This is not really required (works perfectly with no params at all) but required for being future proof.
+		std::string mode("primary");
+		if(input["params"].isNull()) { }
+		else if(input["params"].isString()) { mode = input["params"].asString(); }
+		else {
+			build = "!!ERROR: \"parameters\" specified, but not a valid format.";
+			return nullptr;
+		}
+		if(mode != "primary") {
+			build = "!!ERROR: \"parameters\" unrecognized value \"" + mode + "\"";
+			return nullptr;
+		}
+
 		const AbstractWorkSource *pool = miner.GetCurrentPool();
 		if(!pool) return nullptr;
 		build = Json::Value(Json::objectValue);

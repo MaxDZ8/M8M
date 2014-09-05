@@ -24,7 +24,7 @@ class ConfigInfoCMD : public AbstractCommand {
 	}
 
 public:
-	ConfigInfoCMD(MinerInterface &shared) : miner(shared), AbstractCommand("configInfo?") { }
+	ConfigInfoCMD(MinerInterface &shared) : miner(shared), AbstractCommand("configInfo") { }
 	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
 		// .params is an array of strings, static informations to be retrieved
 		const Json::Value &params(input["params"]);
@@ -33,8 +33,8 @@ public:
 		bool memUsage = false;
 		for(asizei loop = 0; loop < params.size(); loop++) {
 			if(params[loop].isString() == false) continue;
-			if(!strcmp("hashCount", params[loop].asCString())) hashCount = true;
-			else if(!strcmp("memUsage", params[loop].asCString())) memUsage = true;
+			if(params[loop].asString() == "hashCount") hashCount = true;
+			else if(params[loop].asString() == "memUsage") memUsage = true;
 		}
 		std::string impl;
 		aulong version;

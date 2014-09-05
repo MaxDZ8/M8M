@@ -11,10 +11,10 @@ namespace commands {
 namespace monitor {
 
 template<typename ProcessorProvider>
-class SystemCMD : public AbstractCommand {
+class SystemInfoCMD : public AbstractCommand {
 	ProcessorProvider &procs;
 public:
-	SystemCMD(ProcessorProvider &processors) : procs(processors), AbstractCommand("system?") { }
+	SystemInfoCMD(ProcessorProvider &processors) : procs(processors), AbstractCommand("systemInfo") { }
 	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
 		// Easy, as all params are ignored.
 		build = Json::Value(Json::objectValue);

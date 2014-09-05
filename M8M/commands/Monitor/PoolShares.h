@@ -22,7 +22,7 @@ public:
 		virtual StratumState::WorkerNonceStats GetWorkerStats(asizei poolIndex, asizei workerIndex) = 0;
 	};
 
-	PoolShares(ShareProviderInterface &src) : workers(src), AbstractStreamingCommand("poolShares?") { }
+	PoolShares(ShareProviderInterface &src) : workers(src), AbstractStreamingCommand("poolShares") { }
 
 
 private:
@@ -36,14 +36,9 @@ private:
 
 	public:
 		Pusher(ShareProviderInterface &getters) : workers(getters) { }
-		bool MyCommand(const std::string &signature) const { return strcmp(signature.c_str(), "poolShares!") == 0; }
-		std::string GetPushName() const { return std::string("poolShares!"); }
-		ReplyAction SetState(std::string &error, const Json::Value &input) {
-			const Json::Value &enable(input["enable"]);
-			if(enable.isConvertibleTo(Json::booleanValue) == false) { error = "\"enable\" must be convertible to boolean";    return ra_bad; }
-			if(enable.asBool() == false) return ra_delete;
-			return ra_consumed; // easy: always all workers for all pools.
-		}
+		bool MyCommand(const std::string &signature) const { return strcmp(signature.c_str(), "poolShares") == 0; }
+		std::string GetPushName() const { return std::string("poolShares"); }
+		void SetState(const Json::Value &input) { /* it's either enabled or not */ }
 		bool RefreshAndReply(Json::Value &build, bool changes) {
 			changes |= sent.size() == 0;
 			if(sent.size() == 0) {
