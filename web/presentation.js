@@ -243,18 +243,16 @@ var presentation = {
 	},
 	
 	updateRejectElements: function(rejInfo) {
-		if(rejInfo.algo) {
-			for(var loop = 0; loop <  rejInfo.algo.length; loop++) {
-				var device = server.hw.linearDevice[loop];
-				if(rejInfo.algo[loop] === null) device.noteCell.textContent = '\u2714';
-				else {
-					var put = "";
-					for(var inner = 0; inner < rejInfo.algo[loop].length; inner++) {
-						if(inner) put += "<br>";
-						put += rejInfo.algo[loop][inner];
-					}
-					device.noteCell.innerHTML = put;
+		for(var loop = 0; loop <  rejInfo.length; loop++) {
+			var device = server.hw.linearDevice[loop];
+			if(rejInfo[loop] === null) device.noteCell.textContent = '\u2714';
+			else {
+				var put = "";
+				for(var inner = 0; inner < rejInfo[loop].length; inner++) {
+					if(inner) put += "<br>";
+					put += rejInfo[loop][inner];
 				}
+				device.noteCell.innerHTML = put;
 			}
 		}
 	},
@@ -369,7 +367,7 @@ var presentation = {
 			
 			var slowest = check.lastPerf[names[0]];
 			if(slowest === undefined) slowest = 0;
-			for(var scan = 1; scan < names.legth; scan++) {
+			for(var scan = 1; scan < names.length; scan++) {
 				var candidate = check.lastPerf[names[scan]];
 				slowest = Math.max(slowest, candidate || 0);
 			}
@@ -389,7 +387,7 @@ var presentation = {
 			for(var loop = 0; loop < names.length; loop++) {
 				var t = device.lastPerf? device.lastPerf[names[loop]] : undefined;
 				var dst = cells[names[loop]];
-				if(t === undefined) {
+				if(t == 0 || t == undefined) { // undefined --> NaN?
 					dst.textContent = "...";
 					continue;
 				}
@@ -428,15 +426,15 @@ var presentation = {
 	},
 	
 	refreshDeviceShareStats: function(obj) {
-		for(var loop = 0; loop < obj.linearIndex.length; loop++) {
-			var target = presentation.noncesCells[obj.linearIndex[loop]];
+		for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
+			var target = presentation.noncesCells[loop];
 			if(target === null) continue;
 			var names = ["good", "bad", "stale"];
 			for(var all = 0; all < names.length; all++) {
 				target[names[all]].textContent = obj[names[all]][loop];
 			}
 			var last = obj.lastResult[loop];  // seconds since epoch
-			server.hw.linearDevice[obj.linearIndex[loop]].lastResultSSE = last;
+			server.hw.linearDevice[loop].lastResultSSE = last;
 		}
 	},
 	

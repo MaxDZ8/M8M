@@ -33,7 +33,7 @@ function MinerMonitor(hostname, port, callbacks) {
 		var sent = Date.now();
 		if(streaming) {
 			var add = {};
-			add.command = object.command.substr(0, object.command.length - 1) + "!";
+			add.command = object.command;
 			add.callback = callback;
 			if(self.streaming === undefined) self.streaming = [];
 			self.streaming.push(add);
@@ -58,7 +58,7 @@ function MinerMonitor(hostname, port, callbacks) {
 			var len = self.streaming === undefined? 0 : self.streaming.length;
 			for(var test = 0; test < len; test++) {
 				var match = self.streaming[test];
-				if(match.command.substr(0, object.pushing.length) == object.pushing) {
+				if(match.command == object.pushing) {
 					if(match.closing !== undefined) {
 						if(match.endStream) match.endStream();
 						for(var mv = test; mv + 1 < len; mv++) {
@@ -66,7 +66,8 @@ function MinerMonitor(hostname, port, callbacks) {
 						}
 						return;
 					}
-					match.callback(object);					
+					/*! todo: .stream sub-stream selector. */
+					match.callback(object.payload);					
 				}
 			}
 			return; // unmatched pushes are ignored.
@@ -94,7 +95,7 @@ MinerMonitor.prototype = {
 
 	
 function request_system(minerMonitor, onreply) {
-	minerMonitor.request({ command: "system?" }, mangle);
+	minerMonitor.request({ command: "systemInfo" }, mangle);
 	function mangle(object, pingTime) {
 		if(object.platforms === undefined || object.platforms.length === undefined) alert("Invalid platform reply from server!>>" + JSON.stringify(object));
 		var sp = [];

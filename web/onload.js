@@ -81,9 +81,9 @@ window.onload = function() {
 		
 		window.request_system(minerMonitor, function(pdesc, pingTime) {
 			presentation.appendDevicePlatforms(pdesc, pingTime);
-			window.minerMonitor.requestSimple("algo?", function(reply, pingTime) {
+			window.minerMonitor.requestSimple("algo", function(reply, pingTime) {
 				presentation.updateMiningElements(reply, pingTime);
-				window.minerMonitor.requestSimple("currentPool?", function(poolinfo, pingTime) {
+				window.minerMonitor.requestSimple("pool", function(poolinfo, pingTime) {
 					presentation.updatePoolElements(poolinfo);
 					
 					/*! \todo This will have to be moved a day so updatePoolElements will work on stored state instead! */
@@ -101,16 +101,15 @@ window.onload = function() {
 						w.push(build);
 					}
 					
-					window.minerMonitor.requestSimple("deviceConfig?", function(configInfo, pingTime) {
+					window.minerMonitor.requestSimple("deviceConfig", function(configInfo, pingTime) {
 						presentation.updateConfigElements(configInfo, pingTime);
-						window.minerMonitor.requestSimple("whyRejected?", function(rejInfo, pingTime) {
+						window.minerMonitor.requestSimple("rejectReason", function(rejInfo, pingTime) {
 							presentation.updateRejectElements(rejInfo, pingTime);
 							fillConfigTable();
 						});
 					});
-					
 					var cmd = {
-						command: "poolShares?",
+						command: "poolShares",
 						enable: true,
 					};					
 					window.minerMonitor.requestStream(cmd, function(pinfo) {
@@ -136,13 +135,13 @@ window.onload = function() {
 	
 	function fillConfigTable() {
 		var cmd = {
-			command: "configInfo?",
+			command: "configInfo",
 			params: ["hashCount", "memUsage"]
 		};
 		window.minerMonitor.request(cmd, function(cinfo, ptime) {
 			presentation.updateConfigInfo(cinfo);
 			var request = {
-				command: "scanTime?",
+				command: "scanTime",
 				devices: [],
 				requesting: {}
 			};
@@ -169,17 +168,14 @@ window.onload = function() {
 			window.minerMonitor.requestStream(request, function(obj) {
 				var how = presentation.perfMode;
 				presentation.refreshPerfHeaders(obj);
-				var consumed = 0;
 				var names = ["last", "min", "slrAvg", "slidingAvg", "max"];
 				for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
 					var device = server.hw.linearDevice[loop];
 					if(device.configIndex === undefined) continue;
 					for(var cp = 0; cp < names.length; cp++) {
-						var newValue = obj.measurements[consumed][names[cp]];
+						var newValue = obj.measurements[loop][names[cp]];
 						if(newValue !== undefined) device.lastPerf[names[cp]] = newValue;
 					}
-					presentation.refreshDevicePerf(device, server.config[device.configIndex].hashCount);
-					consumed++;
 				}
 				var niceHR = presentation.refreshDevicePerf();
 				var header = document.getElementById("perfMeasureHeader");
@@ -188,7 +184,7 @@ window.onload = function() {
 			});
 			
 			request = {
-				command: "deviceShares?",
+				command: "deviceShares",
 				devices: []
 			};
 			active = 0;
