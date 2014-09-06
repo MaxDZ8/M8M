@@ -79,11 +79,11 @@ window.onload = function() {
 			}
 		});
 		
-		window.request_system(minerMonitor, function(pdesc, pingTime) {
-			presentation.appendDevicePlatforms(pdesc, pingTime);
-			window.minerMonitor.requestSimple("algo", function(reply, pingTime) {
-				presentation.updateMiningElements(reply, pingTime);
-				window.minerMonitor.requestSimple("pool", function(poolinfo, pingTime) {
+		window.request_system(minerMonitor, function(pdesc) {
+			presentation.appendDevicePlatforms(pdesc);
+			window.minerMonitor.requestSimple("algo", function(reply) {
+				presentation.updateMiningElements(reply);
+				window.minerMonitor.requestSimple("pool", function(poolinfo) {
 					presentation.updatePoolElements(poolinfo);
 					
 					/*! \todo This will have to be moved a day so updatePoolElements will work on stored state instead! */
@@ -101,10 +101,10 @@ window.onload = function() {
 						w.push(build);
 					}
 					
-					window.minerMonitor.requestSimple("deviceConfig", function(configInfo, pingTime) {
-						presentation.updateConfigElements(configInfo, pingTime);
-						window.minerMonitor.requestSimple("rejectReason", function(rejInfo, pingTime) {
-							presentation.updateRejectElements(rejInfo, pingTime);
+					window.minerMonitor.requestSimple("deviceConfig", function(configInfo) {
+						presentation.updateConfigElements(configInfo);
+						window.minerMonitor.requestSimple("rejectReason", function(rejInfo) {
+							presentation.updateRejectElements(rejInfo);
 							fillConfigTable();
 						});
 					});
