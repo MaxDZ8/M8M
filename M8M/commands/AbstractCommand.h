@@ -42,6 +42,9 @@ public:
 		} catch(std::string &what) {
 			result = std::string("!!ERROR: ") + what + "!!";
 			return true;
+		} catch(std::exception &what) {
+			result = std::string("!!ERROR: ") + what.what() + "!!";
+			return true;
 		}
 		if(input["push"].isConvertibleTo(Json::booleanValue) && input["push"].asBool()) {
 			if(ret.get() == nullptr) {

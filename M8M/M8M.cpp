@@ -30,6 +30,10 @@ conflicts to pad gather phase. */
 #include "commands/Monitor/ScanTime.h"
 #include "commands/Monitor/DeviceShares.h"
 #include "commands/Monitor/PoolShares.h"
+#include "commands/ExtensionListCMD.h"
+#include "commands/UnsubscribeCMD.h"
+#include "commands/UpgradeCMD.h"
+#include "commands/VersionCMD.h"
 
 #include "TimedValueStream.h"
 
@@ -141,6 +145,14 @@ void RegisterMonitorCommands(WebCommands &persist, WebMonitorTracker &mon, Abstr
 	SimpleCommand<ScanTime>(persist, mon, tracking);
 	SimpleCommand<DeviceShares>(persist, mon, tracking);
 	SimpleCommand<PoolShares>(persist, mon, tracking);
+	{
+		std::unique_ptr<commands::VersionCMD> build(new commands::VersionCMD());
+		mon.RegisterCommand(*build);
+		persist.push_back(std::move(build));
+	}
+	SimpleCommand<commands::ExtensionListCMD>(persist, mon, mon.extensions);
+	SimpleCommand<commands::UpgradeCMD>(persist, mon, mon.extensions);
+	SimpleCommand<commands::UnsubscribeCMD>(persist, mon, mon);
 }
 
 

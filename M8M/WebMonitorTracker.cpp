@@ -32,6 +32,14 @@ bool WebMonitorTracker::DisableWeb() {
 
 void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
 	// First thing to do: serve already connected websockets. We first consume, then send.
+	struct ProcessingGuard {
+		const Network::SocketInterface **mark;
+		ProcessingGuard(const Network::SocketInterface **storage, const Network::SocketInterface *guard) {
+			mark = storage;
+			*mark = guard;
+		}
+		~ProcessingGuard() { *mark = nullptr; }
+	};
 	std::for_each(toRead.begin(), toRead.end(), [this](const Network::SocketInterface *skt) {
 		auto el = std::find(clients.begin(), clients.end(), skt);
 		if(el == clients.cend()) return; // either not mine or landing socket
@@ -39,6 +47,7 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 		std::vector<ws::Connection::Message> msg;
 		if(!el->ws->Read(msg)) return;
 
+		ProcessingGuard currentlyMangling(&this->processing, skt);
 		Json::Reader parser;
 		for(asizei loop = 0; loop < msg.size(); loop++) {
 			const char *begin = reinterpret_cast<const char*>(msg[loop].data());
@@ -53,43 +62,38 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 					el->ws->EnqueueTextMessage(std::string("!!ERROR: unsupported command!!"));
 					continue;
 				}
-				else {
-					// Maybe some streamer can consume this?
-					auto pusher = std::find_if(pushing.begin(), pushing.end(), [skt](const PushList &test) { return test.source == skt; });
-					if(pusher == pushing.cend()) throw std::exception("Invalid command."); //!< \todo this is most definetely brittle!
-					using namespace commands;
-					bool processed = false;
-					for(asizei mangler = 0; mangler < pusher->active.size(); mangler++) {
-						std::string reply;
-						PushInterface::ReplyAction result = pusher->active[mangler]->Mangle(reply, object);
-						switch(result) {
-						case PushInterface::ra_delete: {
-							pusher->active.erase(pusher->active.begin() + mangler);
-							processed = true;
-							break;
-						}
-						case PushInterface::ra_consumed:
-							if(reply.length()) el->ws->EnqueueTextMessage(reply);
-							processed = true;
-						}
-					}
-					if(processed) continue;
-					throw std::exception("Unmatched command, but no PUSH matched either!");
-				}
 			}
 			std::string reply;
-			std::unique_ptr<commands::PushInterface> stream(matched->second->Mangle(reply, object));
+			std::unique_ptr<commands::PushInterface> stream;
+			if(matched->second->Mangle(reply, stream, object) == false) {
+				throw std::exception("Impossible, code out of sync. Command name already matched!");
+			}
+			if(!reply.length()) {
+				throw std::exception("Invalid zero-length reply.");
+			}
 			if(stream) {
-				auto list = std::find_if(pushing.begin(), pushing.end(), [&el](const PushList &test) { return test.source == &el->conn.get(); });
+				auto list = std::find_if(pushing.begin(), pushing.end(), [&el](const PushList &test) { return test.dst == &el->conn.get(); });
+				std::unique_ptr<NamedPush> dataPush(new NamedPush);
+				dataPush->pusher = std::move(stream);
+				if(matched->second->GetMaxPushing() > 1) dataPush->name = std::to_string(numberedPushers);
+				else numberedPushers--;
+				dataPush->originator = matched->second;
 				if(list == pushing.end()) {
 					PushList add;
-					add.source = &el->conn.get();
-					add.active.push_back(std::move(stream));
+					add.dst = &el->conn.get();
+					add.active.push_back(std::move(dataPush));
 					pushing.push_back(std::move(add));
 				}
-				else list->active.push_back(std::move(stream));
+				else {
+					if(list->active.size() + 1 == matched->second->GetMaxPushing()) {
+						reply = "!!ERROR: max amount of pushers reached!!";
+						numberedPushers--;
+					}
+					else list->active.push_back(std::move(dataPush));
+				}
+				numberedPushers++;
 			}
-			if(reply.length()) el->ws->EnqueueTextMessage(reply);
+			el->ws->EnqueueTextMessage(reply);
 		}
 	});
 	std::for_each(toWrite.begin(), toWrite.end(), [this](const Network::SocketInterface *skt) {
@@ -133,6 +137,26 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 }
 
 
+void WebMonitorTracker::Unsubscribe(const std::string &commandName, const std::string &stream) {
+	const Network::SocketInterface *processing = this->processing;
+	if(!processing) return; // impossible
+	auto list = std::find_if(pushing.begin(), pushing.end(), [processing](const PushList &test) { return test.dst == processing; });
+	if(list == pushing.end()) return; // this client had no pushes active
+	auto cmdMatch = commands.find(commandName);
+	if(cmdMatch == commands.cend()) return; // maybe this would be worth an exception?
+	const commands::AbstractCommand *command = cmdMatch->second;
+	for(asizei loop = 0; loop < list->active.size(); loop++) {
+		if(list->active[loop]->originator != command) continue;
+		if(stream.empty() || stream == list->active[loop]->name) {
+			list->active.erase(list->active.begin() + loop);
+			loop--;
+			if(stream.length()) break;
+		}
+	}
+
+}
+
+
 void WebMonitorTracker::FillSleepLists(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
 	if(!landing) return;  // it is always shut down after everything else so if that happens nothing is there for sure.
 	if(shutdownInitiated == TimePoint()) toRead.push_back(landing); // not going to accept this anymore if shutting down
@@ -157,7 +181,7 @@ void WebMonitorTracker::Refresh(std::vector<Network::SocketInterface*> &toRead, 
 			garbage |= clients[loop].conn.get().Works() == false;
 			if(garbage) {
 				for(asizei rem = 0; rem < pushing.size(); rem++) {
-					if(pushing[rem].source == &clients[loop].conn.get()) {
+					if(pushing[rem].dst == &clients[loop].conn.get()) {
 						pushing.erase(pushing.begin() + rem);
 						break;
 					}
@@ -176,13 +200,16 @@ void WebMonitorTracker::Refresh(std::vector<Network::SocketInterface*> &toRead, 
 		// Now give all the possibility to produce new data... which will never be sent if we closed but who cares!
 		std::for_each(pushing.cbegin(), pushing.cend(), [this](const PushList &mangle) {
 			for(asizei loop = 0; loop < mangle.active.size(); loop++) {
-				std::string send;
-				mangle.active[loop]->Refresh(send);
-				if(send.length()) {
+				Json::Value send;
+				if(mangle.active[loop]->pusher->Refresh(send)) {
+					Json::Value ret;
+					ret["pushing"] = mangle.active[loop]->originator->name;
+					if(mangle.active[loop]->originator->GetMaxPushing() > 1) ret["stream"] = mangle.active[loop]->name;
+					ret["payload"] = send;
 					auto sink = std::find_if(clients.cbegin(), clients.cend(), [&mangle](const ClientState &test) {
-						return &test.conn.get() == mangle.source && test.ws.get();
+						return &test.conn.get() == mangle.dst && test.ws.get();
 					});
-					if(sink != clients.cend()) sink->ws->EnqueueTextMessage(send);
+					if(sink != clients.cend()) sink->ws->EnqueueTextMessage(ret.toStyledString());
 				}
 			}
 		});
@@ -222,6 +249,7 @@ void WebMonitorTracker::Refresh(std::vector<Network::SocketInterface*> &toRead, 
 		if(clients.size() == 0) { // Now all the clients are gone, shut down the listening socket.
 			network.CloseServiceSocket(*landing);
 			landing = nullptr;
+			numberedPushers = 0;
 		}
 	}
 }

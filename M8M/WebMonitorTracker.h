@@ -10,9 +10,11 @@
 #include "../Common/launchBrowser.h"
 #include <algorithm>
 #include "commands/AbstractCommand.h"
+#include "commands/ExtensionState.h"
+#include "commands/UnsubscribeCMD.h"
 
 
-class WebMonitorTracker {
+class WebMonitorTracker : public commands::UnsubscribeCMD::PusherOwnerInterface {
 	NotifyIcon &menu;
 	asizei miON, miOFF, miCONN;
 	typedef std::chrono::time_point<std::chrono::system_clock> TimePoint;
@@ -37,6 +39,7 @@ class WebMonitorTracker {
 	NetworkInterface &network;
 	NetworkInterface::ServiceSocketInterface *landing; //!< A simple pointer is sufficient since the network blasts it anyway, we just have to de-register it.
 	TimePoint shutdownInitiated; //!< if connections are not shut down after a few seconds, they get blasted 0--> running
+	asizei numberedPushers;
 
 	struct ClientState {
 		std::reference_wrapper<NetworkInterface::ConnectedSocketInterface> conn;
@@ -61,15 +64,22 @@ class WebMonitorTracker {
 	std::vector<ClientState> clients;
 	std::map<std::string, commands::AbstractCommand*> commands;
 
-	struct PushList {
-		const Network::SocketInterface *source; //!< not ConnectedSocketInterface as it must compare to wait list entry
-		std::vector< std::unique_ptr<commands::PushInterface> > active;
+    struct NamedPush {
+        std::string name;
+		commands::AbstractCommand *originator;
+        std::unique_ptr<commands::PushInterface> pusher;
+		NamedPush() : originator(nullptr) { }
+	};
 
-		PushList() : source(nullptr) { }
-		PushList(PushList &&other) : source(other.source), active(std::move(other.active)) { }
+	struct PushList {
+		const Network::SocketInterface *dst; //!< not ConnectedSocketInterface as it must compare to wait list entry
+		std::vector< std::unique_ptr<NamedPush> > active;
+
+		PushList() : dst(nullptr) { }
+		PushList(PushList &&other) : dst(other.dst), active(std::move(other.active)) { }
 		PushList& operator=(PushList &&other) {
 			if(this != &other) {
-				source = other.source;
+				dst = other.dst;
 				active = std::move(other.active);
 			}
 			return *this;
@@ -82,9 +92,17 @@ class WebMonitorTracker {
 
 	void NormalNetworkIO(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
 
+	/*! This is to support unsubscribe as it has no way to know which client requested unsubscribe.
+	Sure, I keep an unique string of stream identifiers but if there's no stream id there's no use for it.
+	NormalNetworkIO sets this in a loop using an ad-hoc object so this is guaranteed to match the client owning commands or be nullptr. */
+	const Network::SocketInterface *processing;
+
+	void Unsubscribe(const std::string &command, const std::string &stream);
+
 public:
 	static aushort monitorPort;
 	const static auint maxMonitors;
+	std::map<std::string, commands::ExtensionState> extensions; //!< this shouldn't really be public because of the way internal state is managed but there's not much usefulness in making it private either...
 
 	enum ClientConnectionEvent {
 		cce_welcome, //!< sent as soon as TCP/IP connection completes - websocket handshake still going on
@@ -93,7 +111,8 @@ public:
 	std::function<bool(ClientConnectionEvent)> clientConnectionCallback;
 
 	const wchar_t *browserURI;
-	WebMonitorTracker(NotifyIcon &icon, NetworkInterface &netAPI, const wchar_t *webApp) : menu(icon), miON(0), miOFF(0), miCONN(0), network(netAPI), browserURI(webApp), landing(nullptr) { }
+	WebMonitorTracker(NotifyIcon &icon, NetworkInterface &netAPI, const wchar_t *webApp)
+		: menu(icon), miON(0), miOFF(0), miCONN(0), network(netAPI), browserURI(webApp), landing(nullptr), numberedPushers(0), processing(nullptr) { }
 	void SetMessages(const wchar_t *enable, const wchar_t *connect, const wchar_t *disable) {
 		miOFF = menu.AddMenuItem(disable, [this]() { Toggle(); }, false);
 		miCONN = menu.AddMenuItem(connect, [this]() { if(browserURI) LaunchBrowser(browserURI); }, false);
