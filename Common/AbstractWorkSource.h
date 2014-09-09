@@ -8,7 +8,7 @@
 #include <memory>
 #include <map>
 #include <time.h>
-#include <json/json.h>
+#include <rapidjson/document.h>
 #include "../Common/AREN/ArenDataTypes.h"
 
 
@@ -82,12 +82,12 @@ protected:
 	typedef std::vector< std::pair<const char*, const char*> > Credentials;
 	AbstractWorkSource(const char *presentation, const char *name, const char *algo, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v);
 
-	virtual void MangleReplyFromServer(size_t id, const Json::Value &result, const Json::Value &error) = 0;
+	virtual void MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error) = 0;
 
 	/*! The original stratum implementation was fairly clear on what was a notification (no need to confirm <-> no id)
 	and what was a request (confirmed by id). Author of P2Pool decided it would have been a nice idea to attach ids to everything,
 	so I cannot tell the difference anymore. To be called with non-null signature. */
-	virtual void MangleMessageFromServer(const std::string &idstr, const char *signature, const Json::Value &notification) = 0;
+	virtual void MangleMessageFromServer(const std::string &idstr, const char *signature, const rapidjson::Value &notification) = 0;
 
 	/*! Sending and receiving data is left to a derived class. This call tries to send stratum blobs.
 	The send must be implemented in a non-blocking way, if no bytes can be sent right away, it can return 0
@@ -124,7 +124,6 @@ private:
 		// Because I really want to be sure of the allocation/deallocation semantics.
 		// Is  it worth it? Probably not.
 	} recvBuffer;
-	Json::Reader json;
 	// Iterating on nonces is fully miner's responsability now. We only tell it if it can go on or not.
 	//auint nonce2;
 

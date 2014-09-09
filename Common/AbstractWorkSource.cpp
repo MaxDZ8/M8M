@@ -32,7 +32,9 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
 
 	recvBuffer.used += received;
 	if(recvBuffer.Full()) recvBuffer.Grow();
-		
+	
+	using namespace rapidjson;
+	Document object;
 	char *pos = recvBuffer.data.get();
 	char *lastEndl = nullptr;
 	while(pos < recvBuffer.NextBytes()) {
@@ -45,42 +47,40 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
 			stratumDump<<std::endl;
 #endif
 			lastEndl = limit;
-			Json::Value object;
-			json.parse(pos, limit, object, false);
-			Json::Value &id(object["id"]);
-			const Json::Value &method(object["method"]);
+			ScopedFuncCall restoreChar([limit]() { *limit = '\n'; }); // not really necessary but I like the idea
+			*limit = 0;
+			object.ParseInsitu(pos);
+			const Value::ConstMemberIterator &id(object.FindMember("id"));
+			const Value::ConstMemberIterator &method(object.FindMember("method"));
 			// There was a time in which stratum had "notifications" and "requests". They were the same thing basically but requests had an id 
 			// to be used for confirmations. Besides some idiot wanted to use 0 as an ID, P2Pool servers always attach an ID even to notifications,
 			// which is a less brain-damaged thing but still mandated some changes here.
 			std::string idstr;
-			asizei idvalue = 0;
-			switch(id.type()) {
-			case Json::ValueType::intValue: 
-				idstr = std::to_string(id.asInt());
-				idvalue = asizei(id.asInt());
-				break;
-			case Json::ValueType::uintValue:
-				idstr = std::to_string(id.asUInt());
-				idvalue = id.asUInt();
-				break;
-			case Json::ValueType::stringValue: 
-				idstr = id.asString();
-				// jsoncpp is stupid (I might have to transition to rapidjson)
-				// "id" : "1"
-				// is considered a string. Which is correct indeed, but not very valuable since some servers pull out shit like this even though I send them
-				// numerical IDs only!
-				// Ok, I'll test it myself.
-				for(size_t check = 0; id.asCString()[check]; check++) {
-					char c = id.asCString()[check];
-					if(c < '0' || c > '9') throw std::exception("All my ids are naturals>0, this should be a natural>0 number!");
+			aulong idvalue = 0;
+			if(id != object.MemberEnd()) {
+				switch(id->value.GetType()) {
+				case kNumberType: {
+					if(id->value.IsUint()) idvalue = id->value.GetUint();
+					else if(id->value.IsInt()) idvalue = id->value.GetInt();
+					else if(id->value.IsUint64()) idvalue = id->value.GetUint64();
+					else if(id->value.IsInt64()) idvalue = id->value.GetInt64();
+					idstr = std::to_string(idvalue);
+					break;
 				}
-				idvalue = strtoul(id.asCString(), NULL, 10);
-				break;
+				case kStringType: 
+					idstr.assign(id->value.GetString(), id->value.GetStringLength());
+					for(size_t check = 0; check < idstr.length(); check++) {
+						char c = idstr[check];
+						if(c < '0' || c > '9') throw std::exception("All my ids are naturals>0, this should be a natural>0 number!");
+					}
+					idvalue = strtoul(idstr.c_str(), NULL, 10);
+					break;
+				}
 			}
 			/* If you read the minimalistic documentation of stratum you get the idea you can trust on some things.
 			No, you don't. The only real thing you can do is figure out if something is a request from the server or a reply. */
-			if(method.isString()) {
-				if(method.asCString()) MangleMessageFromServer(idstr, method.asCString(), object["params"]);
+			if(method != object.MemberEnd() && method->value.IsString()) {
+				if(method->value.GetString()) MangleMessageFromServer(idstr, method->value.GetString(), object["params"]);
 			}
 			else { // I consider it a reply. Then it has .result or .error... MAYBE. P2Pool for example sends .result=.error=null as AUTH replies to say it doesn't care about who's logging in!
 				MangleReplyFromServer(idvalue, object["result"], object["error"]);

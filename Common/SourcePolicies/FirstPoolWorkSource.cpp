@@ -16,21 +16,27 @@ FirstPoolWorkSource::~FirstPoolWorkSource() {
 }
 
 
-void FirstPoolWorkSource::MangleReplyFromServer(size_t id, const Json::Value &result, const Json::Value &error) {
+void FirstPoolWorkSource::MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error) {
 	const char *sent = stratum.Response(id);
-	if(error.isNull() == false) {
+	if(error.IsNull() == false) {
 		ScopedFuncCall clear([this, id]() { stratum.RequestReplyReceived(id, true); });
 		std::string desc;
 		aint code;
-		if(error.isArray()) { // MPOS pools instead give us an array here, first number is an error code int, second is a string.
-			if(error[0u].isConvertibleTo(Json::ValueType::intValue) == false || error[1].isConvertibleTo(Json::ValueType::stringValue) == false)
-				throw std::exception("Ill-formed error message, I don't know how to mangle it.");
-			code = error[0u].asInt();
-			desc = error[1].asString();
+		if(error.IsArray()) { // MPOS pools give us an array here, first number is an error code int, second is a string.
+			const rapidjson::Value &jcode(error[0u]);
+			const rapidjson::Value &jdesc(error[1]);
+			if(jcode.IsInt()) code = jcode.GetInt();
+			else if(jcode.IsUint()) code = static_cast<aint>(jcode.GetUint());
+			else throw std::exception("Error code is not 32-bit integer, unsupported.");
+			if(jdesc.IsString()) desc.assign(jdesc.GetString(), jdesc.GetStringLength());
 		}
-		else if(error.isObject()) { // P2Pools put out messages this way
-			if(error["message"].isConvertibleTo(Json::stringValue)) desc = error["message"].asString();
-			if(error["code"].isConvertibleTo(Json::intValue)) code = error["code"].asInt();
+		else if(error.IsObject()) { // P2Pools put out messages this way
+			const rapidjson::Value &jcode(error["code"]);
+			const rapidjson::Value &jdesc(error["message"]);
+			if(jcode.IsInt()) code = jcode.GetInt();
+			else if(jcode.IsUint()) code = static_cast<aint>(jcode.GetUint());
+			else throw std::exception("Error code is not 32-bit integer, unsupported.");
+			if(jdesc.IsString()) desc.assign(jdesc.GetString(), jdesc.GetStringLength());
 		}
 		if(errorCallback) errorCallback(id, code, desc);
 	}
@@ -46,8 +52,8 @@ void FirstPoolWorkSource::MangleReplyFromServer(size_t id, const Json::Value &re
 }
 
 
-void FirstPoolWorkSource::MangleMessageFromServer(const std::string &idstr, const char *signature, const Json::Value &paramArray) {
-	if(paramArray.isArray() == false) throw std::exception("Notification or requests must have a .param array!");
+void FirstPoolWorkSource::MangleMessageFromServer(const std::string &idstr, const char *signature, const rapidjson::Value &paramArray) {
+	if(paramArray.IsArray() == false) throw std::exception("Notification or requests must have a .param array!");
 	bool mangled = false;
 	using namespace stratum::parsing;
 	MangleNotification(mangled, signature, paramArray, MiningSetDifficulty());

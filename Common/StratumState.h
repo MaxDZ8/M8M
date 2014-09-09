@@ -5,8 +5,8 @@
 #pragma once
 #include <memory>
 #include <queue>
+#include <map>
 #include <time.h>
-#include <json/reader.h>
 #include "../Common/Stratum/messages.h"
 #include "../Common/Stratum/parsing.h" // DecodeHEX
 #include "../Common/ScopedFuncCall.h"

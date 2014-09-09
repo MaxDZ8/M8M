@@ -3,7 +3,7 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include <json/json.h>
+#include <rapidjson/document.h> // Value
 #include "messages.h"
 #include <memory>
 #include "../AREN/ArenDataTypes.h"
@@ -86,14 +86,23 @@ struct AbstractParser {
 		return ret;
 	}
 
-	static std::string ToString(const Json::Value &something) {
-		if(something.isNull() || something.isArray() || something.isObject()) return std::string("");
-		if(something.isString()) return something.asString();
-		const char *blah = something.toStyledString().c_str();
-		if(blah[0] == '"') blah++;
-		size_t len = strlen(blah);
-		if(blah[len - 1] == '"') len--;
-		return std::string(blah, blah + len);
+	static std::string ToString(const rapidjson::Value &something) {
+		// Maybe it would be just better to pretty-print everything here and be done with it? Is that for documents only
+		using namespace rapidjson;
+		switch(something.GetType()) {
+		case kNullType:
+		case kArrayType:
+		case kObjectType: return std::string("");
+		case kFalseType: return std::string("false");
+		case kTrueType: return std::string("true");
+		case kStringType: return std::string(something.GetString(), something.GetStringLength());
+		// kNumberType = 6
+		}
+		if(something.IsInt()) return std::to_string(something.GetInt());
+		else if(something.IsUint()) return std::to_string(something.GetUint());
+		else if(something.IsInt64()) return std::to_string(something.GetInt64());
+		else if(something.IsUint64()) return std::to_string(something.GetUint64());
+		return std::to_string(something.GetDouble());
 	}
 	const std::string name;
 	AbstractParser(const char *str) : name(str) { }
@@ -103,34 +112,35 @@ struct AbstractParser {
 struct MiningSubscribe : public AbstractParser {
 	typedef MiningSubscribeResponse Product;
 	MiningSubscribe() : AbstractParser("mining.subscribe") { }
-	Product* Mangle(const Json::Value &root) {
-		if(!root.isArray()) throw std::exception(".result should be an array.");
-		if(root.size() != 3) throw std::exception("mining.subscribe .result array must count 3 elements.");
-		auto session = root[0U];
-		auto extraNonceOne = root[1];
-		auto extraNonceTwoSZ = root[2];
-		if(session.isArray() == false || session.size() != 2) throw std::exception("mining.subscribe .result[0] array must count 2 elements.");
-		if(session[0U].isString() == false || session[0U].asString() != "mining.notify") throw std::exception("mining.subscribe .result[0][0] is not \"mining.notify\"");
-		if(session[1].isString() == false || session[1].asString().empty()) throw std::exception("mining.subscribe .result[0][1] is not a valid session string.");
+	Product* Mangle(const rapidjson::Value &root) {
+		if(!root.IsArray()) throw std::exception(".result should be an array.");
+		if(root.Size() != 3) throw std::exception("mining.subscribe .result array must count 3 elements.");
+		auto &session(root[0U]);
+		auto &extraNonceOne(root[1]);
+		auto &extraNonceTwoSZ(root[2]);
+		if(session.IsArray() == false || session.Size() != 2) throw std::exception("mining.subscribe .result[0] array must count 2 elements.");
+		if(session[0U].IsString() == false || std::string(session[0U].GetString(), session[0u].GetStringLength()) != "mining.notify") throw std::exception("mining.subscribe .result[0][0] is not \"mining.notify\"");
+		if(session[1].IsString() == false || session[1].GetStringLength() == 0) throw std::exception("mining.subscribe .result[0][1] is not a valid session string.");
 		size_t sz = 0;
-		if(extraNonceTwoSZ.isUInt()) sz = extraNonceTwoSZ.asUInt();
-		else if(extraNonceTwoSZ.isInt()) {
-			int temp = extraNonceTwoSZ.asInt();
+		if(extraNonceTwoSZ.IsUint()) sz = extraNonceTwoSZ.GetUint();
+		else if(extraNonceTwoSZ.IsInt()) {
+			int temp = extraNonceTwoSZ.GetInt();
 			if(temp < 0) throw std::exception("Extra nonce size is negative.");
 			sz = static_cast<size_t>(temp);
 		}
-		else if(extraNonceTwoSZ.isString()) {
-			const char *chars = extraNonceTwoSZ.asCString();
-			for(size_t loop = 0; chars[loop]; loop++) {
+		else if(extraNonceTwoSZ.IsString()) {
+			const char *chars = extraNonceTwoSZ.GetString();
+			for(size_t loop = 0; extraNonceTwoSZ.GetStringLength(); loop++) {
 				if(chars[loop] < '0' || chars[loop] > '9') throw std::exception("Extra nonce size should be a positive integer.");
 			}
 			sz = strtoul(chars, NULL, 10);
 		}
 		else throw std::exception("mining.subscribe .result[3] is not a valid extra size.");
-		if(extraNonceOne.isString() == false) throw std::exception("mining.subscribe .result[2] is not a valid nonce1 string.");
+		if(extraNonceOne.IsString() == false) throw std::exception("mining.subscribe .result[2] is not a valid nonce1 string.");
 		//! \note ExtraNonce1 strings can apparently be the empty string. It's ok.
-		std::unique_ptr<Product> ret(new Product(session[1].asString(), extraNonceTwoSZ.asUInt()));
-		DecodeHEX(ret->extraNonceOne, extraNonceOne.asString());
+		auto mkString = [](const rapidjson::Value &v) { return std::string(v.GetString(), v.GetStringLength()); };
+		std::unique_ptr<Product> ret(new Product(mkString(session[1]), extraNonceTwoSZ.GetUint()));
+		DecodeHEX(ret->extraNonceOne, mkString(extraNonceOne));
 		return ret.release();
 	}
 };
@@ -139,10 +149,10 @@ struct MiningSubscribe : public AbstractParser {
 struct MiningAuthorize : public AbstractParser {
 	typedef MiningAuthorizeResponse Product;
 	MiningAuthorize() : AbstractParser("mining.authorize") { }
-	Product* Mangle(const Json::Value &root) {
-		if(root.isNull()) return new Product(MiningAuthorizeResponse::ar_notRequired);
-		if(!root.isBool()) throw std::exception("mining.authorize .result is not a valid authorization response.");
-		return new Product(root.asBool()? MiningAuthorizeResponse::ar_pass : MiningAuthorizeResponse::ar_bad);
+	Product* Mangle(const rapidjson::Value &root) {
+		if(root.IsNull()) return new Product(MiningAuthorizeResponse::ar_notRequired);
+		if(!root.IsBool()) throw std::exception("mining.authorize .result is not a valid authorization response.");
+		return new Product(root.GetBool()? MiningAuthorizeResponse::ar_pass : MiningAuthorizeResponse::ar_bad);
 	}
 };
 
@@ -150,8 +160,9 @@ struct MiningAuthorize : public AbstractParser {
 struct MiningSubmit : public AbstractParser {
 	typedef MiningSubmitResponse Product;
 	MiningSubmit() : AbstractParser("mining.submit") { }
-	Product* Mangle(const Json::Value &root) {
-		return new Product(root.asBool());
+	Product* Mangle(const rapidjson::Value &root) {
+		if(root.IsBool() == false) throw std::exception("mining.submit, result is not a boolean.");
+		return new Product(root.GetBool());
 	}
 };
 
@@ -159,7 +170,7 @@ struct MiningSubmit : public AbstractParser {
 struct ClientGetVersion : public AbstractParser {
 	typedef ClientGetVersionRequest Product;
 	ClientGetVersion() : AbstractParser("client.get_version") { }
-	Product* Mangle(const std::string &id, const Json::Value &params) {
+	Product* Mangle(const std::string &id, const rapidjson::Value &params) {
 		return new Product(id);
 	}
 };
@@ -168,12 +179,13 @@ struct ClientGetVersion : public AbstractParser {
 struct MiningSetDifficulty : public AbstractParser {
 	typedef MiningSetDifficultyNotify Product;
 	MiningSetDifficulty() : AbstractParser("mining.set_difficulty") { }
-	Product* Mangle(const Json::Value &params) {
-		const Json::Value &value(params[0U]);
+	Product* Mangle(const rapidjson::Value &params) {
+		const rapidjson::Value &value(params[0U]);
 		double diff;
-		if(value.isDouble()) diff = value.asDouble();
-		else if(value.isUInt()) diff = value.asInt(); // hopefully it won't truncate
-		else if(value.isInt()) diff = value.asInt();
+		if(value.IsDouble()) diff = value.GetDouble();
+		else if(value.IsUint()) diff = value.GetInt();
+		else if(value.IsInt()) diff = value.GetInt();
+		else if(value.IsUint64() || value.IsInt64()) throw std::exception("64-bit difficulty, not supported!");
 		else throw std::exception("difficulty value must is not numeric!");
 		return new Product(diff);
 	}
@@ -184,21 +196,27 @@ struct MiningSetDifficulty : public AbstractParser {
 struct MiningNotifyParser : public AbstractParser {
 	typedef MiningNotify Product;
 	MiningNotifyParser() : AbstractParser("mining.notify") { }
-	Product* Mangle(const Json::Value &params) {
-		if(params[8].isBool() == false) throw std::exception("restart flag is not a bool");
-		const bool restart = params[8].asBool();
+	Product* Mangle(const rapidjson::Value &params) {
+		if(params.IsArray() == false || params.Size() != 9) throw std::exception("mining.notify message not array or not having 8 entries.");
+		if(params[8].IsBool() == false) throw std::exception("restart flag is not a bool");
+		const bool restart = params[8].GetBool();
 		const __int32 ntime = DecodeHEX<__int32>(ToString(params[7]));
 		const __int32 nbit = DecodeHEX<__int32>(ToString(params[6]));
 		const __int32 blockVersion = DecodeHEX<__int32>(ToString(params[5]));
 		const std::string job(ToString(params[0U]));
 		std::unique_ptr<MiningNotify> ret(new MiningNotify(job, blockVersion, nbit, ntime, restart));
-		DecodeHEX(ret->prevHash, params[1].asString());
-		DecodeHEX(ret->coinBaseOne, params[2].asString());
-		DecodeHEX(ret->coinBaseTwo, params[3].asString());
+		DecodeHEX(ret->prevHash, params[1].GetString());
+		DecodeHEX(ret->coinBaseOne, params[2].GetString(), params[2].GetStringLength());
+		DecodeHEX(ret->coinBaseTwo, params[3].GetString(), params[3].GetStringLength());
 		auto &merkles(params[4]);
-		if(merkles.isArray() == false) throw std::exception("Merkle array missing");
-		ret->merkles.resize(merkles.size()); // notice: it can be 0 length, it's valid.
-		for(size_t loop = 0; loop < merkles.size(); loop++) DecodeHEX(ret->merkles[loop].hash, merkles[loop].asString());
+		if(merkles.IsArray() == false) throw std::exception("Merkle array missing");
+		ret->merkles.resize(merkles.Size()); // notice: it can be 0 length, it's valid.
+		asizei loop = 0;
+		for(rapidjson::Value::ConstValueIterator mrk = merkles.Begin(); mrk != merkles.End(); ++mrk) {
+			if(mrk->IsString() == false) throw std::exception("Merkle array contains non-string element.");
+			DecodeHEX(ret->merkles[loop].hash, mrk->GetString());
+			loop++;
+		}
 		return ret.release();
 	}
 };

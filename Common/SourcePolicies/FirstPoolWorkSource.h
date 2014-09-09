@@ -38,7 +38,7 @@ private:
 	NetworkInterface::ConnectedSocketInterface &pipe;
 	
 	template<typename Parser>
-	void MangleResult(bool &processed, const char *originally, size_t id, const Json::Value &object, Parser &parser) {
+	void MangleResult(bool &processed, const char *originally, size_t id, const rapidjson::Value &object, Parser &parser) {
 		if(processed) return;
 		if(parser.name != originally) return;
 		std::unique_ptr<Parser::Product> dispatch(parser.Mangle(object));
@@ -48,7 +48,7 @@ private:
 	}
 	
 	template<typename Parser>
-	void MangleRequest(bool &processed, const char *methodName, const string &id, const Json::Value &paramsArray, Parser &parser) {
+	void MangleRequest(bool &processed, const char *methodName, const string &id, const rapidjson::Value &paramsArray, Parser &parser) {
 		if(processed) return;
 		if(parser.name != methodName) return;
 		std::unique_ptr<Parser::Product> dispatch(parser.Mangle(id, paramsArray));
@@ -58,7 +58,7 @@ private:
 	}
 	
 	template<typename Parser>
-	void MangleNotification(bool &processed, const char *methodName, const Json::Value &paramsArray, Parser &parser) {
+	void MangleNotification(bool &processed, const char *methodName, const rapidjson::Value &paramsArray, Parser &parser) {
 		if(processed) return;
 		if(parser.name != methodName) return;
 		std::unique_ptr<Parser::Product> dispatch(parser.Mangle(paramsArray));
@@ -68,8 +68,8 @@ private:
 	}
 
 protected:
-	void MangleReplyFromServer(size_t id, const Json::Value &result, const Json::Value &error);
-	void MangleMessageFromServer(const std::string &idstr, const char *signature, const Json::Value &notification);
+	void MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error);
+	void MangleMessageFromServer(const std::string &idstr, const char *signature, const rapidjson::Value &notification);
 	asizei Send(const abyte *data, const asizei count);
 	asizei Receive(abyte *storage, asizei rem);
 
