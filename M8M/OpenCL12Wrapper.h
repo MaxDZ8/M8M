@@ -127,7 +127,7 @@ struct OpenCL12Wrapper {
 			err = clGetPlatformInfo(plat.clid, clProp, avail, text.data(), &avail);
 			if(err != CL_SUCCESS) throw std::exception("Something went very wrong with CL platform properties.");
 		}
-		return std::string(text.data(), text.data() + avail - 1);
+		return std::string(text.data());
 	}
 	static const char* GetName() { return "OpenCL 1.2"; }
 
@@ -166,7 +166,7 @@ struct OpenCL12Wrapper {
 		std::vector<char> text(avail);
 		err = clGetDeviceInfo(dev.clid, clProp, avail, text.data(), &avail);
 		if(err != CL_SUCCESS) throw std::exception("Something went very wrong with CL platform properties.");
-		return std::string(text.data(), text.data() + avail - 1);
+		return std::string(text.data());
 	}
 	static auint GetDeviceInfo(const Device &dev, DeviceInfoUint prop) {
 		cl_uint value;
