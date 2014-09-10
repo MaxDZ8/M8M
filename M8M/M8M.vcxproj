@@ -1,0 +1,204 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug CLD0_REPLICATED|Win32">
+      <Configuration>Debug CLD0_REPLICATED</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release Console|Win32">
+      <Configuration>Release Console</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A6540DE9-0F34-42CE-BED8-8605BBFD3E8E}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>M8M</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug CLD0_REPLICATED|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug CLD0_REPLICATED|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(SolutionDir)local-include;c:\Program Files (x86)\Windows Kits\8.1\Include\um;c:\Program Files (x86)\Windows Kits\8.1\Include\shared;$(AMDAPPSDKROOT)include;$(IncludePath)</IncludePath>
+    <LibraryPath>c:\Program Files (x86)\Windows Kits\8.1\Lib\winv6.3\um\x86;$(AMDAPPSDKROOT)lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug CLD0_REPLICATED|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(SolutionDir)local-include;c:\Program Files (x86)\Windows Kits\8.1\Include\um;c:\Program Files (x86)\Windows Kits\8.1\Include\shared;$(AMDAPPSDKROOT)include;$(IncludePath)</IncludePath>
+    <LibraryPath>c:\Program Files (x86)\Windows Kits\8.1\Lib\winv6.3\um\x86;$(AMDAPPSDKROOT)lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(SolutionDir)local-include;c:\Program Files (x86)\Windows Kits\8.1\Include\um;c:\Program Files (x86)\Windows Kits\8.1\Include\shared;$(AMDAPPSDKROOT)include;$(IncludePath)</IncludePath>
+    <LibraryPath>c:\Program Files (x86)\Windows Kits\8.1\Lib\winv6.3\um\x86;$(AMDAPPSDKROOT)lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(SolutionDir)local-include;c:\Program Files (x86)\Windows Kits\8.1\Include\um;c:\Program Files (x86)\Windows Kits\8.1\Include\shared;$(AMDAPPSDKROOT)include;$(IncludePath)</IncludePath>
+    <LibraryPath>c:\Program Files (x86)\Windows Kits\8.1\Lib\winv6.3\um\x86;$(AMDAPPSDKROOT)lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>OpenCL.lib;Ws2_32.lib;Gdiplus.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug CLD0_REPLICATED|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>REPLICATE_CLDEVICE_LINEARINDEX=0;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>OpenCL.lib;Ws2_32.lib;Gdiplus.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>OpenCL.lib;Ws2_32.lib;Gdiplus.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>RELEASE_WITH_CONSOLE;WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>OpenCL.lib;Ws2_32.lib;Gdiplus.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.cpp" />
+    <ClCompile Include="M8M.cpp" />
+    <ClCompile Include="WebMonitorTracker.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AbstractAlgoImplementation.h" />
+    <ClInclude Include="AbstractMiner.h" />
+    <ClInclude Include="AbstractThreadedMiner.h" />
+    <ClInclude Include="AlgoFactories\AbstractCLAlgoImplementation.h" />
+    <ClInclude Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.h" />
+    <ClInclude Include="AlgoFactories\QubitCL12.h" />
+    <ClInclude Include="AlgoFamily.h" />
+    <ClInclude Include="AlgoImplementationInterface.h" />
+    <ClInclude Include="commands\AbstractCommand.h" />
+    <ClInclude Include="commands\AbstractStreamingCommand.h" />
+    <ClInclude Include="commands\ExtensionListCMD.h" />
+    <ClInclude Include="commands\ExtensionState.h" />
+    <ClInclude Include="commands\Monitor\AlgoCMD.h" />
+    <ClInclude Include="commands\Monitor\ConfigInfoCMD.h" />
+    <ClInclude Include="commands\Monitor\DeviceConfigCMD.h" />
+    <ClInclude Include="commands\Monitor\DeviceShares.h" />
+    <ClInclude Include="commands\Monitor\PoolCMD.h" />
+    <ClInclude Include="commands\Monitor\PoolShares.h" />
+    <ClInclude Include="commands\Monitor\RejectReasonCMD.h" />
+    <ClInclude Include="commands\Monitor\ScanTime.h" />
+    <ClInclude Include="commands\Monitor\SystemInfoCMD.h" />
+    <ClInclude Include="commands\PushInterface.h" />
+    <ClInclude Include="commands\UnsubscribeCMD.h" />
+    <ClInclude Include="commands\UpgradeCMD.h" />
+    <ClInclude Include="commands\VersionCMD.h" />
+    <ClInclude Include="Connections.h" />
+    <ClInclude Include="KnownHardware.h" />
+    <ClInclude Include="M8MIcon.h" />
+    <ClInclude Include="MinerInterface.h" />
+    <ClInclude Include="OpenCL12Wrapper.h" />
+    <ClInclude Include="TimedValueStream.h" />
+    <ClInclude Include="WebMonitorTracker.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.vcxproj">
+      <Project>{fb7e3ab9-a157-4f2b-b3fe-11e3643dc873}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

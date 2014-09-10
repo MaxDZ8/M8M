@@ -1,0 +1,115 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="AbstractWorkSource.h" />
+    <ClInclude Include="aes.h" />
+    <ClInclude Include="Init.h" />
+    <ClInclude Include="LaunchBrowser.h" />
+    <ClInclude Include="Network.h" />
+    <ClInclude Include="NotifyIcon.h" />
+    <ClInclude Include="NotifyIconEventCollector.h" />
+    <ClInclude Include="NotifyIconStructs.h" />
+    <ClInclude Include="ScopedFuncCall.h" />
+    <ClInclude Include="Settings.h" />
+    <ClInclude Include="StratumState.h" />
+    <ClInclude Include="hashing.h" />
+    <ClInclude Include="Windows\AsyncNotifyIconPumper.h">
+      <Filter>Windows</Filter>
+    </ClInclude>
+    <ClInclude Include="WebSocket\Connection.h">
+      <Filter>WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="WebSocket\ControlFramer.h">
+      <Filter>WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="WebSocket\Framer.h">
+      <Filter>WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="WebSocket\HandShaker.h">
+      <Filter>WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Stratum\AbstractWorkUnit.h">
+      <Filter>Stratum</Filter>
+    </ClInclude>
+    <ClInclude Include="Stratum\BTCLikeWorkUnit.h">
+      <Filter>Stratum</Filter>
+    </ClInclude>
+    <ClInclude Include="Stratum\messages.h">
+      <Filter>Stratum</Filter>
+    </ClInclude>
+    <ClInclude Include="Stratum\parsing.h">
+      <Filter>Stratum</Filter>
+    </ClInclude>
+    <ClInclude Include="SourcePolicies\FirstPoolWorkSource.h">
+      <Filter>SourcePolicies</Filter>
+    </ClInclude>
+    <ClInclude Include="BTC\Funcs.h">
+      <Filter>BTC</Filter>
+    </ClInclude>
+    <ClInclude Include="BTC\structs.h">
+      <Filter>BTC</Filter>
+    </ClInclude>
+    <ClInclude Include="AREN\ArenDataTypes.h">
+      <Filter>AREN</Filter>
+    </ClInclude>
+    <ClInclude Include="AREN\SerializationBuffers.h">
+      <Filter>AREN</Filter>
+    </ClInclude>
+    <ClInclude Include="AREN\SharedUtils\OSUniqueChecker.h">
+      <Filter>AREN\SharedUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="AREN\SharedUtils\AutoConsole.h">
+      <Filter>AREN\SharedUtils</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="aes.cpp" />
+    <ClCompile Include="AbstractWorkSource.cpp" />
+    <ClCompile Include="LaunchBrowser.cpp" />
+    <ClCompile Include="Network.cpp" />
+    <ClCompile Include="statics.cpp" />
+    <ClCompile Include="StratumState.cpp" />
+    <ClCompile Include="Init.cpp" />
+    <ClCompile Include="Windows\AsyncNotifyIconPumper.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
+    <ClCompile Include="WebSocket\Framer.cpp">
+      <Filter>WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="WebSocket\HandShaker.cpp">
+      <Filter>WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="SourcePolicies\FirstPoolWorkSource.cpp">
+      <Filter>SourcePolicies</Filter>
+    </ClCompile>
+    <ClCompile Include="BTC\Funcs.cpp">
+      <Filter>BTC</Filter>
+    </ClCompile>
+    <ClCompile Include="AREN\SharedUtils\OSUniqueChecker.cpp">
+      <Filter>AREN\SharedUtils</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Windows">
+      <UniqueIdentifier>{62a92a2f-ded5-42df-a4b0-a758463192d4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="WebSocket">
+      <UniqueIdentifier>{d734f3d3-254b-475c-9dd1-c9feed18231c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Stratum">
+      <UniqueIdentifier>{c6e81c97-9f52-44d7-9d68-ea4d0baebf3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SourcePolicies">
+      <UniqueIdentifier>{d1ec87dd-6a98-417a-a610-112afe2ae9a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BTC">
+      <UniqueIdentifier>{c5ea6a6f-d3ff-4521-aba2-ca40478ce975}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AREN">
+      <UniqueIdentifier>{6f709f6f-fbe2-4fe1-9dab-7027eb574996}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="AREN\SharedUtils">
+      <UniqueIdentifier>{7330ac78-d172-4de1-b397-3bdae2d58b9e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -81,6 +81,8 @@ M8M uses the network for configuration. This **must be considered a security ris
 
 If you don't know what this means or you cannot assess how the above affects you please do not use M8M without obtaining and understanding proper information.
 
+No matter what happens to you, I will take no responsability. **You use M8M at your own risk**.
+
 ###A guarantee
 
 ***I have written M8M with no malicious intent.***
@@ -97,7 +99,7 @@ Please use the wiki instead: https://github.com/MaxDZ8/M8M/wiki#usage
 Compared to legacy miners the list of dependancies is limited you'll need:
 - Windows Platform SDK for desktop apps.
 - Some OpenCL SDK;
-- Some version of [jsoncpp](http://sourceforge.net/projects/jsoncpp) (likely to be replaced);
+- Optionally, [RapidJSON includes](https://github.com/miloyip/rapidjson) already provided here for convenience.
 
 There are no `define`s to be used in production builds.
 Link dependancies include:
