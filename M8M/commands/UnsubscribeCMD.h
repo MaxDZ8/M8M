@@ -23,14 +23,18 @@ public:
 	UnsubscribeCMD(PusherOwnerInterface &manager) : owner(manager), AbstractCommand("unsubscribe") { }
 
 protected:
-	PushInterface* Parse(Json::Value &reply, const Json::Value &input) {
-		const Json::Value &params(input["params"]);
-		if(params.isObject() == false) throw std::exception("\"unsubscribe\", .parameters must be object.");
-		if(params["originator"].isString() == false) throw std::exception("\"unsubscribe\", .parameters.originator missing or not a string.");
-		if(params["stream"].isNull()) owner.Unsubscribe(params["originator"].asString(), std::string(""));
-		else if(params["stream"].isConvertibleTo(Json::stringValue) == false) throw std::exception("\"unsubscribe\", .parameters.stream must be convertible to a string if specified.");
-		else owner.Unsubscribe(params["originator"].asString(), params["stream"].asString());
-		reply = true;
+	PushInterface* Parse(rapidjson::Document &reply, const rapidjson::Value &input) {
+		using namespace rapidjson;
+		Value::ConstMemberIterator &params(input.FindMember("params"));
+		if(params == input.MemberEnd() || params->value.IsObject() == false) throw std::exception("\"unsubscribe\", .parameters must be object.");
+		Value::ConstMemberIterator &ori(params->value.FindMember("originator"));
+		Value::ConstMemberIterator &stream(params->value.FindMember("stream"));
+		if(ori == params->value.MemberEnd() || ori->value.IsString() == false) throw std::exception("\"unsubscribe\", .parameters.originator missing or not a string.");
+		const std::string cmd(ori->value.GetString(), ori->value.GetStringLength());
+		if(stream == params->value.MemberEnd()) owner.Unsubscribe(cmd, std::string());
+		else if(stream->value.IsString() == false) throw std::exception("\"unsubscribe\", .parameters.stream must be convertible to a string if specified.");
+		else owner.Unsubscribe(cmd, std::string(stream->value.GetString(), stream->value.GetStringLength()));
+		reply.SetBool(true);
 		return nullptr;
 	}
 };

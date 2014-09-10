@@ -48,17 +48,19 @@ void WebMonitorTracker::NormalNetworkIO(std::vector<Network::SocketInterface*> &
 		if(!el->ws->Read(msg)) return;
 
 		ProcessingGuard currentlyMangling(&this->processing, skt);
-		Json::Reader parser;
 		for(asizei loop = 0; loop < msg.size(); loop++) {
-			const char *begin = reinterpret_cast<const char*>(msg[loop].data());
-			const char *limit = reinterpret_cast<const char*>(msg[loop].data() + msg[loop].size());
-			Json::Value object;
-			if(!parser.parse(begin, limit, object)) throw std::exception("Invalid JSON received.");
-			if(object["command"].isString() == false) throw std::exception("Not a command object.");
-			const std::string command(object["command"].asString());
+			rapidjson::Document object;
+			msg[loop].push_back(0); // string must be zero terminated for parse
+			//! \todo figure out how to limit rapidjson parsing!
+			object.ParseInsitu(reinterpret_cast<char*>(msg[loop].data()));
+			if(object.HasParseError()) throw std::exception("Invalid JSON received.");
+			rapidjson::Value::ConstMemberIterator cmdIter(object.FindMember("command"));
+			if(cmdIter == object.MemberEnd() || cmdIter->value.IsString() == false) throw std::exception("Not a command object.");
+			const rapidjson::Value &cmd(cmdIter->value);
+			const std::string command(cmd.GetString(), cmd.GetStringLength());
 			auto matched = commands.find(command.c_str());
 			if(matched == commands.cend()) {
-				if(object["push"].isNull()) { // this must be a command, but we don't support this.
+				if(object["push"].IsNull()) { // this must be a command, but we don't support this.
 					el->ws->EnqueueTextMessage(std::string("!!ERROR: unsupported command!!"));
 					continue;
 				}
@@ -199,17 +201,29 @@ void WebMonitorTracker::Refresh(std::vector<Network::SocketInterface*> &toRead, 
 		NormalNetworkIO(toRead, toWrite);
 		// Now give all the possibility to produce new data... which will never be sent if we closed but who cares!
 		std::for_each(pushing.cbegin(), pushing.cend(), [this](const PushList &mangle) {
+			using namespace rapidjson;
 			for(asizei loop = 0; loop < mangle.active.size(); loop++) {
-				Json::Value send;
+				Document send;
 				if(mangle.active[loop]->pusher->Refresh(send)) {
-					Json::Value ret;
-					ret["pushing"] = mangle.active[loop]->originator->name;
-					if(mangle.active[loop]->originator->GetMaxPushing() > 1) ret["stream"] = mangle.active[loop]->name;
-					ret["payload"] = send;
+					Document ret;
+					ret.SetObject();
+					const std::string &ori(mangle.active[loop]->originator->name);
+					ret.AddMember("pushing", StringRef(ori.c_str()), ret.GetAllocator());
+					if(mangle.active[loop]->originator->GetMaxPushing() > 1) ret.AddMember("stream", StringRef(mangle.active[loop]->name.c_str()), ret.GetAllocator());
+					ret.AddMember("payload", send, ret.GetAllocator());
 					auto sink = std::find_if(clients.cbegin(), clients.cend(), [&mangle](const ClientState &test) {
 						return &test.conn.get() == mangle.dst && test.ws.get();
 					});
-					if(sink != clients.cend()) sink->ws->EnqueueTextMessage(ret.toStyledString());
+					if(sink != clients.cend()) {
+						rapidjson::StringBuffer pretty;
+						#if _DEBUG
+						rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(pretty, nullptr);
+						#else
+						rapidjson::Writer<rapidjson::StringBuffer> writer(pretty, nullptr);
+						#endif
+						ret.Accept(writer);
+						sink->ws->EnqueueTextMessage(pretty.GetString(), pretty.GetSize());
+					}
 				}
 			}
 		});

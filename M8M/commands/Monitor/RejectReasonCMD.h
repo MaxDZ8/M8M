@@ -3,7 +3,6 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include <json/json.h>
 #include "../../MinerInterface.h"
 #include "../AbstractCommand.h"
 
@@ -14,16 +13,19 @@ class RejectReasonCMD : public AbstractCommand {
 	MinerInterface &miner;
 public:
 	RejectReasonCMD(MinerInterface &worker) : miner(worker), AbstractCommand("rejectReason") { }
-	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
-		build = Json::Value(Json::arrayValue);
+	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
+		using namespace rapidjson;
+		build.SetArray();
 		asizei index, device = 0;
 		while(miner.GetDeviceConfig(index, device)) {
-			if(index) build[device] = Json::Value(Json::nullValue);
+			if(index) build.PushBack(Value(kNullType), build.GetAllocator());
 			else {
-				build[device] = Json::Value(Json::arrayValue);
-				Json::Value &reason(build[device]);
+				build.PushBack(Value(kArrayType), build.GetAllocator());
+				Value &reason(build[device]);
 				std::vector<std::string> algoReason(miner.GetBadConfigReasons(device));
-				for(asizei loop = 0; loop < algoReason.size(); loop++) reason[loop] = algoReason[loop];
+				reason.Reserve(algoReason.size(), build.GetAllocator());
+				for(asizei loop = 0; loop < algoReason.size(); loop++)
+					reason.PushBack(Value(algoReason[loop].c_str(), algoReason[loop].length(), build.GetAllocator()), build.GetAllocator());
 			}
 			device++;
 		}

@@ -16,33 +16,36 @@ public:
 	UpgradeCMD(std::map<std::string, ExtensionState> &read) : lister(read), AbstractCommand("upgrade") { }
 
 protected:
-	PushInterface* Parse(Json::Value &reply, const Json::Value &input) {
-		const Json::Value &params(input["params"]);
-		if(params.isObject() == false) throw std::exception("\"upgrade\", .parameters must be object.");
-		const Json::Value &mode(params["mode"]);
-		const Json::Value &list(params["list"]);
-		if(mode.isString() == false) throw std::exception("\"upgrade\", parameters.mode must be string.");
-		if(list.isArray() == false) throw std::exception("\"upgrade\", parameters.list must be array.");
-		for(asizei loop = 0; loop < list.size(); loop++) {
-			if(list[loop].isString() == false) throw std::exception("\"upgrade\", parameters.list contains non-string value.");
+	PushInterface* Parse(rapidjson::Document &reply, const rapidjson::Value &input) {
+		using namespace rapidjson;
+		Value::ConstMemberIterator &params(input.FindMember("params"));
+		if(params == input.MemberEnd() || params->value.IsObject() == false) throw std::exception("\"upgrade\", .parameters must be object.");
+		Value::ConstMemberIterator &mode(params->value.FindMember("mode"));
+		Value::ConstMemberIterator &list(params->value.FindMember("list"));
+		if(mode == params->value.MemberEnd() || mode->value.IsString() == false) throw std::exception("\"upgrade\", parameters.mode must be string.");
+		if(list == params->value.MemberEnd() || list->value.IsArray() == false) throw std::exception("\"upgrade\", parameters.list must be array.");
+		for(SizeType loop = 0; loop < list->value.Size(); loop++) {
+			if(list->value[loop].IsString() == false) throw std::exception("\"upgrade\", parameters.list contains non-string value.");
 		}
-		if(mode.asString() == "query") {
-			reply = Json::Value(Json::objectValue);
-			for(asizei loop = 0; loop < list.size(); loop++) {
-				auto match = lister.find(list[loop].asString());
-				reply[list[loop].asString()] = match != lister.cend();				
+		const std::string test(std::string(mode->value.GetString(), mode->value.GetStringLength()));
+		if(test == "query") {
+			reply.SetObject();
+			for(SizeType loop = 0; loop < list->value.Size(); loop++) {
+				const std::string str(list->value[loop].GetString(), list->value[loop].GetStringLength());
+				auto match = lister.find(str);
+				reply.AddMember(StringRef(list->value[loop].GetString()), match != lister.cend(), reply.GetAllocator());
 			}
 		}
-		else if(mode.asString() == "enable") {
-			for(asizei init = 0; init < list.size(); init++) {
-				auto match = lister.find(list[init].asString());
+		else if(test == "enable") {
+			for(SizeType init = 0; init < list->value.Size(); init++) {
+				auto match = lister.find(std::string(list->value[init].GetString(), list->value[init].GetStringLength()));
 				if(match == lister.end()) break;
 				if(match->second.disabled) {
 					match->second.enable();
 					match->second.disabled = false;
 				}
 			}
-			reply = true;
+			reply.SetBool(true);
 		}
 		else throw std::exception("\"upgrade\", parameters.mode unrecognized value.");
 		return nullptr;

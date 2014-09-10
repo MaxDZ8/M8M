@@ -3,7 +3,6 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include <json/json.h>
 #include "../../MinerInterface.h"
 #include "../AbstractCommand.h"
 
@@ -14,33 +13,35 @@ class AlgoCMD : public AbstractCommand {
 	MinerInterface &miner;
 public:
 	AlgoCMD(MinerInterface &worker) : miner(worker), AbstractCommand("algo") { }
-	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
+	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		// Specification mandates there should be 1 parameter of value "primary".
 		// This is not really required (works perfectly with no params at all) but required for being future proof.
+		using namespace rapidjson;
 		std::string mode("primary");
-		if(input["params"].isNull()) { }
-		else if(input["params"].isString()) { mode = input["params"].asString(); }
+		Value::ConstMemberIterator params = input.FindMember("params");
+		if(params == input.MemberEnd() || params->value.IsNull()) { }
+		else if(params->value.IsString()) { mode.assign(params->value.GetString(), params->value.GetStringLength()); }
 		else {
-			build = "!!ERROR: \"parameters\" specified, but not a valid format.";
+			build.SetString("!!ERROR: \"parameters\" specified, but not a valid format.");
 			return nullptr;
 		}
 		if(mode != "primary") {
-			build = "!!ERROR: \"parameters\" unrecognized value \"" + mode + "\"";
+			std::string msg("!!ERROR: \"parameters\" unrecognized value \"" + mode + "\"");
+			build.SetString(msg.c_str(), msg.length(), build.GetAllocator());
 			return nullptr;
 		}
 		const char *algo = miner.GetMiningAlgo();
-		if(algo == nullptr) {
-			build = Json::Value(Json::nullValue);
-			return nullptr;
-		}
-		build["algo"] = algo;
+		if(algo == nullptr) return nullptr;
+		build.SetObject();
+		build.AddMember("algo", StringRef(algo), build.GetAllocator());
+		// can be put there directly as miner is managed by same thread, guaranteed lifetime, miner destroyed between passes.
 		std::string impl;
 		aulong ver;
 		char buffer[20]; // 8*2+1 would be sufficient for aulong
 		if(miner.GetMiningAlgoImpInfo(impl, ver)) {
 			_ui64toa_s(ver, buffer, sizeof(buffer), 16);
-			build["impl"] = impl;
-			build["version"] = buffer;
+			build.AddMember("impl", Value(impl.c_str(), impl.length(), build.GetAllocator()), build.GetAllocator());
+			build.AddMember("version", Value(buffer, strlen(buffer), build.GetAllocator()), build.GetAllocator());
 		}
 		return nullptr;
 	}

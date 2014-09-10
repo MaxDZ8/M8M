@@ -3,7 +3,6 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include <json/json.h>
 #include "../../MinerInterface.h"
 #include "../AbstractCommand.h"
 #include "../../../Common/AbstractWorkSource.h"
@@ -19,44 +18,53 @@ public:
 	const PoolURLFunc getPoolURL;
 
 	PoolCMD(MinerInterface &worker, const PoolURLFunc &getName) : miner(worker), getPoolURL(getName), AbstractCommand("pool") { }
-	PushInterface* Parse(Json::Value &build, const Json::Value &input) {
+	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		// Specification mandates there should be 1 parameter of value "primary".
 		// This is not really required (works perfectly with no params at all) but required for being future proof.
 		std::string mode("primary");
-		if(input["params"].isNull()) { }
-		else if(input["params"].isString()) { mode = input["params"].asString(); }
+		using namespace rapidjson;
+		Value::ConstMemberIterator params = input.FindMember("params");
+		if(params == input.MemberEnd() || params->value.IsNull()) { }
+		else if(params->value.IsString()) { mode.assign(params->value.GetString(), params->value.GetStringLength()); }
 		else {
-			build = "!!ERROR: \"parameters\" specified, but not a valid format.";
+			build.SetString("!!ERROR: \"parameters\" specified, but not a valid format.");
 			return nullptr;
 		}
 		if(mode != "primary") {
-			build = "!!ERROR: \"parameters\" unrecognized value \"" + mode + "\"";
+			const string msg("!!ERROR: \"parameters\" unrecognized value \"" + mode + "\"");
+			build.SetString(msg.c_str(), msg.length(), build.GetAllocator());
 			return nullptr;
 		}
 
 		const AbstractWorkSource *pool = miner.GetCurrentPool();
 		if(!pool) return nullptr;
-		build = Json::Value(Json::objectValue);
-		build["name"] = pool->GetName();
-		build["url"] = getPoolURL(*pool);
+		build.SetObject();
+		build.AddMember("name", Value(kStringType), build.GetAllocator());
+		build.AddMember("url", Value(kStringType), build.GetAllocator());
+		build["name"].SetString(pool->GetName(), strlen(pool->GetName()));
+		const std::string url(getPoolURL(*pool));
+		build["url"].SetString(url.c_str(), url.length(), build.GetAllocator());
 		
 		std::vector< std::pair<const char*, StratumState::AuthStatus> > workers;
 		pool->GetUserNames(workers);
 		if(workers.size()) {
-			build["users"] = Json::Value(Json::arrayValue);
-			Json::Value &arr(build["users"]);
+			build.AddMember("users",  Value(kArrayType), build.GetAllocator());
+			Value &arr(build["users"]);
 			for(asizei loop = 0; loop < workers.size(); loop++) {
-				arr[loop] = Json::Value(Json::objectValue);
-				Json::Value &add(arr[loop]);
-				add["login"] = workers[loop].first;
+				Value add(kObjectType);
+				add.AddMember("login", Value(kStringType), build.GetAllocator());
+				add.AddMember("authorized", Value(kStringType), build.GetAllocator());
+				add["login"].SetString(workers[loop].first, strlen(workers[loop].first)); //!< \todo why is SetString(char*) instead of SetString(const char*)?
+				Value &auth(add["authorized"]);
 				switch(workers[loop].second) {
-				case StratumState::as_accepted: add["authorized"] = true; break;
-				case StratumState::as_failed: add["authorized"] = false; break;
-				case StratumState::as_inferred: add["authorized"] = "inferred"; break;
-				case StratumState::as_pending: add["authorized"] = "pending"; break;
-				case StratumState::as_notRequired: add["authorized"] = "open"; break;
+				case StratumState::as_accepted: auth.SetBool(true); break;
+				case StratumState::as_failed: auth.SetBool(false); break;
+				case StratumState::as_inferred: auth = "inferred"; break;
+				case StratumState::as_pending: auth = "pending"; break;
+				case StratumState::as_notRequired: auth = "open"; break;
 				default: throw std::exception("Code out of sync? This is impossible!");
 				}
+				arr.PushBack(add, build.GetAllocator());
 			}
 		}
 		return nullptr;

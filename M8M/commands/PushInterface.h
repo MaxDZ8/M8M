@@ -5,7 +5,7 @@
 #pragma once
 #include "../../Common/AREN/ArenDataTypes.h"
 #include <string>
-#include <json/json.h>
+#include <rapidjson/document.h>
 
 namespace commands {
 
@@ -23,8 +23,9 @@ public:
 
 	/*! This is called every time possible to check state against previous tick state.
 	The only "input" here is passing time and what we want to know is a message to push to clint IF the contents changed.
-	\return false if nothing to send, otherwise true and a valid JSON value to be used as payload. */
-	virtual bool Refresh(Json::Value &out) = 0;
+	\return false if nothing to send, otherwise true and a valid JSON value to be used as payload.
+	\note For rapidjson, reply must be a Document (albeit it's a Value) so it can go along with its own allocator. */
+	virtual bool Refresh(rapidjson::Document &out) = 0;
 };
 
 

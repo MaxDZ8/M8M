@@ -38,8 +38,8 @@ private:
 		Pusher(ShareProviderInterface &getters) : workers(getters) { }
 		bool MyCommand(const std::string &signature) const { return strcmp(signature.c_str(), "poolShares") == 0; }
 		std::string GetPushName() const { return std::string("poolShares"); }
-		void SetState(const Json::Value &input) { /* it's either enabled or not */ }
-		bool RefreshAndReply(Json::Value &build, bool changes) {
+		void SetState(const rapidjson::Value &input) { /* it's either enabled or not */ }
+		bool RefreshAndReply(rapidjson::Document &build, bool changes) {
 			changes |= sent.size() == 0;
 			if(sent.size() == 0) {
 				asizei sum = 0;
@@ -57,16 +57,22 @@ private:
 			}
 			if(changes) {
 				slot = 0;
-				build = Json::Value(Json::objectValue);
+				using namespace rapidjson;
+				build.SetObject();
 				for(asizei p = 0; p < workers.GetNumPools(); p++) {
-					Json::Value &pool(build[workers.GetPoolName(p)]);
-					Json::Value &sent(pool["sent"]);
-					Json::Value &accepted(pool["accepted"]);
-					Json::Value &rejected(pool["rejected"]);
+					std::string pname(workers.GetPoolName(p));
+					build.AddMember(Value(pname.c_str(), pname.length(), build.GetAllocator()), Value(kObjectType), build.GetAllocator());
+					Value &pool(build[workers.GetPoolName(p).c_str()]);
+					pool.AddMember("sent", Value(kArrayType), build.GetAllocator());
+					pool.AddMember("accepted", Value(kArrayType), build.GetAllocator());
+					pool.AddMember("rejected", Value(kArrayType), build.GetAllocator());
+					Value &sent(pool["sent"]);
+					Value &accepted(pool["accepted"]);
+					Value &rejected(pool["rejected"]);
 					for(asizei w = 0; w < workers.GetNumWorkers(p); w++) {
-						sent[sent.size()] = this->sent[slot].sent;
-						accepted[accepted.size()] = this->sent[slot].accepted;
-						rejected[rejected.size()] = this->sent[slot].rejected;
+						sent.PushBack(this->sent[slot].sent, build.GetAllocator());
+						accepted.PushBack(this->sent[slot].accepted, build.GetAllocator());
+						rejected.PushBack(this->sent[slot].rejected, build.GetAllocator());
 						slot++;
 					}
 				}

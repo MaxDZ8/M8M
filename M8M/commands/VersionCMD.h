@@ -9,8 +9,8 @@ namespace commands {
 
 
 class VersionCMD : public AbstractCommand {
-	PushInterface* Parse(Json::Value &reply, const Json::Value &input) {
-		reply = "v1";
+	PushInterface* Parse(rapidjson::Document &reply, const rapidjson::Value &input) {
+		reply.SetString("v1");
 		return nullptr;
 	}
 public:

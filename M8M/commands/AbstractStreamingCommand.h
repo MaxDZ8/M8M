@@ -15,13 +15,13 @@ which will produce messages in the form of "command!" instead of "command?". */
 public:
 	AbstractStreamingCommand(const char *commandName) : AbstractCommand(commandName) { }
 
-	PushInterface* Parse(Json::Value &reply, const Json::Value &input) {
+	PushInterface* Parse(rapidjson::Document &reply, const rapidjson::Value &input) {
 		// A not very efficient way to produce streaming commands is to build their pusher anyway and then eventually drop it.
 		// This isn't much of a problem in practice as 99% of the times a streaming command will have streaming on.
 		std::unique_ptr<AbstractInternalPush> helper(NewPusher());
 		helper->MangleMatched(reply, input);
-		bool push = input["push"].isConvertibleTo(Json::booleanValue) && input["push"].asBool();
-		return push? helper.release() : nullptr;
+		const rapidjson::Value::ConstMemberIterator push = input.FindMember("push");
+		return push != input.MemberEnd() && push->value.IsBool() && push->value.GetBool()? helper.release() : nullptr;
 	}
 	
 	asizei GetMaxPushing() const { return 1; }
@@ -33,40 +33,25 @@ protected:
 
 		/*! This function is used by the command on firstly generating the PUSH request. The signature has been already checked to match the command
 		and is thus not conforming to PUSH syntax. */
-		void MangleMatched(Json::Value &out, const Json::Value &input) {
+		void MangleMatched(rapidjson::Document &out, const rapidjson::Value &input) {
 			std::string error;
-			#if defined(_DEBUG)
-			const std::string watcha(input.toStyledString());
-			#endif
 			SetState(input);
 			RefreshAndReply(out, true);
 		}
 
-		bool Refresh(Json::Value &out) {
+		bool Refresh(rapidjson::Document &out) {
 			return RefreshAndReply(out, false);
 		}
-
-		//! This helper struct will come handy for derived classes in setting their sub-fields without pissing themselves off too much.
-		struct Changer {
-			bool &different;
-			Changer(bool &cumulate) : different(cumulate) { }
-
-			template<typename ValueType>
-			void Set(Json::Value &dst, const char *key, const ValueType &ref, const ValueType &src) {
-				different |= src != ref;
-				dst[key] = src;
-			}
-		};
 
 		/*! Given current state (what to monitor) tick internal logic to refresh your values. If those values changed, produce output. 
 		Because a reply must always be given when input from user is received, you must consider this a change in itself and give output in that case.
 		This is also called by the command generating this PUSH when replying to a request.
 		To avoid expensive copies, build directly in the result and return false to discard that value. */
-		virtual bool RefreshAndReply(Json::Value &result, bool forcedOutput) = 0;
+		virtual bool RefreshAndReply(rapidjson::Document &result, bool forcedOutput) = 0;
 	
 	protected:
 		//! Parsing original command request, validation should happen here!
-		virtual void SetState(const Json::Value &object) = 0;
+		virtual void SetState(const rapidjson::Value &object) = 0;
 	};
 
 	virtual AbstractInternalPush* NewPusher() = 0;

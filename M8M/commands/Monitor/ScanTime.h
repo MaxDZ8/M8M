@@ -46,23 +46,21 @@ private:
 		bool MyCommand(const std::string &signature) const { return strcmp(signature.c_str(), "scanTime!") == 0; }
 		std::string GetPushName() const { return std::string("scanTime!"); }
 
-		void SetState(const Json::Value &input) {
+		void SetState(const rapidjson::Value &input) {
 			asizei count = 0; 
 			std::chrono::microseconds foo, bar;
 			while(devices.GetSTLast(foo, bar, count)) count++;
 			poll.resize(count);
 		}
-		bool RefreshAndReply(Json::Value &build, bool changes) {
+		bool RefreshAndReply(rapidjson::Document &build, bool changes) {
 			using namespace std::chrono;
+			using namespace rapidjson;
 			minutes shortw;
 			devices.GetSTWindow(shortw);
-			auto clamp = [](aulong value) -> auint { 
-				aulong biggest(aulong(auint(~0)));
-				return auint(value < biggest? value : biggest);
-			};
-			build["twindow"] = clamp(shortw.count());
-			build["measurements"] = Json::Value(Json::arrayValue);
-			Json::Value &arr(build["measurements"]);
+			build.SetObject();
+			build.AddMember("twindow", Value(shortw.count()), build.GetAllocator());
+			build.AddMember("measurements", rapidjson::Value(rapidjson::kArrayType), build.GetAllocator());
+			rapidjson::Value &arr(build["measurements"]);
 			for(asizei loop = 0; loop < poll.size(); loop++) {
 				DevStats &dev(poll[loop]);
 				microseconds min, max, slidingAvg, slrAvg, last;
@@ -85,13 +83,13 @@ private:
 			}
             if(changes) {
                 for(asizei loop = 0; loop < poll.size(); loop++) {
-				    Json::Value yours(Json::objectValue);
-				    yours["min"] = clamp(poll[loop].min.count());
-				    yours["max"] = clamp(poll[loop].max.count());
-				    yours["slidingAvg"] = clamp(poll[loop].slidingAvg.count());
-				    yours["slrAvg"] = clamp(poll[loop].slrAvg.count());
-				    yours["last"] = clamp(poll[loop].last.count());
-				    arr[arr.size()] = yours; // I always add an object, even if empty so client has it easy!
+					rapidjson::Value yours(rapidjson::kObjectType);
+				    yours.AddMember("min", Value(poll[loop].min.count()), build.GetAllocator());
+				    yours.AddMember("max", Value(poll[loop].max.count()), build.GetAllocator());
+				    yours.AddMember("slidingAvg", Value(poll[loop].slidingAvg.count()), build.GetAllocator());
+				    yours.AddMember("slrAvg", Value(poll[loop].slrAvg.count()), build.GetAllocator());
+				    yours.AddMember("last", Value(poll[loop].last.count()), build.GetAllocator());
+					arr.PushBack(yours, build.GetAllocator()); // I don't use PushBack as it needs to explicitly provide an allocator
 			    }
 			}
 			return changes;

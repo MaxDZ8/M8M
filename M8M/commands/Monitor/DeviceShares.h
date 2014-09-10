@@ -43,21 +43,23 @@ private:
 		Pusher(ValueSourceInterface &getters) : devices(getters), isRefresh(false) { }
 		bool MyCommand(const std::string &signature) const { return strcmp(signature.c_str(), "deviceShares") == 0; }
 		std::string GetPushName() const { return std::string("deviceShares"); }
-		void SetState(const Json::Value &input) {
+		void SetState(const rapidjson::Value &input) {
 			asizei count = 0; 
 			ShareStats out;
 			while(devices.GetDSS(out, count)) count++;
 			poll.resize(count);
 		}
-		bool RefreshAndReply(Json::Value &build, bool changes) {
-			auto clamp = [](aulong value) -> auint { 
-				aulong biggest(aulong(auint(~0)));
-				return auint(value < biggest? value : biggest);
-			};
-			Json::Value &good(build["good"]);
-			Json::Value &bad(build["bad"]);
-			Json::Value &stale(build["stale"]);
-			Json::Value &lastResult(build["lastResult"]);
+		bool RefreshAndReply(rapidjson::Document &build, bool changes) {
+			using namespace rapidjson;
+			build.SetObject();
+			build.AddMember("good", Value(kArrayType), build.GetAllocator());
+			build.AddMember("bad", Value(kArrayType), build.GetAllocator());
+			build.AddMember("stale", Value(kArrayType), build.GetAllocator());
+			build.AddMember("lastResult", Value(kArrayType), build.GetAllocator());
+			Value &good(build["good"]);
+			Value &bad(build["bad"]);
+			Value &stale(build["stale"]);
+			Value &lastResult(build["lastResult"]);
 			for(asizei loop = 0; loop < poll.size(); loop++) {
 				ShareStats previously = poll[loop];
 				devices.GetDSS(poll[loop], loop);
@@ -66,10 +68,10 @@ private:
 			}
 			if(changes) {
 				for(asizei loop = 0; loop < poll.size(); loop++) {
-					bad[bad.size()] = clamp(poll[loop].bad);
-					good[good.size()] = clamp(poll[loop].good);
-					stale[stale.size()] = clamp(poll[loop].stale);
-					lastResult[lastResult.size()] = clamp(poll[loop].lastResult);
+					bad.PushBack(poll[loop].bad, build.GetAllocator());
+					good.PushBack(poll[loop].good, build.GetAllocator());
+					stale.PushBack(poll[loop].stale, build.GetAllocator());
+					lastResult.PushBack(poll[loop].lastResult, build.GetAllocator());
 				}
 			}
 			isRefresh = true;
