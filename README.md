@@ -104,7 +104,7 @@ Compared to legacy miners the list of dependancies is limited you'll need:
 There are no `define`s to be used in production builds.
 Link dependancies include:
     OpenCL.lib;Ws2_32.lib;Gdiplus.lib;Shell32.lib
-Of course you'll need to link jsoncpp as well.
+If you want to update rapidjson either overwrite the existing files in the local-include directory or set up proper include paths.
 
 As M8M currently targets Windows®, you'll hopefully be just fine downloading the Visual Studio 2012 solution file, as soon as it is released.
 
