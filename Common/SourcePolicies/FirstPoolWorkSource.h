@@ -4,7 +4,7 @@
  */
 #pragma once
 #include "../AbstractWorkSource.h"
-#include "../../Common/Init.h"
+#include "../../Common/Settings.h"
 #include "../../Common/ScopedFuncCall.h"
 #include "../../Common/Stratum/parsing.h"
 #include "../../Common/BTC/Funcs.h"

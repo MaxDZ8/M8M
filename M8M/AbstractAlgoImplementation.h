@@ -99,7 +99,7 @@ public:
 	including device mappings. */
 	virtual void MakeResourcelessCopy(std::unique_ptr<AbstractAlgoImplementation> &yours) const = 0;
 
-	/*! Returns 0 if the given device is used (mapped to a configuration). Otherwise 1+config index. */
+	/*! Returns 0 if the given device is unused (not mapped to a configuration). Otherwise 1+config index. */
 	virtual asizei GetDeviceUsedConfig(const typename MiningProcessorsProvider::Device &dev) const = 0;
 
 	/*! Returns the index of the device used in the specific algo-implementation-instance as identified by MiningProcessorsProvider linear index. */

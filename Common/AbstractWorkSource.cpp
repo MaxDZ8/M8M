@@ -5,6 +5,10 @@
 #include "AbstractWorkSource.h"
 
 
+#if defined(M8M_STRATUM_DUMPTRAFFIC)
+static std::ofstream stratumDump;
+#endif
+
 AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrite) {
     // As a start, dispatch my data to the server. It is required to do this first as we need to
     // initiate connection with a mining.subscribe. Each tick, we send as many bytes as we can until

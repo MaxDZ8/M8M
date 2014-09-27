@@ -13,3 +13,5 @@
 
 
 void LaunchBrowser(const wchar_t *what);
+
+void OpenFileExplorer(const wchar_t *folder);

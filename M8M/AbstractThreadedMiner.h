@@ -164,7 +164,10 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 		std::unique_ptr<stratum::AbstractWorkUnit> mangling;
 		asizei sinceLastCheck = 0;
 		bool checkNonces = true;
-        cout<<"Miner thread completed initialization."<<endl; cout.flush();
+		{
+			std::unique_lock<std::mutex> sync(output.beingUsed);
+			output.initialized = true;
+		}
 		auint testedNonces = 0;
 		std::string exceptionDesc;
 		try {

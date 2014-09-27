@@ -24,6 +24,17 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 	    Status res = GdiplusStartup(&gdiplusToken, &gdipstart, &gdipInitResult);
 	    if(res != Ok) throw std::string("Could not init GDI+");
 	    ScopedFuncCall cleargdi([gdiplusToken]() { GdiplusShutdown(gdiplusToken); });
+		
+		WNDCLASSEX winClass;
+	    memset(&winClass, 0, sizeof(winClass));
+	    winClass.cbSize = sizeof(winClass);
+	    winClass.lpfnWndProc = WindowProcedure;
+	    winClass.hInstance = GetModuleHandle(NULL);
+	    winClass.lpszClassName = L"M8M window class for notify pump.";
+		ATOM registered = RegisterClassEx(&winClass);
+		if(!registered) throw std::exception("Could not register window class.");
+		ScopedFuncCall clearClass([&winClass]() { UnregisterClass(winClass.lpszClassName, winClass.hInstance); });
+
         ScopedFuncCall onTermination([this]() {
 			std::unique_lock<std::mutex> lock(*this->mutex);
 			if(this->asyncOwned.contextMenu) {
@@ -50,15 +61,6 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 	        if(this->shared) this->shared->guiTerminated = true;
 		});
         try {
-			WNDCLASSEX winClass;
-	        memset(&winClass, 0, sizeof(winClass));
-	        winClass.cbSize = sizeof(winClass);
-	        winClass.lpfnWndProc = WindowProcedure;
-	        winClass.hInstance = GetModuleHandle(NULL);
-	        winClass.lpszClassName = L"M8M window class for notify pump.";
-	        if(!RegisterClassEx(&winClass)) throw std::string("Could not register window class.");
-	        ScopedFuncCall clearClass([&winClass]() { UnregisterClass(winClass.lpszClassName, winClass.hInstance); });
-
 	        const DWORD style = 0;
 	        const DWORD exStyle = 0;
 	        const int x = 100;
@@ -114,9 +116,9 @@ LRESULT CALLBACK AsyncNotifyIconPumper::WindowProcedure(HWND window, UINT msg, W
 					PostQuitMessage(0);
 					return 0;
 				}
-				if(owner->shared->updateIcon) {
-					owner->UpdateIcon();
-					owner->shared->updateIcon = false;
+				if(owner->shared->updateIcon || owner->shared->updateCaption) {
+					owner->UpdateIconNCaption();
+					owner->shared->updateIcon = owner->shared->updateCaption = false;
 				}
 				if(owner->shared->regenMenu) {
 					HMENU newMenu = owner->GenMenu();
@@ -227,47 +229,64 @@ void AsyncNotifyIconPumper::UpdateMessage() {
 }
 
 
-void AsyncNotifyIconPumper::UpdateIcon() {
-	//! \todo That's really two things to do: (re)set the icon and the tip. I'm also leaking HICON resources here.
-	//! In general, this leaks, it's good to be called once however.
-	//! It also always creates with NIM_ADD, albeit it shouldn': icon changes should go with NIM_MODIFY like UpdateMessage()!
-	if(shared->icon.width > 64 || shared->icon.height > 64) throw std::string("Icon max width is 64x64.");
-	int w = int(shared->icon.width);
-	int h = int(shared->icon.height);
+void AsyncNotifyIconPumper::UpdateIconNCaption() {
+	// prepare new icon first, it's a bit more complicated.
 	int words[64 * 64];
-	memcpy_s(words, sizeof(words), shared->icon.rgbaPixels.get(), w * h * 4); //!< \todo CreateBitmap needs scanlines to be WORD aligned, and this is not currently guaranteed for tight packing, ok for now.
+	int w = 0, h = 0;
+	if(shared->updateIcon) {
+		if(shared->icon.width > 64 || shared->icon.height > 64) throw std::string("Icon max width is 64x64.");
+		w = int(shared->icon.width);
+		h = int(shared->icon.height);
+		memcpy_s(words, sizeof(words), shared->icon.rgbaPixels.get(), w * h * 4); //!< \todo CreateBitmap needs scanlines to be WORD aligned, and this is not currently guaranteed for tight packing, ok for now.
+		shared->icon.rgbaPixels.reset();
+	}
 
 	using namespace Gdiplus;
-	std::unique_ptr<Bitmap> newBitmap(new Bitmap(w, h, 4 * w, PixelFormat32bppARGB, reinterpret_cast<BYTE*>(words)));
-	HICON newIcon = 0;
-	Status result = newBitmap->GetHICON(&newIcon);
-	if(result != Ok) throw std::string("GetHICON failed, error ") + std::to_string(result);
-	
-	HICON prevIcon = asyncOwned.osIcon;
-	Bitmap *prevBitmap = asyncOwned.iconGraphics;
-	asyncOwned.iconGraphics = newBitmap.release();
-	asyncOwned.osIcon = newIcon;
+	std::unique_ptr<Bitmap> newBitmap;
+	HICON newIcon = 0, prevIcon = 0;
+	Bitmap *prevBitmap = nullptr;
+	if(shared->updateIcon) {
+		newBitmap.reset(new Bitmap(w, h, 4 * w, PixelFormat32bppARGB, reinterpret_cast<BYTE*>(words)));
+		Status result = newBitmap->GetHICON(&newIcon);
+		if(result != Ok) throw std::string("GetHICON failed, error ") + std::to_string(result);
+		prevIcon = asyncOwned.osIcon;
+		prevBitmap = asyncOwned.iconGraphics;
+		asyncOwned.iconGraphics = newBitmap.release();
+		asyncOwned.osIcon = newIcon;
+	}
 	ScopedFuncCall clearPrev([prevIcon, prevBitmap]() {
 		if(prevIcon) DestroyIcon(prevIcon);
 		if(prevBitmap) delete prevBitmap;
 	});
 
+	const DWORD ACTION = prevIcon? NIM_MODIFY : NIM_ADD;
 	NOTIFYICONDATA idata;
 	memset(&idata, 0, sizeof(idata));
 	idata.cbSize = sizeof(NOTIFYICONDATA);
 	idata.hWnd = asyncOwned.windowHandle;;
 	idata.uID = this->iconIndex;;
-	idata.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP | NIM_SETVERSION;  // NIF_SHOWTIP vista and later
+	idata.uFlags = NIF_TIP | NIF_SHOWTIP;  // NIF_SHOWTIP vista and later
 	idata.uCallbackMessage = WM_APP_NOTIFICON;
-	idata.hIcon = asyncOwned.osIcon; //! \todo http://msdn.microsoft.com/en-us/library/windows/desktop/bb773352(v=vs.85).aspx, LoadIconMetric
-	idata.uVersion = NOTIFYICON_VERSION_4;
-	const std::wstring &title(shared->icon.title);
-	asizei len = title.length() < 127? title.length() : 127;
-	for(asizei cp = 0; cp < len; cp++) idata.szTip[cp] = title[cp];
-	BOOL success = Shell_NotifyIcon(NIM_ADD, &idata);
-	if(!success) throw std::exception("Could not add icon to notification area.");
-	success = Shell_NotifyIcon(NIM_SETVERSION, &idata);
-	if(!success) throw std::exception("Could not set icon version.");
+	if(shared->updateIcon) {
+		idata.hIcon = asyncOwned.osIcon; //! \todo http://msdn.microsoft.com/en-us/library/windows/desktop/bb773352(v=vs.85).aspx, LoadIconMetric
+		idata.uFlags |= NIF_ICON;
+	}
+	if(shared->updateCaption) {
+		std::wstring &title(shared->icon.title);
+		asizei len = title.length() < 127? title.length() : 127;
+		for(asizei cp = 0; cp < len; cp++) idata.szTip[cp] = title[cp];
+		title.clear();
+		idata.uFlags |= NIF_MESSAGE;
+	}
+	BOOL success = Shell_NotifyIcon(ACTION, &idata);
+	if(!success) throw std::exception("Could not add/update icon in notification area.");
+
+	if(!prevIcon) {
+		idata.uFlags |= NIM_SETVERSION;
+		idata.uVersion = NOTIFYICON_VERSION_4;
+		success = Shell_NotifyIcon(NIM_SETVERSION, &idata);
+		if(!success) throw std::exception("Could not set icon version.");
+	}
 	asyncOwned.removeFromNotificationArea = true;
 }
 

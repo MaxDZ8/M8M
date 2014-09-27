@@ -12,11 +12,12 @@
 #include "../Common/AREN/ArenDataTypes.h"
 
 
-// #define M8M_STRATUM_DUMPTRAFFIC
+#define M8M_STRATUM_DUMPTRAFFIC
 
 
 #if defined(M8M_STRATUM_DUMPTRAFFIC)
 #include <fstream>
+extern std::ofstream stratumDump;
 #endif
 
 using std::string;
@@ -126,8 +127,4 @@ private:
 	} recvBuffer;
 	// Iterating on nonces is fully miner's responsability now. We only tell it if it can go on or not.
 	//auint nonce2;
-
-#if defined(M8M_STRATUM_DUMPTRAFFIC)
-	std::ofstream stratumDump;
-#endif
 };

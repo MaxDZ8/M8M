@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <rapidjson/document.h>
 
 using std::string;
 using std::unique_ptr;
@@ -21,14 +22,12 @@ struct PoolInfo {
 	const string name;
 	string algo;
 	PoolInfo(const string &nick, const string &url, const string &userutf8, const string &passutf8)
-		: user(userutf8), pass(passutf8), diffOneMul(64 * 1024), merkleMode(mm_SHA256D), name(nick) {
-		if(url.find("stratum+") == 0) appLevelProtocol = "stratum";
-		else throw std::exception("Pool is required to be stratum for the time being.");
-		string rem = url.substr(strlen("stratum+"));
+		: user(userutf8), pass(passutf8), diffOneMul(64 * 1024), merkleMode(mm_SHA256D), name(nick), appLevelProtocol("stratum") {
+		string rem = url.find("stratum+") == 0? url.substr(strlen("stratum+")) : url;
 		size_t stop = rem.find("://");
 		if(stop < rem.length()) {
-				service = rem.substr(0, stop);
-				rem = rem.substr(stop + 3);
+			service = rem.substr(0, stop);
+			rem = rem.substr(stop + 3);
 		}
 		else service = "http";
 		stop = rem.find(':');
@@ -47,18 +46,7 @@ struct PoolInfo {
 struct Settings {
 	std::vector< unique_ptr<PoolInfo> > pools;
 	std::string driver, algo, impl;
-	enum ImplParamType {
-		ipt_uint
-	};
-	struct ImplParam {
-		ImplParamType type;
-		std::string name;
-		union {
-			unsigned int valueUINT;
-		};
-		ImplParam(const char *pname, const unsigned int &v) : name(pname), type(ipt_uint) { valueUINT = v; }
-	};
-	std::vector<ImplParam> implParams;
+	rapidjson::Document implParams;
 	bool checkNonces; //!< if this is false, the miner thread will not re-hash nonces and blindly consider them valid
 
 	Settings() : checkNonces(true) { }

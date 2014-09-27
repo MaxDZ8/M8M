@@ -60,7 +60,7 @@ private:
 
     HMENU GenMenu();
     void UpdateMessage();
-	void UpdateIcon(); 
+	void UpdateIconNCaption(); 
 	void Update(MenuItem &mi, const MenuItemEvent &mod);
 };
 

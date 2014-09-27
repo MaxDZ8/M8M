@@ -31,8 +31,8 @@ public:
 			return nullptr;
 		}
 		const char *algo = miner.GetMiningAlgo();
-		if(algo == nullptr) return nullptr;
 		build.SetObject();
+		if(algo == nullptr) return nullptr;
 		build.AddMember("algo", StringRef(algo), build.GetAllocator());
 		// can be put there directly as miner is managed by same thread, guaranteed lifetime, miner destroyed between passes.
 		std::string impl;

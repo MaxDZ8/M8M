@@ -20,23 +20,7 @@ public:
 	//! \note When this is called nobody owns ownership of the work unit, which is ready to generate header but not hashed yet!
 	typedef std::function<void(AbstractWorkSource &pool, stratum::AbstractWorkUnit*)> DispatchCallback;
 
-	Connections(Network &factory, std::vector< unique_ptr<PoolInfo> >::const_iterator &first, asizei count, DispatchCallback df)
-		: network(factory), routes(count), dispatchFunc(df) {
-		for(asizei loop = 0; loop < count; loop++) {
-			const PoolInfo &conf(*first->get());
-			const char *host = conf.host.c_str();
-			const char *port = conf.explicitPort.length()? conf.explicitPort.c_str() : conf.service.c_str();
-			Network::ConnectedSocketInterface *conn = &factory.BeginConnection(host, port);
-			ScopedFuncCall clearConn([&factory, conn] { factory.CloseConnection(*conn); });
-			unique_ptr<FirstPoolWorkSource> stratum(new FirstPoolWorkSource("M8M/DEVEL", conf, *conn));
-			stratum->errorCallback = [](asizei i, int errorCode, const std::string &message) {
-				cout<<"Stratum message ["<<std::to_string(i)<<"] generated error response by server (code "
-					<<std::dec<<errorCode<<"=0x"<<std::hex<<errorCode<<std::dec<<"), server says: \""<<message<<"\""<<endl;
-			};
-			routes[loop] = Remote(conn, stratum.release());
-			clearConn.Dont();
-		}
-	}
+	Connections(Network &factory, DispatchCallback df) : network(factory), dispatchFunc(df), addedPoolCount(0) { }
 	~Connections() {
 		for(asizei loop = 0; loop < routes.size(); loop++) {
 			if(routes[loop].pool) routes[loop].pool->Shutdown();
@@ -54,7 +38,7 @@ public:
 	/*! Check all the currently managed pools. If a pool can either send or receive data,
 	give it the chance of doing so. You do this by passing a list of sockets which got input, the function will filter by itself. */
 	void Refresh(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
-		if(routes.size() == 0) throw std::exception("No active connections to pools, giving up.");
+		if(routes.size() == 0) return;
 		
 		for(asizei loop = 0; loop < toRead.size(); loop++) { // First of all, destroy routes which have gone down.
 			NetworkInterface::SocketInterface *test = toRead[loop];
@@ -119,6 +103,28 @@ public:
 	asizei GetNumServers() const { return routes.size(); }
 	const AbstractWorkSource& GetServer(asizei pool) const { return *routes[pool].pool; }
 
+	void AddPool(const PoolInfo &conf) {
+		routes.push_back(Remote());
+		ScopedFuncCall autopop([this]() { routes.pop_back(); });
+
+		const char *host = conf.host.c_str();
+		const char *port = conf.explicitPort.length()? conf.explicitPort.c_str() : conf.service.c_str();
+		Network::ConnectedSocketInterface *conn = &network.BeginConnection(host, port);
+		ScopedFuncCall clearConn([this, conn] { network.CloseConnection(*conn); });
+		unique_ptr<FirstPoolWorkSource> stratum(new FirstPoolWorkSource("M8M/DEVEL", conf, *conn));
+		stratum->errorCallback = [](asizei i, int errorCode, const std::string &message) {
+			cout<<"Stratum message ["<<std::to_string(i)<<"] generated error response by server (code "
+				<<std::dec<<errorCode<<"=0x"<<std::hex<<errorCode<<std::dec<<"), server says: \""<<message<<"\""<<endl;
+		};
+		routes.back().connection = conn;
+		routes.back().pool = std::move(stratum);
+		clearConn.Dont();
+		autopop.Dont();
+		addedPoolCount++;
+	}
+
+	asizei GetNumPoolsAdded() const { return addedPoolCount; }
+
 private:
 	Network &network;
 	DispatchCallback dispatchFunc;
@@ -139,5 +145,5 @@ private:
 	};
 	/*! This list is untouched, set at ctor and left as is. */
 	std::vector<Remote> routes;
-
+	asizei addedPoolCount;
 };

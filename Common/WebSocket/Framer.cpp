@@ -51,12 +51,6 @@ void Framer::Send() {
 			ponging++;
 		}
 	}
-	else if(closeFrame.payload.size()) {
-		if(closeFrame.sent < closeFrame.payload.size()) {
-			closeFrame.sent += socket.Send(closeFrame.payload.data() + closeFrame.sent, closeFrame.payload.size() - closeFrame.sent);
-		}
-		// otherwise, we are already closed and goodbye
-	}
 	else if(outbound.size()) {
 		bool closeEnqueued = closeFrame.payload.size() != 0;
 		sentOut += socket.Send(outbound.data() + sentOut, outbound.size() - sentOut);
@@ -64,6 +58,12 @@ void Framer::Send() {
 			outbound.clear();
 			sentOut = 0;
 		}
+	}
+	else if(closeFrame.payload.size()) {
+		if(closeFrame.sent < closeFrame.payload.size()) {
+			closeFrame.sent += socket.Send(closeFrame.payload.data() + closeFrame.sent, closeFrame.payload.size() - closeFrame.sent);
+		}
+		// otherwise, we are already closed and goodbye
 	}
 }
 

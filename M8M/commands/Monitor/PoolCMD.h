@@ -37,8 +37,8 @@ public:
 		}
 
 		const AbstractWorkSource *pool = miner.GetCurrentPool();
-		if(!pool) return nullptr;
 		build.SetObject();
+		if(!pool) return nullptr;
 		build.AddMember("name", Value(kStringType), build.GetAllocator());
 		build.AddMember("url", Value(kStringType), build.GetAllocator());
 		build["name"].SetString(pool->GetName(), strlen(pool->GetName()));

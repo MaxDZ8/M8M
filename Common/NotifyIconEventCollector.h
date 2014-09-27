@@ -33,10 +33,8 @@ public:
 		os.WakeupSignal();
 		lazyui->join();
 	}
-	void SetIcon(const wchar_t *title, const aubyte *rgbaPixels, asizei width, asizei height) {
+	void SetIcon(const aubyte *rgbaPixels, asizei width, asizei height) {
 		if(!rgbaPixels || !width || !height) throw std::exception("An icon must always be specified.");
-		std::wstring newTitle;
-		if(title) newTitle = title;
 		const asizei bytes = width * height * 4;
 		std::unique_ptr<aubyte[]> newPixels(new aubyte[bytes]);
 		memcpy_s(newPixels.get(), width * height * 4, rgbaPixels, width * height * 4);
@@ -44,10 +42,19 @@ public:
 		{
 			std::unique_lock<std::mutex> lock(mutex);
 			sharedState.icon.rgbaPixels = std::move(newPixels);
-			sharedState.icon.title = std::move(newTitle);
 			sharedState.icon.width = width;
 			sharedState.icon.height = height;
 			sharedState.updateIcon = true;
+		}
+		os.WakeupSignal();		
+	}
+	void SetCaption(const wchar_t *title) {
+		std::wstring newTitle;
+		if(title) newTitle = title;
+		{
+			std::unique_lock<std::mutex> lock(mutex);
+			sharedState.icon.title = std::move(newTitle);
+			sharedState.updateCaption = true;
 		}
 		os.WakeupSignal();		
 	}

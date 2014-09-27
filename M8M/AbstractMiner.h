@@ -29,18 +29,19 @@ protected:
 		std::unique_ptr<stratum::AbstractWorkUnit> wu; //!< if this is null, go over your current wu or keep sleeping if no wu is there. Otherwise, this is your new wu.
 		// if at least one of owner or wu is nullptr then the mining thread will go to sleep.
 
-		explicit AsyncInput() : terminate(false), checkNonces(true) { }
+		explicit AsyncInput() : terminate(false), checkNonces(true), owner(nullptr) { }
 	};
     
     struct AsyncOutput { //!< Data from the async mining thread.
         std::mutex beingUsed;
         std::vector<Nonces> found;
         bool terminated; //!< Guaranteed to be set to true at thread exit... supposed it started in the first place, no deadlocks occur and thread is not terminated forcefully
+		bool initialized;
         /*! If a thread is .terminated without having been requested to .terminate then it was an abnormal termination.
         Those are to be carried out with care and might - or might not - be able to produce a descriptive error message.
 		On abnormal termination, set the string of this pair first. If this suceeeds, then set the bool to indicate validity. */
         std::pair<bool, std::string> error;
-		explicit AsyncOutput() : terminated(false) { error.first = false; }
+		explicit AsyncOutput() : terminated(false), initialized(false) { error.first = false; }
 	};
 
 	typedef std::function<void(typename AsyncInput &input, typename AsyncOutput &output, typename MiningProcessorsProvider::ComputeNodes procs)> MiningThreadFunc;
@@ -128,7 +129,7 @@ public:
 	}
 	const char* GetMiningAlgo() const {
 		// Slightly more complicated because this way I can guarantee strings are persistent!
-		if(currAlgo.length() == 0) return false;
+		if(currAlgo.length() == 0) return nullptr;
 		const char *algo = currAlgo.c_str();
 		auto fam = std::find_if(algoFamilies.cbegin(), algoFamilies.cend(), [algo](const std::unique_ptr< AlgoFamily<MiningProcessorsProvider> > &test) {
 			return test->AreYou(algo);
@@ -144,15 +145,27 @@ public:
 		return true;
 	}
 
-	void AddSettings(const std::vector<Settings::ImplParam> &params) {
-		AbstractAlgoImplementation<MiningProcessorsProvider> *imp = GetMiningAlgoImp();
-		// if(imp) { // given proper usage, this will always happen. If someone does not use it correctly, let him crash so he knows
-		imp->AddSettings(params);
+	void AddSettings(const rapidjson::Document &params) {
+		for(asizei f = 0; f < algoFamilies.size(); f++) {
+			const rapidjson::Value::ConstMemberIterator fam(params.FindMember(algoFamilies[f]->name));
+			if(fam == params.MemberEnd() || fam->value.IsObject() == false) continue;
+			for(asizei i = 0; i < algoFamilies[f]->implementations.size(); i++) {
+				AlgoImplementationInterface &implementation(*algoFamilies[f]->implementations[i]);
+				const rapidjson::Value::ConstMemberIterator match(fam->value.FindMember(implementation.GetName().c_str()));
+				if(match == fam->value.MemberEnd()) continue;
+				if(match->value.IsObject()) implementation.AddSettings(match->value);
+				else if(match->value.IsArray()) {
+					rapidjson::Value::ConstValueIterator el = match->value.Begin();
+					while(el != match->value.End()) implementation.AddSettings(*el);
+				}
+			}
+		}
 	}
 
 	void Start() { 
 		if(dispatcher) throw std::exception("This implementation does not allow mining to be restarted.");
 		AbstractAlgoImplementation<MiningProcessorsProvider> *imp = GetMiningAlgoImp();
+		if(!imp) return; // this might happen if the config file is borken / empty config
 		imp->SelectSettings(hwProcessors.platforms);
 		imp->MakeResourcelessCopy(toMiner.run); // note thread is guaranteed to be not running yet
 		MiningThreadFunc worker(GetMiningThread());
@@ -190,14 +203,16 @@ public:
 		for(asizei plat = 0; plat < hwProcessors.platforms.size(); plat++) {
 			if(device < hwProcessors.platforms[plat].devices.size()) {
 				devptr = &hwProcessors.platforms[plat].devices[device];
-
 			}
 			device -= hwProcessors.platforms[plat].devices.size();
 		}
 		if(!devptr) return false;
 		const AbstractAlgoImplementation<MiningProcessorsProvider> *imp = GetMiningAlgoImp();
-		if(!imp) return false; // impossible
-		config = imp->GetDeviceUsedConfig(*devptr);
+		if(!imp) {
+			config = 0;
+			return true;
+		}
+		else config = imp->GetDeviceUsedConfig(*devptr);
 		return true;
 	}
 	std::vector<std::string> GetBadConfigReasons(asizei devIndex) const {
@@ -239,5 +254,9 @@ public:
             return true;
 		}
         return false;        
+	}
+	bool Working() {
+        std::unique_lock<std::mutex> lockfrom(fromMiner.beingUsed);
+		return fromMiner.initialized;
 	}
 };

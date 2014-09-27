@@ -44,12 +44,12 @@ public:
 		aulong version;
 		const char *algo = miner.GetMiningAlgo();
 		miner.GetMiningAlgoImpInfo(impl, version);
-		const AlgoImplementationInterface *ai = miner.GetAI(algo, impl.c_str());
-		if(!ai) return nullptr;
+		const AlgoImplementationInterface *ai = algo? miner.GetAI(algo, impl.c_str()) : nullptr;
 		build.SetArray();
+		if(!ai) return nullptr;
 		for(asizei loop = 0; loop < ai->GetNumSettings(); loop++) {
 			AlgoImplementationInterface::SettingsInfo info;
-			ai->GetSettingsInfo(info, loop);
+			if(ai) ai->GetSettingsInfo(info, loop);
 			Value entry(kObjectType);
 			if(hashCount) entry.AddMember("hashCount", info.hashCount, build.GetAllocator());
 			if(memUsage) {

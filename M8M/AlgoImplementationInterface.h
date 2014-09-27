@@ -7,6 +7,7 @@
 #include "../Common/AREN/ArenDataTypes.h"
 #include "../Common/Stratum/AbstractWorkUnit.h"
 #include <functional>
+#include <rapidjson/document.h>
 
 //! Not really an AlgoImplementation at this point, mostly bookeeping information.
 class AlgoImplementationInterface {
@@ -20,7 +21,7 @@ public:
     /*! Algorithm implementations parse the set of parameters to internal structures, only them can have understanding of the parameters to use
 	and how to sanity-check them. Implementations are encouraged in keeping the settings unique.
 	\sa MinerInterface::AddConfig */
-	virtual void AddSettings(const std::vector<Settings::ImplParam> &params) = 0;
+	virtual void AddSettings(const rapidjson::Value &paramObject) = 0;
 
 	/*! Returns the amount of settings currently stored in this algo implementation. Ideally that would be the number of successful AddSettings calls
 	minus the number of settings which were aliased. */

@@ -16,14 +16,11 @@
 
 struct QubitMultiStep_Options {
     asizei linearIntensity;
-    asizei dispatchCount;
 
-	QubitMultiStep_Options() : linearIntensity(10), dispatchCount(4) { }
-	auint Concurrency() const { return 256 * linearIntensity; }
-	asizei HashesPerDispatch() const { return Concurrency(); }
-	asizei HashesPerPass() const { return HashesPerDispatch() * dispatchCount; }
-	asizei OptimisticNonceCountMatch() const { const asizei estimate(HashesPerPass() / (64 * 1024));    return 32u > estimate? 32u : estimate; }
-	bool operator==(const QubitMultiStep_Options &other) const { return linearIntensity == other.linearIntensity && dispatchCount == other.dispatchCount; }
+	QubitMultiStep_Options() : linearIntensity(10) { }
+	auint HashCount() const { return 256 * linearIntensity; }
+	asizei OptimisticNonceCountMatch() const { const asizei estimate(HashCount() / (64 * 1024));    return 32u > estimate? 32u : estimate; }
+	bool operator==(const QubitMultiStep_Options &other) const { return linearIntensity == other.linearIntensity; }
 };
 
 /*! Resource structures are used by the AbstractCLAlgoImplementation and the AbstractThreadedMiner as placeholders, handy structs to group stuff together.
@@ -80,7 +77,7 @@ private:
 	static std::string GetBuildOptions(const QubitMultiStep_Options &opt, auint index);
 	static std::string GetSourceFileName(const QubitMultiStep_Options &opt, auint index);
 	static std::string GetKernelName(const QubitMultiStep_Options &opt, auint index);
-	void Parse(QubitMultiStep_Options &opt, const std::vector<Settings::ImplParam> &params);
+	void Parse(QubitMultiStep_Options &opt, const rapidjson::Value &params);
 	asizei ChooseSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev, RejectReasonFunc callback);
 	void BuildDeviceResources(QubitMultiStep_Resources &target, cl_context ctx, cl_device_id dev, const QubitMultiStep_Options &opt);
 	QubitMultistepOpenCL12* NewDerived() const { return new QubitMultistepOpenCL12(PROFILING_ENABLED, errorCallback); }

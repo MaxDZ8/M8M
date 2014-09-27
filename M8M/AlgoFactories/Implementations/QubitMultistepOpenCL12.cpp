@@ -36,7 +36,7 @@ bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 	switch(use.step) {
 	case 1: {
 		const asizei woff[1] = { use.nonceBase };
-		const asizei workDim [1] = { options.HashesPerDispatch() };
+		const asizei workDim [1] = { options.HashCount() };
 		const asizei groupDim[1] = { 256 }; // based on observation from profiling slightly better.
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[0], 1, woff, workDim, groupDim, 0, NULL, NULL);
 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[0] kernel.";
@@ -66,7 +66,7 @@ bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 	}
 	case 2: {
 		const asizei woff[2] = { 0, use.nonceBase };
-		const asizei workDim [2] = { 2, options.HashesPerDispatch() };
+		const asizei workDim [2] = { 2, options.HashCount() };
 		const asizei groupDim[2] = { 2, 32 }; // required by 2-way kernel.
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[1], 2, woff, workDim, groupDim, 0, NULL, NULL);
 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[1] kernel.";
@@ -106,7 +106,7 @@ bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 	}
 	case 3: {
 		const asizei woff[1] = { use.nonceBase };
-		const asizei workDim [1] = { options.HashesPerDispatch() };
+		const asizei workDim [1] = { options.HashCount() };
 		const asizei groupDim[1] = { 64 }; // required workgroup size... but perhaps 128-256 would be a better idea due to cache trashing
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[2], 1, woff, workDim, groupDim, 0, NULL, NULL);
 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[2] kernel.";
@@ -147,7 +147,7 @@ bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 	}
 	case 4: {
 		const asizei woff[2] = { 0, use.nonceBase };
-		const asizei workDim [2] = { 16, options.HashesPerDispatch() };
+		const asizei workDim [2] = { 16, options.HashCount() };
 		const asizei groupDim[2] = { 16, 4 };
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[3], 2, woff, workDim, groupDim, 0, NULL, NULL);
 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[3] kernel.";
@@ -177,7 +177,7 @@ bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 	}
 	case 5: {
 		const asizei woff[2] = { 0, use.nonceBase };
-		const asizei workDim [2] = { 8, options.HashesPerDispatch() };
+		const asizei workDim [2] = { 8, options.HashCount() };
 		const asizei groupDim[2] = { 8, 8 };
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[4], 2, woff, workDim, groupDim, 0, NULL, NULL);
 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[4] kernel.";
@@ -239,7 +239,7 @@ void QubitMultistepOpenCL12::GetSettingsInfo(SettingsInfo &out, asizei setting) 
 	// BUT I would end mixing logic and presentation code. Not a good idea. Since algo implementations don't change very often,
 	// I think it's a better idea to just keep them in sync.
 	const auto &opt(settings[setting].options);
-	out.hashCount = opt.HashesPerPass();
+	out.hashCount = opt.HashCount();
 	std::vector<std::string> constQual, inoutQual, outQual;
 	constQual.push_back(std::string("const"));
 	inoutQual.push_back(std::string("in"));
@@ -254,7 +254,7 @@ void QubitMultistepOpenCL12::GetSettingsInfo(SettingsInfo &out, asizei setting) 
 	out.Push(deviceRes, constQual, "AES round tables", sizeof(auint) * 4 * 256);
 	out.Push(deviceRes, constQual, "SIMD alpha table", sizeof(short) * 256);
 	out.Push(deviceRes, constQual, "SIMD beta table",  sizeof(unsigned short) * 256);
-	out.Push(deviceRes, inoutQual, "Hash IO buffers (2)", sizeof(cl_uint) * 16 * opt.HashesPerPass());
+	out.Push(deviceRes, inoutQual, "Hash IO buffers (2)", sizeof(cl_uint) * 16 * opt.HashCount());
 	out.Push(hostRes,   outQual,   "found nonces ",    sizeof(cl_uint) * (1 + opt.OptimisticNonceCountMatch()));
 }
 
@@ -335,19 +335,10 @@ std::string QubitMultistepOpenCL12::GetKernelName(const QubitMultiStep_Options &
 }
 
 
-void QubitMultistepOpenCL12::Parse(QubitMultiStep_Options &opt, const std::vector<Settings::ImplParam> &params) {
-    for(auto el = params.cbegin(); el != params.cend(); ++el) {
-		if(!_stricmp("linearIntensity", el->name.c_str())) {
-			if(el->valueUINT == 0) throw std::string("Invalid linearIntensity (0, would imply no work being carried out).");
-			opt.linearIntensity = el->valueUINT;
-		}
-		else if(!_stricmp("dispatchCount", el->name.c_str())) {
-			if(el->valueUINT == 0) throw std::string("Invalid dispatch count (0, would imply no work being carried out).");
-			opt.dispatchCount = el->valueUINT;
-		}
-		else throw std::string("Unrecognized option \"") + el->name + "\" for OpenCL.qubit.multistep kernel.";
-	}
-	if(opt.Concurrency() > MAX_CONCURRENCY) throw std::string("Concurrency is too high (") + std::to_string(opt.Concurrency()) + ", max value is " + std::to_string(MAX_CONCURRENCY) + '.';
+void QubitMultistepOpenCL12::Parse(QubitMultiStep_Options &opt, const rapidjson::Value &params) {
+	const rapidjson::Value::ConstMemberIterator li(params.FindMember("linearIntensity"));
+	if(li != params.MemberEnd() && li->value.IsUint() && li->value.GetUint()) opt.linearIntensity = li->value.GetUint();
+	if(opt.HashCount() > MAX_CONCURRENCY) throw std::string("Concurrency is too high (") + std::to_string(opt.HashCount()) + ", max value is " + std::to_string(MAX_CONCURRENCY) + '.';
 }
 
 
@@ -435,7 +426,7 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 	}
 
 	for(auint i = 0; i < add.io.size(); i++) {
-		add.io[i] = clCreateBuffer(ctx, CL_MEM_HOST_NO_ACCESS, opt.HashesPerDispatch() * 16 * sizeof(cl_uint), NULL, &error);
+		add.io[i] = clCreateBuffer(ctx, CL_MEM_HOST_NO_ACCESS, opt.HashCount() * 16 * sizeof(cl_uint), NULL, &error);
 		if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create I/O buffer " + std::to_string(i) + ".";
 	}
 	add.nonces = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, (1 + opt.OptimisticNonceCountMatch()) * sizeof(cl_uint), NULL, &error);

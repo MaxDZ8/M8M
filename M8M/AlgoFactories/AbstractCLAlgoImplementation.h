@@ -13,7 +13,7 @@ you are going to dispatch. Step 1+NUM_STEPS is assumed to also map the result bu
 template<auint NUM_STEPS, typename Options, typename Resources>
 class AbstractCLAlgoImplementation : public AbstractAlgoImplementation<OpenCL12Wrapper> {
 public:
-	void AddSettings(const std::vector<Settings::ImplParam> &params) {
+	void AddSettings(const rapidjson::Value &params) {
 		Options building;
 		Parse(building, params);
         auto el = std::find_if(settings.cbegin(), settings.cend(), [&building](const AlgoGroup &test) { return test.options == building; });
@@ -84,7 +84,7 @@ public:
 		const aubyte *blob = reinterpret_cast<const aubyte*>(wu.target.data());
 		const aulong target = *reinterpret_cast<const aulong*>(blob + 24);
 		FillWorkUnitData(use.res.commandq, use.res.wuData, wu);
-		FillDispatchData(use.res.commandq, use.res.dispatchData, options.Concurrency(), target, options.OptimisticNonceCountMatch());
+		FillDispatchData(use.res.commandq, use.res.dispatchData, options.HashCount(), target, options.OptimisticNonceCountMatch());
 		use.wu.job = wu.job;
 		use.wu.nonce2 = wu.nonce2;
 		use.wu.header = wu.header;
@@ -94,7 +94,7 @@ public:
 		use.res.resultsTransferred = 0;
 		cl_uint zero = 0;
 		clEnqueueWriteBuffer(use.res.commandq, use.res.nonces, true, 0, sizeof(cl_uint), &zero, 0, NULL, NULL);
-		return options.HashesPerPass();
+		return options.HashCount();
 	}
 
 
@@ -176,8 +176,9 @@ protected:
 	AbstractCLAlgoImplementation(const char *name, const char *version, OpenCL12Wrapper::ErrorFunc errorCallback) : AbstractAlgoImplementation(name, version, errorCallback) { }
 
 	/*! Statically mangle the parameter set passed and pull out the values you understand. It's just as simple.
-    Just parse it. Additional code around this will ensure the settings are unique, as long as the result is the same by operator==. */
-	virtual void Parse(Options &opt, const std::vector<Settings::ImplParam> &params) = 0;
+    Additional code around this will ensure the settings are unique, as long as the result is the same by operator==.
+	\note There's no parsing here anymore but name kept for the lack of a consistent benefit in changing. */
+	virtual void Parse(Options &opt, const rapidjson::Value &params) = 0;
 
 	asizei SelectSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev) {
 		return ChooseSettings(plat, dev, [](const char*){}); // doing that in the func declaration is a bit ugly

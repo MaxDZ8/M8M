@@ -40,8 +40,8 @@ private:
 		std::string GetPushName() const { return std::string("poolShares"); }
 		void SetState(const rapidjson::Value &input) { /* it's either enabled or not */ }
 		bool RefreshAndReply(rapidjson::Document &build, bool changes) {
-			changes |= sent.size() == 0;
-			if(sent.size() == 0) {
+			changes |= (sent.size() == 0 && workers.GetNumPools() != 0);
+			if(sent.size() == 0 && workers.GetNumPools() != 0) {
 				asizei sum = 0;
 				for(asizei loop = 0; loop < workers.GetNumPools(); loop++) sum += workers.GetNumWorkers(loop);
 				sent.resize(sum);

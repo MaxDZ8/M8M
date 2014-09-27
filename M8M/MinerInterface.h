@@ -10,6 +10,7 @@
 #include "../Common/AbstractWorkSource.h"
 #include <chrono>
 #include "AlgoImplementationInterface.h"
+#include <rapidjson/document.h>
 
 
 /*! A miner is a set of processing elements/devices running an algorithm. A miner does not really own those devices: it manages them and uses them for compute.
@@ -57,8 +58,12 @@ public:
 	This function can be called at any time, even if the miner is already crunching data. The newly added configs don't need to be dispatched
 	to the processing loop: this only happens when GenResources() is called.
 
+	\param[in] params A JSON object. This object will be sent to each algo family, which will match according to its name.
+	There will be a match on algorithm implementation as well. Those sub-sub objects must be arrays of objects containing algo-implementation-specific values.
+	They can also be a single object instead of an array with a single entry.
+
 	\note Implementations must expect the same config could be repeated multiple times and they must be able to consider re-declarations as nop. */
-	virtual void AddSettings(const std::vector<Settings::ImplParam> &params) = 0;
+	virtual void AddSettings(const rapidjson::Document &params) = 0;
 
 	/*! Once all configurations have been poured in, call this to match each device to a proper config and to later create all the resources
 	necessary to computation. No processing will take place until this is called. */
@@ -127,4 +132,7 @@ public:
     //! If the mining operations get terminated for some reason without being requested, return true. Optionally pass a description.
     //! Caller must assume this "consumes" the termination reason and further calls might return an empty string... or a different string.
     virtual bool UnexpectedlyTerminated(std::string &desc) = 0;
+
+	/*! Returns true if the internal implementation thinks computing is going on. Return false if still initializing. */
+	virtual bool Working() = 0;
 };

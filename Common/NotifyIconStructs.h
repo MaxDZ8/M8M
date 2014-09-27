@@ -49,7 +49,7 @@ struct Message {
 //! Used to hold/pass messages from main to gui thread or vice versa.
 struct NotifyIconThreadShare {
     // main -> gui thread
-	bool terminate, regenMenu, updateIcon, updateMessage;
+	bool terminate, regenMenu, updateIcon, updateMessage, updateCaption;
 	std::vector<MenuItem> commands;
 	std::vector<MenuItemEvent> commandChanges;
 	Message lastMessage;
@@ -58,5 +58,5 @@ struct NotifyIconThreadShare {
 	// gui thread -> main
 	bool guiTerminated;
 
-	explicit NotifyIconThreadShare() : terminate(false), regenMenu(false), updateIcon(false), updateMessage(false), guiTerminated(false) { }
+	explicit NotifyIconThreadShare() : terminate(false), regenMenu(false), updateIcon(false), updateMessage(false), guiTerminated(false), updateCaption(false) { }
 };
