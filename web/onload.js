@@ -32,24 +32,13 @@ window.onload = function() {
 	var CONNECTION_TIMEOUT = 15;
 	var points = 0, ticked = 0;
 	var maxPoints = 3;
-	var animatePoints = window.setInterval(ticking, 1000);
 	function failure(reason) {
 	//! todo: find a way for better error messaging?
 		document.getElementById("pre").textContent = "Failed to connect to";
 		document.getElementById("advancing").textContent = ", this is a fatal error (" + reason + ")";
 		var bar = document.getElementById("waitHint");
 		if(bar) bar.parentNode.removeChild(bar);
-		window.clearInterval(animatePoints);
 	};
-	function ticking() {
-		points %= maxPoints;
-		var periods = "";
-		for(var i = 0; i <= points; i++) periods += ".";
-		document.getElementById("advancing").textContent = periods;
-		points++;
-		ticked++;
-		if(ticked > CONNECTION_TIMEOUT) failure("Connection timed out");
-	}
 	var target = document.getElementById("hostname");
 	target.textContent = "localhost";
 	
@@ -58,8 +47,8 @@ window.onload = function() {
 	
 	var serverHost = "localhost";
 	var serverPort = 31000;
+	callbacks.close = function() { alert("socket close"); };
 	callbacks.success = function() {
-		window.clearInterval(animatePoints);
 		document.body.removeChild(document.getElementById("initializing"));
 		// todo: populate information from server first? 
 		document.body.appendChild(window.keepUntilConnect);
@@ -88,17 +77,19 @@ window.onload = function() {
 					
 					/*! \todo This will have to be moved a day so updatePoolElements will work on stored state instead! */
 					server.remote = {};
-					server.remote[poolinfo.name] = {};
-					server.remote[poolinfo.name].url = poolinfo.url;
-					server.remote[poolinfo.name].worker = [];
-					var w = server.remote[poolinfo.name].worker;
-					for(var init = 0; init < poolinfo.users.length; init++) {
-						var build = {};
-						build.sent = 0;
-						build.accepted = 0;
-						build.rejected = 0;
-						build.name = poolinfo.users[init].login;
-						w.push(build);
+					if(poolinfo.name) {
+						server.remote[poolinfo.name] = {};
+						server.remote[poolinfo.name].url = poolinfo.url;
+						server.remote[poolinfo.name].worker = [];
+						var w = server.remote[poolinfo.name].worker;
+						for(var init = 0; init < poolinfo.users.length; init++) {
+							var build = {};
+							build.sent = 0;
+							build.accepted = 0;
+							build.rejected = 0;
+							build.name = poolinfo.users[init].login;
+							w.push(build);
+						}
 					}
 					
 					window.minerMonitor.requestSimple("deviceConfig", function(configInfo) {
@@ -129,9 +120,10 @@ window.onload = function() {
 			});
 		});
 		document.getElementById("server").textContent = serverHost + ":" + serverPort;
+		window.minerMonitor.requestSimple("uptime", uptimeCallback);
 	};
 	callbacks.pingTimeFunc = function(time) { presentation.showReplyTime(time); };
-	window.minerMonitor = new MinerMonitor(serverHost, serverPort, callbacks);
+	window.minerMonitor = new MinerMonitor(serverHost, serverPort, "monitor", callbacks);
 	
 	function fillConfigTable() {
 		var cmd = {
@@ -210,5 +202,10 @@ window.onload = function() {
 				presentation.refreshResultTimeElapsed();
 			}, 1000);
 		});
+	}
+	
+	function uptimeCallback(reply) {
+		window.server.startTime = reply;
+		presentation.makeUptimeInfo();
 	}
 };

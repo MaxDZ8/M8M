@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<!--
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */-->
+
+<head>
+<meta charset="UTF-8">
+<link href="M8M.css" rel="stylesheet" type="text/css" media="all">
+<title>M8M localhost admin</title>
+<script src="support.js"></script>
+<script src="MinerMonitor.js"></script>
+<script src="admin_onload.js"></script>
+<script src="admin_presentation.js"></script>
+<script src="admin/easyConfigWizard.js"></script>
+<body>
+<div id="initializing">
+	<progress id="waitHint">Please wait while connection is setup.</progress><br>
+	<div>
+		<span id="pre">Connecting to miner</span> <span id="hostname" class="specificText"></span> ...
+	</div>
+</div>
+<div id="administration">
+	<div>
+		<h1>Connected to <span id="server" class="specificText"></span></h1>
+		Reply time: <span id="ping">?</span> ms<br>
+		<br>
+	</div>
+	<div id="configure"></div>
+</div>
+<!-- this must be a sequence of <div>s, each one is a "slide", a step in the easy config wizard.
+The code pulls out this div and builds a window.easyConfigSteps array. Stuff which is not a <div> is trashed. -->
+<div id="easyConfigSteps">
+	<div id="wzAlgo">
+		<h1>1/3 - Coin information</h1>
+		<p>
+			<em>Proof-of-Work</em> requires your GPU to compute numbers according to a certain <em>algorithm</em>. An <em>algorithm</em> is a description of how to produce a result.<br>
+			Most coins require you to use a specific algorithm, while others give you choice. You should read about the coin of your choice and understand which algorithms are to be used. Keep in mind that selecting the wrong algorithm will just cause your resuls to be always considered invalid!
+		</p>
+		<p>
+			Which algorithm do you want to use?<br>
+			<select id="algoSelect">
+				<option value="qubit" selected="true">Qubit</option>
+			</select>
+			<br>
+		</p>
+		<button onclick="wizard_goto('wzPool')">Next</button>
+	</div>
+	<div id="wzPool">
+		<h1>2/3 - Pool information</h1>
+		<p>
+			A <em>pool</em> is a team of computers working together to find the result. The result is called <em>nonce</em>.
+			When a nonce is found, the resulting reward is split across all contributors in the pool. Pools typically decide how much to give you considering both your performance and the time spent.
+			In general, every pool accepts results produced by a single algorithm so you must <strong>connect to a pool using <span id="selectedPoolAlgo">???</span></strong>.
+		</p>
+		<p>
+			Most pools are from three main types:
+			<ul>
+			<li><strong>P2Pool</strong>: encourages decentralization (network of servers), transparency (coins will be given to you regularly with no intermediaries) and ease of use (no signup required).</li>
+			<li><strong>NOMP</strong> and <strong>MPOS</strong>: emphatizing performance, those centralized pools might be more profitable to use (2-3%) but also come with typically higher fees. Coins are kept by the pool until you ask for payout or a threshold is met.</li>
+			</ul>
+			If you want to keep it easy, mine on P2Pool: your username is your wallet! The password is usually irrelevant, albeit some pools use it in specific ways.<br>
+			To mine on NOMP/MPOS you'll have to sign up first. You will be required to specify a set of workers, each with a password. Do not confuse your NOMP/MPOS user login password with your worker password.</br>
+		</p>
+		<p>
+			<label for="poolURL">URL of pool server (find this in pool's webpage)<br></label>
+			<input type="text" inputmode="verbatim" id="poolURL" size="50" placeholder="Example: stratum+goodpool.com:3000"/><br>
+		</p>
+		<p>
+			<label for="login">Worker login (wallet receiving coins for P2Pool)<br></label>
+			<input type="text" inputmode="verbatim" id="login" size="50" placeholder="Example: MyLogin.Worker1"/><br>
+		</p>
+		<p>
+			<label for="password">Worker password (not required on P2Pool). <strong>Only use new passwords here!</strong><br>Mining protocols are very easygoing on security, using your "common" passwords is super dangerous! Worker passwords can be very simple.<br></label>
+			<input type="text" inputmode="verbatim" id="password" size="50" placeholder="'blah123' would be sufficient"/><br>
+		</p>
+		<p>
+			<label for="poolName">You can give this pool a friendly name if you want.<br></label>
+			<input type="text" inputmode="verbatim" id="poolName" size="50" placeholder="Example: quick test"/><br>
+		</p>
+		<button onclick="wizard_goto('wzHWIntensity')">Next</button>
+	</div>
+	<div id="wzHWIntensity">
+		<h1>3/3 - System behaviour</h1>
+		<p>
+			The below slider will allow you to select the "size" of "GPU work".<br>
+			Move the slider to the left to select a small work size: this is inefficient for computation but allows your system to stay responsive to your commands.<br>
+			Moving the slider to the right will cause your system to become a bit choppy as the GPU will be given a lot of work but it is more efficient.<br>
+			Hopefully you'll find leaving this as is a good compromise between hashing performance and interactivity.
+		</p>
+		<p>
+			You don't need to consider your GPU performance level here, the program will try to figure out by itself.
+		</p>
+		<p>
+			Buttersmooth<input type="range" id="hwScaledInt" min="25" max="400" step="25" value="100" width="100%"/>Efficient
+		</p>
+		<button onclick="wizard_goto('wzSaveNReboot')">Next</button>
+	</div>
+	<div id="wzSaveNReboot">
+		<h1>Ready to apply changes</h1>
+		<p>
+			Hit the below button to apply your changes and reboot the miner program.<br>
+			This will cause this web application to bail out. It is normal: there's nothing else to do.<br>
+			You will hopefully be able to connect again using the monitor program in a matter of seconds.<br>
+		</p>
+		<button onclick="newConfigSaveAndReboot()">Save settings &amp; reboot miner</button>
+	</div>
+</div>
+<div id="modCurrConf">
+	<h1>Modify current setting</h1>
+	<label for="modAlgo">Algorithm</label><br><select id="modAlgo">
+		<option value="qubit" selected="true">Qubit</option>
+	</select><br>
+	<label for="modURL">Pool URL</label><br><input type="text" inputmode="verbatim" id="modURL" size="50"/><br>
+	<label for="modLogin">Login</label><br><input type="text" inputmode="verbatim" id="modLogin" size="50"/><br>
+	<label for="modPass">Password</label><br><input type="text" inputmode="verbatim" id="modPass" size="50"/><br>
+	<label for="modPoolName">Pool name</label><br><input type="text" inputmode="verbatim" id="modPoolName" size="50"/><br>
+	<!-- those two controls are mutually exclusive. I will pull hardware data from the server as in the easyConfig wizard and figure out a slider setting
+	from the current linearIntensity.
+	If this setting is valid (multiple of step and in range of slider) then the slider will be used.
+	Otherwise, the number input is used. -->
+	<span id="optModHWSI">Buttersmooth<input type="range" id="hwScaledInt" min="25" max="400" step="25" value="100" width="100%"/>Efficient<br></span>
+	<span id="optModLI"><label for="modLinearIntensity"><span class="specificText">linearIntensity</span></label><br><input type="number", id="modLinearIntensity", size="50" min="0" max="8192"/><br></span>
+	<button id="modButton" onclick="modConfigSaveAndReboot()" type="button">Save settings &amp; reboot miner</button>	
+</div>
+</body>
+</html>

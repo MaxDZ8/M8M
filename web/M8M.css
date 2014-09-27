@@ -84,3 +84,26 @@ td {
 	padding-left: .25em;
 	padding-right: .25em;
 }
+
+.hugeError {
+	text-shadow: 0 0.25em 3px rgba(255, 0, 0, 1);
+	font-size: 125%;
+	animation-duration: 4s;
+	animation-iteration-count: infinite;
+	animation-name: errorAni;
+}
+
+@keyframes errorAni {
+	from {
+		text-shadow: 0 0.125em 3px rgba(180, 0, 0, 1.0);
+	}
+	5% {
+		text-shadow: 0 0.125em 3px rgba(255, 0, 0, .75);
+	}
+	90% {
+		text-shadow: 0 0.125em 3px rgba(255, 0, 0, .75);
+	}
+	to {
+		text-shadow: 0 -0.25em 3px rgba(255, 0, 0, 0);
+	}
+}

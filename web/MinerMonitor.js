@@ -4,22 +4,24 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 
-function MinerMonitor(hostname, port, callbacks) {
-	if(!callbacks) callbacks = { };
+function MinerMonitor(hostname, port, resource, callbacks) {
+	if(callbacks) this.callbacks = callbacks;	
+	var self = this;
 	var pendingReply = [];
-	var socket = new WebSocket('ws://' + hostname + ':' + port + "/monitor", 'M8M-monitor');
+	var socket = new WebSocket('ws://' + hostname + ':' + port + "/" + resource, "M8M-" + resource);
 	function wsERROR() {
-		if(callbacks.fail) callbacks.fail("Websocket connection failed");
+		if(self.callbacks.fail) self.callbacks.fail("Websocket connection failed");
 	};
 	function wsReady() {
-		if(callbacks.success) callbacks.success();
+		if(self.callbacks.success) self.callbacks.success();
+	}
+	function wsClose() {
+		if(self.callbacks.close) self.callbacks.close();
 	}
 	compatible.setEventCallback(socket, "error", wsERROR);
 	compatible.setEventCallback(socket, "open", wsReady);
 	compatible.setEventCallback(socket, "message", service);
-	compatible.setEventCallback(socket, "close", function() { alert("socket close"); });
-	
-	var self = this;
+	compatible.setEventCallback(socket, "close", wsClose);
 	
 	this.request = function(object, callback, streaming) {
 		if(object.command === undefined) throw "Missing command name";
@@ -40,7 +42,7 @@ function MinerMonitor(hostname, port, callbacks) {
 		} // streaming commands have something MORE, but they also generate a standard response (eventually error)
 		pendingReply.push(function(serverReply) {
 			var received = Date.now();
-			if(callbacks.pingTimeFunc) callbacks.pingTimeFunc((received - sent) / 1000);
+			if(self.callbacks.pingTimeFunc) self.callbacks.pingTimeFunc((received - sent) / 1000);
 			callback(serverReply);
 		});
 	}
@@ -84,6 +86,7 @@ function MinerMonitor(hostname, port, callbacks) {
 MinerMonitor.prototype = {
 	request: undefined,
 	streaming: undefined,
+	callbacks: {},
 	requestSimple: function(simpleCMDNoArgs, callback) {
 		this.request({ command: simpleCMDNoArgs}, callback);
 	},

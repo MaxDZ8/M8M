@@ -29,5 +29,16 @@ var compatible = {
 		}
 		else throw "todo-modify class list by string .className";
 	}
+  },
+  getElementById : function(node, id) {
+	if(node.id === id) return node;
+	var count = node.childNodes.length;
+	for(var loop = 0; loop < count; loop++) {
+		if(node.childNodes[loop]) {
+			var find = this.getElementById(node.childNodes[loop], id);
+			if(find) return find;
+		}
+	}
+	return null;
   }
 };

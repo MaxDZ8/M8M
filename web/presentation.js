@@ -124,9 +124,11 @@ var presentation = {
 		
 		if(!reply.algo) {
 			compatible.modClass([algo, algoTitle, impl, version], "hugeError", "add");
-			algo.textContent = algoTitle.textContent = "!! nothing !!";
+			algo.innerHTML = "<strong>!! nothing !!</strong>";
+			algoTitle.innerHTML = "!! nothing !!";
 			impl.textContent = "!! N/A !!";
 			version.textContent = "!! N/A !!";
+			compatible.modClass([algo, algoTitle, impl, version], "hugeError", "add");
 		}
 		else if(!reply.impl || !reply.version) { // in general, either both or none will be defined
 			compatible.modClass([algo, algoTitle], "hugeError", "remove");
@@ -174,6 +176,15 @@ var presentation = {
 			purl = document.getElementById("poolURL");
 			user = document.getElementById("user");
 			authStatus = document.getElementById("authStatus");
+		}
+		
+		if(object.name === undefined) { // not connected to any pool!
+			purl.textContent = poolName.textContent = "!! not connected !!";
+			user.innerHTML = authStatus.innerHTML = "!! not connected !!";
+			pool.textContent = "";
+			authWarning.innerHTML = "<strong>!! not connected !!</strong>";
+			compatible.modClass([authWarning, user, authStatus, poolName, purl], "hugeError", "add");
+			return;
 		}
 		
 		pool.textContent = poolName.textContent = object.name;
@@ -292,6 +303,15 @@ var presentation = {
 				row.appendChild(whoops);
 				tbody.appendChild(row);
 			}
+		}
+		if(cinfo.length === 0) {
+			var row = document.createElement("tr");
+			var td = document.createElement("td");
+			td.innerHTML = "!! no algorithm running !!";
+			td.colSpan = 13; // I should really find a way to make this shit automatic...
+			compatible.modClass(td, "hugeError", "add");
+			row.appendChild(td);
+			tbody.appendChild(row);
 		}
 		
 		function makeCell(tag, html) {
@@ -452,34 +472,8 @@ var presentation = {
 			}
 				
 			if(server.hw.linearDevice[loop].lastResultSSE) {
-				var initial = Date.now() - server.hw.linearDevice[loop].lastResultSSE * 1000;
-				var elapsed = initial;
-				elapsed = Math.floor(elapsed / 1000);
-				var count = Math.floor(elapsed / (60 * 60));
-				var readable = "";
-				if(count) {
-					readable += count;
-					elapsed -= count * 60 * 60;
-				}
-				count = Math.floor(elapsed / 60);
-				if(count || readable.length) {
-					if(readable.length) {
-						readable += ":";
-						if(elapsed < 10) readable += "0";
-					}
-					readable += "" + count;
-					elapsed -= count * 60;
-				}
-				if(elapsed || readable.length) {
-					if(readable.length) {
-						readable += ":";
-						if(elapsed < 10) readable += "0";
-					}
-					readable += "" + elapsed;
-				}
-				else if(readable.length === 0) readable = "0";
-				target.firstChild.value = Math.floor(initial / 1000);
-				target.firstChild.textContent = readable;
+				target.firstChild.value = Math.floor(server.hw.linearDevice[loop].lastResultSSE);
+				target.firstChild.textContent = window.presentation.support.readableHHHHMMSS(Date.now() - server.hw.linearDevice[loop].lastResultSSE * 1000);
 			}
 		}
 	},
@@ -498,6 +492,40 @@ var presentation = {
 		var string = "" + accepted + "/" + sent + " (";
 		string += Math.floor(rejected / sent * 1000) / 10 + "%)";
 		document.getElementById("poolNonceStats").textContent = string;
+	},
+	
+	makeUptimeInfo: function() {
+		var div = document.createElement("div");
+		compatible.modClass(div, "detailsBox", "add");
+		div.style.display = "none";
+		div.style.zIndex = 5;
+		var string = "<h3>Run time</h3>";
+		string += "<strong>Since program initialized: </strong><span id='progElapsed'></span><br>";
+		string += "<strong>Since hashing started: </strong><span id='hashElapsed'></span><br>";
+		if(window.server.startTime.nonce) {
+			string += "<strong>First nonce found:</strong> ";
+			string += "" + new Date(window.server.startTime.nonce * 1000);
+			string += "<br>";
+		}
+		div.innerHTML = string;
+		div.appendChild(window.presentation.support.makeDetailShowHideButton(div, "Close"));
+		window.presentation.support.makeMovable(div);
+		document.getElementById("uptimebtn").appendChild(div);
+		document.getElementById("uptimebtn").appendChild(window.presentation.support.makeDetailShowHideButton(div, "Details"));
+		
+		window.setInterval(function() {
+			var now = new Date();
+			var when = window.server.startTime && window.server.startTime.program;
+			if(when) {
+				var where = document.getElementById("progElapsed");
+				where.textContent = window.presentation.support.readableHHHHMMSS(now - when * 1000);
+			}
+			when = window.server.startTime && window.server.startTime.hashing;
+			if(when) {
+				var where = document.getElementById("hashElapsed");
+				where.textContent = window.presentation.support.readableHHHHMMSS(now - when * 1000);
+			}
+		}, 1000);
 	},
 	
 	support: {
@@ -557,6 +585,35 @@ var presentation = {
 				}
 			}
 			else div.style.display = "none";
+		},
+		readableHHHHMMSS: function(elapsedms) {
+			var initial = elapsedms;
+			var elapsed = initial;
+			elapsed = Math.floor(elapsed / 1000);
+			var count = Math.floor(elapsed / (60 * 60));
+			var readable = "";
+			if(count) {
+				readable += count;
+				elapsed -= count * 60 * 60;
+			}
+			count = Math.floor(elapsed / 60);
+			if(count || readable.length) {
+				if(readable.length) {
+					readable += ":";
+					if(elapsed < 10) readable += "0";
+				}
+				readable += "" + count;
+				elapsed -= count * 60;
+			}
+			if(elapsed || readable.length) {
+				if(readable.length) {
+					readable += ":";
+					if(elapsed < 10) readable += "0";
+				}
+				readable += "" + elapsed;
+			}
+			else if(readable.length === 0) readable = "0";
+			return readable;
 		}
 	},
 	
