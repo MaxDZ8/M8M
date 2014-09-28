@@ -115,12 +115,31 @@ struct MiningSubscribe : public AbstractParser {
 	Product* Mangle(const rapidjson::Value &root) {
 		if(!root.IsArray()) throw std::exception(".result should be an array.");
 		if(root.Size() != 3) throw std::exception("mining.subscribe .result array must count 3 elements.");
-		auto &session(root[0U]);
 		auto &extraNonceOne(root[1]);
 		auto &extraNonceTwoSZ(root[2]);
-		if(session.IsArray() == false || session.Size() != 2) throw std::exception("mining.subscribe .result[0] array must count 2 elements.");
-		if(session[0U].IsString() == false || std::string(session[0U].GetString(), session[0u].GetStringLength()) != "mining.notify") throw std::exception("mining.subscribe .result[0][0] is not \"mining.notify\"");
-		if(session[1].IsString() == false || session[1].GetStringLength() == 0) throw std::exception("mining.subscribe .result[0][1] is not a valid session string.");
+		if(root[0u].IsArray() == false) throw std::exception("mining.subscribe .result[0] must be an array.");
+        std::string nonceOne;
+		auto mkString = [](const rapidjson::Value &v) { return std::string(v.GetString(), v.GetStringLength()); };
+        if(root[0u].Size() == 2 && root[0u][0u].IsString() && root[0u][1].IsString() && mkString(root[0u][0u]) == "mining.notify") {
+            nonceOne = mkString(root[0u][1]);
+            // This is the case for p2pool and myr-nonce-pool (MPOS).
+            // p2pool: result: [["mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"], "", 4]
+            // MPOS:   result: [["mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"], "f800f493", 4]
+        }
+        else {
+            // This is the case for DGB-theblocksfactory... is this NOMP? Does it matter?
+            // result: [[["mining.notify", "ae6812eb4cd7735a302a8a9dd95cf71f"], ["mining.set_difficulty", 1]], "0805089c", 4]
+            for(rapidjson::SizeType index = 0; index < root[0u].Size(); index++) {
+                const rapidjson::Value &entry(root[0u][index]);
+                if(entry.IsArray() == false || entry.Size() != 2) continue;
+                if(entry[0u].IsString() == false || entry[1].IsString() == false) continue;
+                if(mkString(entry[0u]) == "mining.notify") {
+                    nonceOne = mkString(entry[1]);
+                    break;
+                }
+            }
+            if(nonceOne.empty()) throw std::exception("Could not extract nonce1 from mining.subscribe response / mining.notify.");
+        }
 		size_t sz = 0;
 		if(extraNonceTwoSZ.IsUint()) sz = extraNonceTwoSZ.GetUint();
 		else if(extraNonceTwoSZ.IsInt()) {
@@ -138,8 +157,7 @@ struct MiningSubscribe : public AbstractParser {
 		else throw std::exception("mining.subscribe .result[3] is not a valid extra size.");
 		if(extraNonceOne.IsString() == false) throw std::exception("mining.subscribe .result[2] is not a valid nonce1 string.");
 		//! \note ExtraNonce1 strings can apparently be the empty string. It's ok.
-		auto mkString = [](const rapidjson::Value &v) { return std::string(v.GetString(), v.GetStringLength()); };
-		std::unique_ptr<Product> ret(new Product(mkString(session[1]), extraNonceTwoSZ.GetUint()));
+		std::unique_ptr<Product> ret(new Product(nonceOne, extraNonceTwoSZ.GetUint()));
 		DecodeHEX(ret->extraNonceOne, mkString(extraNonceOne));
 		return ret.release();
 	}
