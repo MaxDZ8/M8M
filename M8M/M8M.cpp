@@ -362,12 +362,12 @@ Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value
 	const Value::ConstMemberIterator pools = root.FindMember("pools");
 	auto mkString = [](const Value &jv) { return std::string(jv.GetString(), jv.GetStringLength()); };
 	if(pools == root.MemberEnd()) errors.push_back("No pools specified in config file."); // but keep going, not fatal.
-	else if(pools->value.IsObject() == false) errors.push_back("Pool list must be an object.");
+	else if(pools->value.IsArray() == false) errors.push_back("Pool list must be an array.");
 	else {
-		for(Value::ConstMemberIterator keys = pools->value.MemberBegin(); keys != pools->value.MemberEnd(); ++keys) {
-			const Value &load(keys->value);
+        for(SizeType index = 0; index < pools->value.Size(); index++) {
+            const Value &load(pools->value[index]);
 			if(!load.IsObject()) {
-				errors.push_back(std::string("pools[") + mkString(keys->name) + "] is not an object. Ignored.");
+                errors.push_back(std::string("pools[") + std::to_string(index) + "] is not an object. Ignored.");
 				continue;
 			}
 			std::string fieldList;
@@ -387,10 +387,14 @@ Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value
 			const auto psw = reqString("pass");
 			const auto algo = reqString("algo");
 			if(!valid) {
-				errors.push_back(std::string("pools[") + mkString(keys->name) + "] ignored, invalid fields: " + fieldList);
+				errors.push_back(std::string("pools[") + std::to_string(index) + "] ignored, invalid fields: " + fieldList);
 				continue;
 			}
-			unique_ptr<PoolInfo> add(new PoolInfo(mkString(keys->name), mkString(addr->value), mkString(user->value), mkString(psw->value)));
+            const auto poolNick(load.FindMember("name"));
+            std::string poolName;
+            if(poolNick != load.MemberEnd() && poolNick->value.IsString()) poolName = mkString(poolNick->value);
+            else poolName = std::string("[") + std::to_string(index) + "]";
+			unique_ptr<PoolInfo> add(new PoolInfo(poolName, mkString(addr->value), mkString(user->value), mkString(psw->value)));
 			add->algo = mkString(algo->value);
 			const auto proto(load.FindMember("protocol"));
 			const auto coinDiff(load.FindMember("coinDiffMul"));
