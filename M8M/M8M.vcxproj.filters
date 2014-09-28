@@ -33,14 +33,14 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="WebMonitorTracker.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="M8M.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.cpp">
       <Filter>Source Files\AlgoFactories\Implementations</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractWSServer.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -139,6 +139,9 @@
     </ClInclude>
     <ClInclude Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.h">
       <Filter>Header Files\AlgoFactories\Implementations</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractWSServer.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

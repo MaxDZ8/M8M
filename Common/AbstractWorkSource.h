@@ -12,9 +12,6 @@
 #include "../Common/AREN/ArenDataTypes.h"
 
 
-#define M8M_STRATUM_DUMPTRAFFIC
-
-
 #if defined(M8M_STRATUM_DUMPTRAFFIC)
 #include <fstream>
 extern std::ofstream stratumDump;

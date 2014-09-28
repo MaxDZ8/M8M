@@ -20,7 +20,6 @@
     <ClInclude Include="BTC\Funcs.h" />
     <ClInclude Include="BTC\structs.h" />
     <ClInclude Include="hashing.h" />
-    <ClInclude Include="Init.h" />
     <ClInclude Include="LaunchBrowser.h" />
     <ClInclude Include="Network.h" />
     <ClInclude Include="NotifyIcon.h" />
@@ -45,7 +44,6 @@
     <ClCompile Include="aes.cpp" />
     <ClCompile Include="AREN\SharedUtils\OSUniqueChecker.cpp" />
     <ClCompile Include="BTC\Funcs.cpp" />
-    <ClCompile Include="Init.cpp" />
     <ClCompile Include="LaunchBrowser.cpp" />
     <ClCompile Include="Network.cpp" />
     <ClCompile Include="SourcePolicies\FirstPoolWorkSource.cpp" />

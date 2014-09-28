@@ -3,7 +3,6 @@
   <ItemGroup>
     <ClInclude Include="AbstractWorkSource.h" />
     <ClInclude Include="aes.h" />
-    <ClInclude Include="Init.h" />
     <ClInclude Include="LaunchBrowser.h" />
     <ClInclude Include="Network.h" />
     <ClInclude Include="NotifyIcon.h" />
@@ -69,7 +68,6 @@
     <ClCompile Include="Network.cpp" />
     <ClCompile Include="statics.cpp" />
     <ClCompile Include="StratumState.cpp" />
-    <ClCompile Include="Init.cpp" />
     <ClCompile Include="Windows\AsyncNotifyIconPumper.cpp">
       <Filter>Windows</Filter>
     </ClCompile>

@@ -155,14 +155,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AbstractWSServer.cpp" />
     <ClCompile Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.cpp" />
     <ClCompile Include="M8M.cpp" />
-    <ClCompile Include="WebMonitorTracker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AbstractAlgoImplementation.h" />
     <ClInclude Include="AbstractMiner.h" />
     <ClInclude Include="AbstractThreadedMiner.h" />
+    <ClInclude Include="AbstractWSServer.h" />
     <ClInclude Include="AlgoFactories\AbstractCLAlgoImplementation.h" />
     <ClInclude Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.h" />
     <ClInclude Include="AlgoFactories\QubitCL12.h" />
