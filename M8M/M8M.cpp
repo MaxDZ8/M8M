@@ -790,13 +790,13 @@ int main(int argc, char **argv) {
 #error This OS needs a sleep function.
 #endif
 
+	const aubyte white[4] =  { 255, 255, 255, 255 };
+	const aubyte green[4] =  {   0, 255,   0, 255 };
+	const aubyte yellow[4] = {   0, 255, 255, 255 };
+	const aubyte blue[4] =   { 255,   0,   0, 255 };
+	const aubyte red[4] =    {   0,   0, 255, 255 };
 	IconCompositer<16, 16> iconBitmaps;
 	try {
-		const aubyte white[4] =  { 255, 255, 255, 255 };
-		const aubyte green[4] =  {   0, 255,   0, 255 };
-		const aubyte yellow[4] = {   0, 255, 255, 255 };
-		const aubyte blue[4] =   { 255,   0,   0, 255 };
-		const aubyte red[4] =    {   0,   0, 255, 255 };
 		iconBitmaps.AddIcon(STATE_ICON_NORMAL, M8M_ICON_16X16_NORMAL);
 		iconBitmaps.AddIcon(STATE_ICON_LISTENING, M8M_ICON_16X16_LISTENING);
 		iconBitmaps.AddIcon(STATE_ICON_CLIENT_CONNECTED, M8M_ICON_16X16_CLIENT_CONNECTED);
