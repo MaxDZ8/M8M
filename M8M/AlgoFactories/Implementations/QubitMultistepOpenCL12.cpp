@@ -5,9 +5,6 @@
 #include "QubitMultistepOpenCL12.h"
 
 
-const auint QubitMultistepOpenCL12::MAX_CONCURRENCY = 1024 * 32 * 32;
-
-
 bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 #if DEBUGBUFFER_SIZE
 	auto UintHexOut = [](std::ofstream &out, aubyte *bytes, asizei count, bool splitting) -> aubyte* {
@@ -338,7 +335,6 @@ std::string QubitMultistepOpenCL12::GetKernelName(const QubitMultiStep_Options &
 void QubitMultistepOpenCL12::Parse(QubitMultiStep_Options &opt, const rapidjson::Value &params) {
 	const rapidjson::Value::ConstMemberIterator li(params.FindMember("linearIntensity"));
 	if(li != params.MemberEnd() && li->value.IsUint() && li->value.GetUint()) opt.linearIntensity = li->value.GetUint();
-	if(opt.HashCount() > MAX_CONCURRENCY) throw std::string("Concurrency is too high (") + std::to_string(opt.HashCount()) + ", max value is " + std::to_string(MAX_CONCURRENCY) + '.';
 }
 
 
@@ -355,6 +351,15 @@ asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &p
 	const std::string chip = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::dis_chip);
 	KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vid, chip.c_str(), extensions.c_str());
 	if(arch < KnownHardware::arch_gcn_first || arch > KnownHardware::arch_gcn_last) badthing("must be AMD GCN");
+
+    // Evaluate max concurrency. It mandates memory usage (constant) and a real hardware concurrency which is up to 16*HashCount (SIMD is 16-way)
+	const asizei buffBytes = settings[0].options.HashCount() * 16 * sizeof(cl_uint); // intermediate hashes are 512bit -> 16 uints
+    const aulong maxBuffBytes = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::diul_maxMemAlloc);
+    if(buffBytes > maxBuffBytes) {
+        std::string err("intensity too high, max buffer size is ");
+        err += std::to_string(maxBuffBytes) + " Bytes";
+        badthing(err.c_str());
+    }
 
 	if(fail) return settings.size();
 

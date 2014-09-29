@@ -298,7 +298,7 @@ var presentation = {
 			}
 			if(devices.length == 0) {
 				var whoops = document.createElement("td");
-				whoops.colSpan = 4;
+				whoops.colSpan = 10;
 				whoops.textContent = "Configuration is unused.";
 				row.appendChild(whoops);
 				tbody.appendChild(row);

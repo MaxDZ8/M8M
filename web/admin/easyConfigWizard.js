@@ -119,8 +119,7 @@ function newConfigSaveAndReboot() {
 			params: {
 				destination: window.wizConfig.targetConfigFile,
 				configuration: {
-					pools: {
-					},
+					pools: [],
 					driver: "OCL",
 					algo: window.wizConfig.algo,
 					impl: preferredImplementation[window.wizConfig.algo],
@@ -129,7 +128,7 @@ function newConfigSaveAndReboot() {
 				}
 			}
 		};
-		cmd.params.configuration.pools[window.wizConfig.poolName] = {
+		cmd.params.configuration.pools[0] = {
 			url: stripProtocol(window.wizConfig.poolURL),
 			user: window.wizConfig.workerLogin,
 			pass: window.wizConfig.workerPass,
@@ -137,6 +136,9 @@ function newConfigSaveAndReboot() {
 			algo: window.wizConfig.algo,
 			protocol: "stratum"
 		};
+		if(window.wizConfig.poolName && window.wizConfig.poolName.length) {
+			cmd.params.configuration.pools[0].name = window.wizConfig.poolName;
+		}
 		minerMonitor.request(cmd, function(reply) { serverCFGSaved(reply, container); });
 	});
 }

@@ -61,7 +61,6 @@ struct QubitMultiStep_Resources {
 class QubitMultistepOpenCL12 : public AbstractCLAlgoImplementation<5, QubitMultiStep_Options, QubitMultiStep_Resources> {
 public:
 	const bool PROFILING_ENABLED;
-	const static auint MAX_CONCURRENCY;
 
 	QubitMultistepOpenCL12(bool profiling, OpenCL12Wrapper::ErrorFunc f = nullptr) : PROFILING_ENABLED(profiling), AbstractCLAlgoImplementation("fiveSteps", "1", f) {	}
 	bool Dispatch(asizei setIndex, asizei slotIndex);
