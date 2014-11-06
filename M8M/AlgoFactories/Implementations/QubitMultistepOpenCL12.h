@@ -4,7 +4,6 @@
  */
 #pragma once
 #include "../AbstractCLAlgoImplementation.h"
-#include <fstream>
 #include <iostream>
 #include "../../../Common/aes.h"
 #include <sstream>
@@ -71,15 +70,11 @@ public:
 	void GetSettingsInfo(SettingsInfo &out, asizei setting) const;
 
 private:
-	static bool LoadFile(std::unique_ptr<char[]> &source, asizei &len, const std::string &name);
-	void ProbeProgramBuildInfo(cl_program program, cl_device_id device, const std::string &defines) const;
 	static std::string GetBuildOptions(const QubitMultiStep_Options &opt, auint index);
-	static std::string GetSourceFileName(const QubitMultiStep_Options &opt, auint index);
-	static std::string GetKernelName(const QubitMultiStep_Options &opt, auint index);
+	std::pair<std::string, std::string> GetSourceFileAndKernel(asizei settingIndex, auint stepIndex) const;
 	void Parse(QubitMultiStep_Options &opt, const rapidjson::Value &params);
 	asizei ChooseSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev, RejectReasonFunc callback);
-	void BuildDeviceResources(QubitMultiStep_Resources &target, cl_context ctx, cl_device_id dev, const QubitMultiStep_Options &opt);
+	void BuildDeviceResources(QubitMultiStep_Resources &target, cl_context ctx, cl_device_id dev, const QubitMultiStep_Options &opt, asizei confIndex);
 	QubitMultistepOpenCL12* NewDerived() const { return new QubitMultistepOpenCL12(PROFILING_ENABLED, errorCallback); }
 	void PutMidstate(aubyte *dst, const stratum::AbstractWorkUnit &wu) const { } //! \todo Qubit allows midstate, first iteration of luffa. Todo.
-	std::string CustomVersioningStrings() const;
 };

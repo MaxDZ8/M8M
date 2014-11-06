@@ -15,7 +15,7 @@ conflicts to pad gather phase. */
 #include "Connections.h"
 #include "AbstractThreadedMiner.h"
 #include "AlgoFactories/QubitCL12.h"
-#include "AlgoFactories/GroestlMYRCL12.h"
+#include "AlgoFactories/grsmyrCL12.h"
 #include <iomanip>
 #include "../Common/NotifyIcon.h"
 #include "M8MIcon.h"
@@ -249,7 +249,7 @@ MinerInterface* InstanceProcessingNodes(WebCommands &persist, const Settings *se
 		std::vector< std::unique_ptr< AlgoFamily<OpenCL12Wrapper> > > algos;
 		std::unique_ptr< AlgoFamily<OpenCL12Wrapper> > add(new QubitCL12(true, ErrorsToSTDOUT));
 		algos.push_back(std::move(add));
-		add.reset(new GroestlMYRCL12(true, ErrorsToSTDOUT));
+		add.reset(new GRSMYRCL12(true, ErrorsToSTDOUT));
 		algos.push_back(std::move(add));
 		std::unique_ptr< AbstractThreadedMiner<OpenCL12Wrapper> > ret(new AbstractThreadedMiner<OpenCL12Wrapper>(algos, sleepFunc));
 		RegisterMonitorCommands(persist, track.monitor.service, *ret, connections, track.monitor.values);
@@ -565,7 +565,10 @@ bool ProgramBody(std::function<void(auint sleepms)> sleepFunc, IconCompositer<16
 		remote.reset(InstanceConnections(configuration.get(), network, dispatchNWU));
 		if(remote->GetNumPoolsAdded() == 0) {
 			notify.ShowMessage(L"No remote servers could be found in current config.");
-			//! \todo change icon to error icon
+			std::array<aubyte, M8M_ICON_SIZE * M8M_ICON_SIZE * 4> ico;
+			iconBitmaps.SetCurrentState(STATE_ERROR);
+			iconBitmaps.GetCompositedIcon(ico);
+			notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
 		}
 		remote->SetNoAuthorizedWorkerCallback(onAllWorkersFailedAuth);
         TrackedValues stats(*remote, prgmInit.count());
@@ -656,7 +659,13 @@ bool ProgramBody(std::function<void(auint sleepms)> sleepFunc, IconCompositer<16
 					stats.shares[el->deviceIndex].good += el->nonces.size();
 					stats.shares[el->deviceIndex].bad += el->bad;
 					stats.shares[el->deviceIndex].stale += el->stale;
-					std::cout<<"Device "<<el->deviceIndex<<" found a nonce."<<std::endl;
+					std::cout<<"Device "<<el->deviceIndex<<" found "<<el->nonces.size()<<" nonce"<<(el->nonces.size()>1? "s" : "")<<"."<<std::endl;
+                    std::cout<<"[";
+                    for(asizei out = 0; out < el->nonces.size(); out++) {
+                        std::cout<<std::hex<<el->nonces[out]<<std::dec;
+                        if(out + 1 < el->nonces.size()) std::cout<<", ";
+                    }
+                    std::cout<<']'<<std::endl;
 					{
 						adouble took = el->scanPeriod.count() / 1000000.0;
 						adouble rate = ((1 / took) * el->lastNonceScanAmount) / 1000.0;

@@ -64,7 +64,7 @@ public:
 			for(asizei dev = 0; dev < settings[conf].algoInstances.size(); dev++) {
 				AlgoInstance &inst(settings[conf].algoInstances[dev]);
 				ScopedFuncCall freeRes([&inst]() { inst.res.Free(); });
-				BuildDeviceResources(inst.res, platContext[getPlatIndex(inst.device)], inst.device->clid, settings[conf].options);
+				BuildDeviceResources(inst.res, platContext[getPlatIndex(inst.device)], inst.device->clid, settings[conf].options, conf);
 				ret.back().second++;
 				freeRes.Dont();
 			}
@@ -185,7 +185,7 @@ protected:
 	}
 
 	//! Create a new set of device-specific resources according to the selected settings and store them in target.
-	virtual void BuildDeviceResources(Resources &target, cl_context ctx, cl_device_id dev, const Options &opt) = 0;
+	virtual void BuildDeviceResources(Resources &target, cl_context ctx, cl_device_id dev, const Options &opt, asizei confIndex) = 0;
 
 	//! Allocates an object of the derived class so this can copy inside its configs.
 	virtual AbstractCLAlgoImplementation<NUM_STEPS, Options, Resources>* NewDerived() const = 0;
@@ -218,6 +218,21 @@ protected:
 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueWriteBuffer while writing to wuData buffer.";
 		//! \note SPH kernels in legacy miners flip the header from LE to BE. They then flip again in the first chained hashing step.
 	}
+    
+
+
+    void ProbeProgramBuildInfo(cl_program program, cl_device_id device, const std::string &defines) const {
+	    cl_build_status status;
+	    cl_int error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, NULL);
+	    if(status == CL_BUILD_NONE || status == CL_BUILD_IN_PROGRESS) return;
+	    bool fatal = status == CL_BUILD_ERROR;
+	    asizei count = 0;
+	    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &count);
+	    std::unique_ptr<char[]> messages(new char[count]);
+	    clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, count, messages.get(), NULL);
+	    if(messages.get() && count > 1) errorCallback("Program build log:\n", messages.get(), strlen(messages.get()), NULL);
+	    if(fatal) throw std::string("Fatal error while building program, see output. Compiling with\n" + defines);
+    }
 
 	struct AlgoInstance {
 		Resources res;

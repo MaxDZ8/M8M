@@ -256,40 +256,6 @@ void QubitMultistepOpenCL12::GetSettingsInfo(SettingsInfo &out, asizei setting) 
 }
 
 
-//! \todo very ugly code repetition from Scrypt1024_Multistep_OpenCL12, need a base class for CL12
-bool QubitMultistepOpenCL12::LoadFile(std::unique_ptr<char[]> &source, asizei &len, const std::string &name) {
-	len = 0;
-	std::ifstream disk(name.c_str(), std::ios_base::binary);
-	if(disk.good() == false) return false;
-	disk.seekg(0, std::ios_base::end);
-	aulong size = disk.tellg();
-	const asizei maxSize = 1024 * 1024 * 8;
-	if(size > maxSize) throw std::string("File ") + name + " is way too big: " + std::to_string(size) + "B, max is " + std::to_string(maxSize) + "B.";
-	disk.seekg(0, std::ios_base::beg);
-	// CL2 is clear on the fact the strings don't need to be NULL-terminated. CL1.2 was rather clear in rationale as well, but it looks like
-	// some AMD APP versions really want this string NULL-terminated.
-	source.reset(new char[asizei(size + 1)]);
-	disk.read(source.get(), size);
-	source.get()[size] = 0;
-	len = asizei(size);
-	return true;
-}
-
-
-void QubitMultistepOpenCL12::ProbeProgramBuildInfo(cl_program program, cl_device_id device, const std::string &defines) const {
-	cl_build_status status;
-	cl_int error = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, NULL);
-	if(status == CL_BUILD_NONE || status == CL_BUILD_IN_PROGRESS) return;
-	bool fatal = status == CL_BUILD_ERROR;
-	asizei count = 0;
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &count);
-	std::unique_ptr<char[]> messages(new char[count]);
-	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, count, messages.get(), NULL);
-	if(messages.get() && count > 1) errorCallback("Program build log:\n", messages.get(), strlen(messages.get()), NULL);
-	if(fatal) throw std::string("Fatal error while building program, see output. Compiling with\n" + defines);
-}
-
-
 std::string QubitMultistepOpenCL12::GetBuildOptions(const QubitMultiStep_Options &opt, const auint index) {
 	std::stringstream build;
 	switch(index) {
@@ -308,27 +274,18 @@ std::string QubitMultistepOpenCL12::GetBuildOptions(const QubitMultiStep_Options
 }
 
 
-std::string QubitMultistepOpenCL12::GetSourceFileName(const QubitMultiStep_Options &opt, auint index) {
-	switch(index) {
-	case 0: return std::string("Luffa_1W.cl");
-	case 1: return std::string("CubeHash_2W.cl");
-	case 2: return std::string("SHAvite3_1W.cl");
-	case 3: return std::string("SIMD_16W.cl");
-	case 4: return std::string("Echo_8W.cl");
-	}
-	return std::string();
-}
 
-
-std::string QubitMultistepOpenCL12::GetKernelName(const QubitMultiStep_Options &opt, auint index) {
-	switch(index) {
-	case 0: return std::string("Luffa_1way");
-	case 1: return std::string("CubeHash_2way");
-	case 2: return std::string("SHAvite3_1way");
-	case 3: return std::string("SIMD_16way");
-	case 4: return std::string("Echo_8way");
-	}
-	return std::string();
+std::pair<std::string, std::string> QubitMultistepOpenCL12::GetSourceFileAndKernel(asizei settingIndex, auint step) const {
+    using std::string;
+    switch(step) {
+	case 0: return std::make_pair(string("Luffa_1W.cl"), string("Luffa_1way"));
+	case 1: return std::make_pair(string("CubeHash_2W.cl"), string("CubeHash_2way"));
+	case 2: return std::make_pair(string("SHAvite3_1W.cl"), string("SHAvite3_1way"));
+	case 3: return std::make_pair(string("SIMD_16W.cl"), string("SIMD_16way"));
+	case 4: return std::make_pair(string("Echo_8W.cl"), string("Echo_8way"));
+    }
+    string empty;
+    return std::make_pair(empty, empty);
 }
 
 
@@ -367,7 +324,7 @@ asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &p
 }
 
 
-void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add, cl_context ctx, cl_device_id use, const QubitMultiStep_Options &opt) {
+void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add, cl_context ctx, cl_device_id use, const QubitMultiStep_Options &opt, asizei confIndex) {
 	cl_int error;
 	cl_command_queue_properties cqprops = PROFILING_ENABLED? CL_QUEUE_PROFILING_ENABLE : 0;
 	add.commandq = clCreateCommandQueue(ctx, use, cqprops, &error);
@@ -442,15 +399,15 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 	if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to resulting debug buffer.";
 #endif
 
-	std::string filename;
-	std::unique_ptr<char[]> src;
-	asizei srcLen = 0;
+    std::vector<char> src;
 	auint pieces = 0;
 	//! \todo in a multi-device situation we would really be reloading the same stuff from disk multiple times. I really must build a temporary cache for source!
-	for(; (filename = GetSourceFileName(opt, pieces)).length(); pieces++) {
-		filename = "kernels/" + filename;
-		if(!LoadFile(src, srcLen, filename)) throw std::string("OpenCL code must be loaded and compiled explicitly, but \"") + filename + "\" cannot be found.";
-		const char *source = src.get();
+    std::pair<std::string, std::string> fikern;
+	for(; (fikern = GetSourceFileAndKernel(confIndex, pieces)).first.length(); pieces++) {
+		fikern.first = "kernels/" + fikern.first;
+		if(!GetSourceFromFile(src, fikern.first)) throw std::string("OpenCL code must be loaded and compiled explicitly, but \"") + fikern.first + "\" cannot be found.";
+		const char *source = src.data();
+        asizei srcLen = src.size() - 1;
 		add.program[pieces] = clCreateProgramWithSource(ctx, 1, &source, &srcLen, &error);
 		if(!add.program[pieces] || error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clCreateProgramWithSource.";
 		const std::string defines(GetBuildOptions(opt, pieces));
@@ -460,8 +417,8 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 			throw std::string("OpenCL error ") + std::to_string(error) + " returned by clBuildProgram.";
 		}
 
-		add.kernel[pieces] = clCreateKernel(add.program[pieces], GetKernelName(opt, pieces).c_str(), &error);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clCreateKernel while trying to create " + GetKernelName(opt, pieces);
+		add.kernel[pieces] = clCreateKernel(add.program[pieces], fikern.second.c_str(), &error);
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clCreateKernel while trying to create " + fikern.second.c_str();
 
 		cl_uint args = 0;
 		cl_mem input;
@@ -537,23 +494,3 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 	// #endif
 	// }
 }
-
-
-std::string QubitMultistepOpenCL12::CustomVersioningStrings() const {
-	// NOTE: this must be statically defined... so I cannot use options or anything, just be sure everything is taken in consideration.
-	const char *files[] = { "Luffa_1W.cl", "CubeHash_2W.cl", "SHAvite3_1W.cl", "SIMD_16W.cl", "Echo_8W.cl", nullptr };
-	const char *kname[] = { "Luffa_1way", "CubeHash_2way", "SHAvite3_1way", "SIMD_16way", "Echo_8way" };
-	std::string ret;
-	std::unique_ptr<char[]> src;
-	asizei srcLen = 0;
-	for(asizei load = 0; files[load]; load++) {
-		std::string filename("kernels/");
-		filename += files[load];
-		if(!LoadFile(src, srcLen, filename.c_str())) throw std::string("Failed to load \"") + filename + "\" to produce versioning string.";
-		ret += files[load];
-		ret += kname[load];
-		ret.append(src.get(), src.get() + srcLen);
-	}
-	return ret;
-}
-

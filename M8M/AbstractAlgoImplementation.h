@@ -6,6 +6,7 @@
 #include <functional>
 #include "AlgoImplementationInterface.h"
 #include "../Common/hashing.h"
+#include <fstream>
 
 template<typename MiningProcessorsProvider>
 class AbstractAlgoImplementation : public AlgoImplementationInterface {
@@ -124,7 +125,49 @@ protected:
 	to a certain configuration. */
 	virtual asizei ChooseSettings(const typename MiningProcessorsProvider::Platform &plat, const typename MiningProcessorsProvider::Device &dev, RejectReasonFunc callback) = 0;
 
+    /*! This function has two purposes.
+    The bottom line is: for each setting, each algo is free to use a different number of steps or even different kernels at each step depending on options.
+    If options are specified, this gets the option index used. If we want to do an "option-invariant" enumeration, then the option index >= GetNumSettings().
+    So it is requested, but not required, this can receive an option setting. If not given, then assume we're enumerating kernels independantly of settings.
+    For each source file, a specific kernel is to be used. Those two strings are returned as a pair. When the .first field of a returned pair is empty, it is
+    assumed all kernels have been enumerated. */
+	virtual std::pair<std::string, std::string> GetSourceFileAndKernel(asizei settingIndex, auint stepIndex) const = 0;
+
 	/*! Algorithm implementation version is no more to be used "as is". Instead, I request each algo implementation to produce a string describing itself.
-	That string is concatenated to algorithm version (which is not a "custom" value but rather common) and hashed in a very stupid way. */
-	virtual std::string CustomVersioningStrings() const = 0;
+	That string is concatenated to algorithm version (which is not a "custom" value but rather common) and hashed in a very stupid way. 
+    Note this is called with no specific set of options so it must be able to sign all possible settings. */
+	std::string CustomVersioningStrings() const {
+        asizei index = 0;
+        std::pair<std::string, std::string> load;
+        std::vector< std::pair<std::string, std::string> > steps;
+        while((load = GetSourceFileAndKernel(GetNumSettings(), index)).first.length()) {
+            steps.push_back(std::move(load));
+            index++;
+        }
+        std::string blob;
+        std::vector<char> src;
+        for(const auto &el : steps) {
+            auto path("kernels/" + el.first);
+            blob += GetSourceFromFile(src, path.c_str());
+            blob += el.second;
+        }
+        return blob;
+    }
+
+    //! \return src.data()
+    static const char* GetSourceFromFile(std::vector<char> &src, const std::string &name) {
+	    std::ifstream disk(name.c_str(), std::ios_base::binary);
+	    if(disk.good() == false) throw std::string("File \"") + name + "\" cannot be opened for read.";
+	    disk.seekg(0, std::ios_base::end);
+	    aulong size = disk.tellg();
+	    const asizei maxSize = 1024 * 1024 * 8;
+	    if(size > maxSize) throw std::string("File \"") + name + "\" is way too big: " + std::to_string(size) + "B, max is " + std::to_string(maxSize) + "B.";
+	    disk.seekg(0, std::ios_base::beg);
+	    // CL2 is clear on the fact the strings don't need to be NULL-terminated. CL1.2 was rather clear in rationale as well, but it looks like
+	    // some AMD APP versions really want this string NULL-terminated.
+        src.resize(size + 1);
+	    disk.read(src.data(), size);
+	    src[size] = 0;
+        return src.data();
+    }
 };
