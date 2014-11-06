@@ -23,7 +23,8 @@ window.wizConfig = {
 window.easyConfigSteps = [];
 
 var preferredImplementation = {
-	qubit: "fiveSteps"
+	qubit: "fiveSteps",
+	grsmyr: "monolithic"
 };
 
 		
@@ -272,8 +273,7 @@ function modConfigSaveAndReboot() {
 		params: {
 			destination: window.server.configFile.filename,
 			configuration: {
-				pools: {
-				},
+				pools: [],
 				driver: "OCL",
 				algo: algo,
 				impl: preferredImplementation[algo],
@@ -287,13 +287,14 @@ function modConfigSaveAndReboot() {
 		alert("For the time being, pools must have a name.");
 		return;
 	}
-	cmd.params.configuration.pools[poolName] = {
+	cmd.params.configuration.pools[0] = {
 		url: stripProtocol(document.getElementById("modURL").value),
 		user: document.getElementById("modLogin").value,
 		pass: document.getElementById("modPass").value,
 		coinDiffMul: coinDiffByAlgo(algo),
 		algo: algo,
-		protocol: "stratum"
+		protocol: "stratum",
+		name: poolName
 	};
 	minerMonitor.request(cmd, function(reply) { 
 		var parent = document.getElementById("modCurrConf");

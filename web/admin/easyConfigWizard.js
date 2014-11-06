@@ -195,15 +195,11 @@ function reloadCallback(obj, container) {
 // In legacy miners it is a function of the algo itself.
 // In M8M, it is fully decoupled but that's how it goes!
 function coinDiffByAlgo(algo) {
-	var test = ["qubit"];
-	var diff = 256;
-	if(match(test, algo)) return diff;
-	throw "Unrecognized algorithm: \"" + algo + "\".";
-	
-	function match(arr, name) {
-		for(var loop = 0; loop < arr.length; loop++) {
-			if(arr[loop] === name) return true;
-		}
-		return false;
-	}
+	var diffMul = {
+		qubit: 256,
+		grsmyr: 1
+	};
+	var diff = diffMul[algo];
+	if(diff === undefined) throw "Unrecognized algorithm: \"" + algo + "\".";
+	return diff;
 }
