@@ -64,26 +64,12 @@ uint2 Echo_RoundMangle(uint2 vec) {
 }
 
 
-// Returns the index of a given uint relative to address of W00 for a WI so &W00 + RegIndex(5, 0) points W50.
-uint Echo_RegSlot(uint major, bool minor) {
-	uint col = major / 4;
-	uint row = major % 4;
-	bool odd = row % 2 != 0;
-	uint base = minor ^ odd? 4 : 0;
-	return row * 64 + base + col;
-}
-
-// Row shifting is performed in parallel across WNo and WNi so this is fairly simple:
-uint Echo_ShiftRow(uint maj) {
-	return (maj + maj * 4) % 16;
-}
-
-
-// Helper func for even easier looping in mix column op
-uint2 ECHO_SHIFTVEC(local uint *hi, local uint *lo, uint i) {
-	uint off = Echo_RegSlot(Echo_ShiftRow(((get_local_id(0) % 4) * 4) + i), get_local_id(0) >= 4);
-	off += get_local_id(1) * 8;
-	return (uint2)(hi[off], lo[off]);
+uint Wrap(uint offset) {
+	uint displaced = offset + (get_local_id(0) % 4);
+	displaced %= 4;
+	if(offset % 2) displaced += (get_local_id(0) < 4? 4 : -4);
+	displaced += offset * 64; // offset is also row index
+	return displaced;
 }
 
 
@@ -168,7 +154,6 @@ kernel void Echo_8way(global uint2 *input, global uint2 *hashOut, global uint *a
 	passhi[64 * 3 + oddSlot] = work3.hi;    passlo[64 * 3 + oddSlot] = work3.lo;
 	
 	for (unsigned u = 0; u < 10; u ++) {
-		barrier(CLK_LOCAL_MEM_FENCE);
 		{ /* Legacy kernel performs 16 passes of two AES rounds on the various registers. WorkNo, WorkNi.
 			I do that explicitly as I already "unrolled" those 16 passes across 8 WI. Note I need to increment
 			the K values differently. */
@@ -180,7 +165,9 @@ kernel void Echo_8way(global uint2 *input, global uint2 *hashOut, global uint *a
 			{
 				local uint *x0 = passhi + slot + too, *x1 = passlo + slot + too;
 				local uint *x2 = passhi + slot + toi, *x3 = passlo + slot + toi;
+				barrier(CLK_LOCAL_MEM_FENCE);
 				AESRoundLDS(x0, x1, x2, x3, notSoK.x, notSoK.y, notSoK.z, notSoK.w, aesLUT0, aesLUT1, aesLUT2, aesLUT3);
+				barrier(CLK_LOCAL_MEM_FENCE);
 				AESRoundNoKeyLDS(x0, x1, x2, x3, aesLUT0, aesLUT1, aesLUT2, aesLUT3);
 				Increment(&notSoK, 2);
 			}
@@ -188,29 +175,37 @@ kernel void Echo_8way(global uint2 *input, global uint2 *hashOut, global uint *a
 			{
 				local uint *x0 = passhi + slot + too, *x1 = passlo + slot + too;
 				local uint *x2 = passhi + slot + toi, *x3 = passlo + slot + toi;
+				barrier(CLK_LOCAL_MEM_FENCE);
 				AESRoundLDS(x0, x1, x2, x3, notSoK.x, notSoK.y, notSoK.z, notSoK.w, aesLUT0, aesLUT1, aesLUT2, aesLUT3);
+				barrier(CLK_LOCAL_MEM_FENCE);
 				AESRoundNoKeyLDS(x0, x1, x2, x3, aesLUT0, aesLUT1, aesLUT2, aesLUT3);	
 				Increment(&notSoK, 16 - 2);	
 			}
 		}
-		/* Legacy kernels have a shift-rows operations there. It looks compliceted because they use registers.
-		Registers cannot be accessed dynamically, but LDS can so the real deal is the following:
-			register index to fetch = (N + N * 4) % 16
-		where N is the major index (0-F) of the register I am fetching.
-		LDS matrix is in the form of 0o4o8oCo0i4i8iCi... with odd lines having Is first and Os later.
-		So we just access the correct index when accessing and this is basically NOP as we do it "inline" */
-		{ // Column mixing is very easy now I am in column mode, prev value already in LDS :)
-			uint2 tmp[3];
-			uint2 fin[3];
-			for(uint i = 0; i < 3; i++) {
-				tmp[i]  = ECHO_SHIFTVEC(passhi, passlo, i + 0);
-				tmp[i] ^= ECHO_SHIFTVEC(passhi, passlo, i + 1);
-				fin[i] = Echo_RoundMangle(tmp[i]);
-			}
-			work0 = hilo(fin[0] ^ tmp[1] ^ ECHO_SHIFTVEC(passhi, passlo, 3));
-			work1 = hilo(fin[1] ^ tmp[2] ^ ECHO_SHIFTVEC(passhi, passlo, 0));
-			work2 = hilo(fin[2] ^ tmp[0] ^ ECHO_SHIFTVEC(passhi, passlo, 3));
-			work3 = hilo(fin[0] ^ fin[1] ^ fin[2] ^ tmp[0] ^ ECHO_SHIFTVEC(passhi, passlo, 2));
+		/* I somehow managed to write shift-rows merged with mix-column... but it was fairly complicated
+		and it broke (I'm surprised it worked). It's just better to go with something easier and do it as standard.
+		Instead of rotating the rows, I just fetch the values to registers and be done with it. */
+		{
+			barrier(CLK_LOCAL_MEM_FENCE);
+			local uint *halfhi = passhi + (get_local_id(0) < 4? 0 : 4) + get_local_id(1) * 8;
+			local uint *halflo = passlo + (get_local_id(0) < 4? 0 : 4) + get_local_id(1) * 8;
+			work0.hi = halfhi[Wrap(0)];    work0.lo = halflo[Wrap(0)];
+			work1.hi = halfhi[Wrap(1)];    work1.lo = halflo[Wrap(1)];
+			work2.hi = halfhi[Wrap(2)];    work2.lo = halflo[Wrap(2)];
+			work3.hi = halfhi[Wrap(3)];    work3.lo = halflo[Wrap(3)];
+		}
+		{ // MIX_COLUMN by registers is super easy, now almost identical to SPH
+			uint2 a = work0, b = work1, c = work2, d = work3; // I got plenty registers anyway!
+			uint2 ab = a ^ b;
+			uint2 bc = b ^ c;
+			uint2 cd = c ^ d;
+			uint2 abx = Echo_RoundMangle(ab);
+			uint2 bcx = Echo_RoundMangle(bc);
+			uint2 cdx = Echo_RoundMangle(cd);
+			work0 = abx ^ bc ^ d;
+			work1 = bcx ^ a ^ cd;
+			work2 = cdx ^ ab ^ d;
+			work3 = abx ^ bcx ^ cdx ^ ab ^ c;
 		}
 		passhi[64 * 0 + evnSlot] = work0.hi;    passlo[64 * 0 + evnSlot] = work0.lo;
 		passhi[64 * 1 + oddSlot] = work1.hi;    passlo[64 * 1 + oddSlot] = work1.lo;
