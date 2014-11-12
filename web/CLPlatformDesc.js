@@ -3,7 +3,7 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
- 
+
 function CLPlatformDesc(serverIndex) {
 	if(serverIndex === undefined) throw "All platforms must be mapped to a server internal structure.";
 	this.index = serverIndex;

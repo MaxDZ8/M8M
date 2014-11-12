@@ -7,7 +7,6 @@
 #include "../OpenCL12Wrapper.h"
 #include "../../Common/ScopedFuncCall.h"
 
-
 /*! Abstract, multi-step OpenCL algorithm implementation. Step 0 is always data load. Step [1..1+NUM_STEPS] are the various sub-algorithms
 you are going to dispatch. Step 1+NUM_STEPS is assumed to also map the result buffers and initiate the results ready event. */
 template<auint NUM_STEPS, typename Options, typename Resources>
