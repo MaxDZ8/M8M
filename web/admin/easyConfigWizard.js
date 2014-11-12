@@ -4,7 +4,6 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 
-
 /*! This object contains one entry for each div which needs to have its data validated.
 What it means: the current wizard step has been completed and we're going to step "funcName",
 validate the input and pull it in internal state.
@@ -197,6 +196,7 @@ function reloadCallback(obj, container) {
 function coinDiffByAlgo(algo) {
 	var diffMul = {
 		qubit: 256,
+		fresh: 256,
 		grsmyr: 1
 	};
 	var diff = diffMul[algo];

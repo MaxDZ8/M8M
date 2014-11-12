@@ -4,7 +4,6 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */-->
-
 <head>
 <meta charset="UTF-8">
 <link href="M8M.css" rel="stylesheet" type="text/css" media="all">
@@ -42,7 +41,8 @@ The code pulls out this div and builds a window.easyConfigSteps array. Stuff whi
 			Which algorithm do you want to use?<br>
 			<select id="algoSelect">
 				<option value="qubit" selected="true">Qubit</option>
-				<option value="grsmyr" selected="true">Gr&oslash;stl-Myr</option>
+				<option value="grsmyr">Gr&oslash;stl-Myr</option>
+				<option value="fresh">Fresh</option>
 			</select>
 			<br>
 		</p>
@@ -112,6 +112,8 @@ The code pulls out this div and builds a window.easyConfigSteps array. Stuff whi
 	<h1>Modify current setting</h1>
 	<label for="modAlgo">Algorithm</label><br><select id="modAlgo">
 		<option value="qubit" selected="true">Qubit</option>
+		<option value="grsmyr">Gr&oslash;stl-Myr</option>
+		<option value="fresh">Fresh</option>
 	</select><br>
 	<label for="modURL">Pool URL</label><br><input type="text" inputmode="verbatim" id="modURL" size="50"/><br>
 	<label for="modLogin">Login</label><br><input type="text" inputmode="verbatim" id="modLogin" size="50"/><br>

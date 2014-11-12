@@ -15,6 +15,7 @@ conflicts to pad gather phase. */
 #include "Connections.h"
 #include "AbstractThreadedMiner.h"
 #include "AlgoFactories/QubitCL12.h"
+#include "AlgoFactories/FreshCL12.h"
 #include "AlgoFactories/grsmyrCL12.h"
 #include <iomanip>
 #include "../Common/NotifyIcon.h"
@@ -247,10 +248,9 @@ MinerInterface* InstanceProcessingNodes(WebCommands &persist, const Settings *se
 	// invalid settings --> init OpenCL. It's a bit sub-optimal but easier thing to do to keep the whole thing more or less flowing.
 	if(!settings || !_stricmp("opencl", settings->driver.c_str()) || !_stricmp("ocl", settings->driver.c_str())) {
 		std::vector< std::unique_ptr< AlgoFamily<OpenCL12Wrapper> > > algos;
-		std::unique_ptr< AlgoFamily<OpenCL12Wrapper> > add(new QubitCL12(true, ErrorsToSTDOUT));
-		algos.push_back(std::move(add));
-		add.reset(new GRSMYRCL12(true, ErrorsToSTDOUT));
-		algos.push_back(std::move(add));
+        algos.push_back(std::make_unique<QubitCL12>(true, ErrorsToSTDOUT));
+        algos.push_back(std::make_unique<GRSMYRCL12>(true, ErrorsToSTDOUT));
+        algos.push_back(std::make_unique<FreshCL12>(true, ErrorsToSTDOUT));
 		std::unique_ptr< AbstractThreadedMiner<OpenCL12Wrapper> > ret(new AbstractThreadedMiner<OpenCL12Wrapper>(algos, sleepFunc));
 		RegisterMonitorCommands(persist, track.monitor.service, *ret, connections, track.monitor.values);
 		RegisterMonitorCommands(persist, track.admin.service, *ret, connections, track.monitor.values);

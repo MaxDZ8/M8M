@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug CLD0_REPLICATED|Win32">
       <Configuration>Debug CLD0_REPLICATED</Configuration>
@@ -27,26 +27,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v110</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug CLD0_REPLICATED|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v110</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v110</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v110</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -156,6 +156,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AbstractWSServer.cpp" />
+    <ClCompile Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.cpp" />
+    <ClCompile Include="AlgoFactories\Implementations\GRSMYRMonolithicOpenCL12.cpp" />
     <ClCompile Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.cpp" />
     <ClCompile Include="M8M.cpp" />
   </ItemGroup>
@@ -165,12 +167,20 @@
     <ClInclude Include="AbstractThreadedMiner.h" />
     <ClInclude Include="AbstractWSServer.h" />
     <ClInclude Include="AlgoFactories\AbstractCLAlgoImplementation.h" />
+    <ClInclude Include="AlgoFactories\FreshCL12.h" />
+    <ClInclude Include="AlgoFactories\grsmyrCL12.h" />
+    <ClInclude Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.h" />
+    <ClInclude Include="AlgoFactories\Implementations\grsmyrMonolithicOpenCL12.h" />
     <ClInclude Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.h" />
     <ClInclude Include="AlgoFactories\QubitCL12.h" />
     <ClInclude Include="AlgoFamily.h" />
     <ClInclude Include="AlgoImplementationInterface.h" />
     <ClInclude Include="commands\AbstractCommand.h" />
     <ClInclude Include="commands\AbstractStreamingCommand.h" />
+    <ClInclude Include="commands\Admin\ConfigFileCMD.h" />
+    <ClInclude Include="commands\Admin\GetRawConfigCMD.h" />
+    <ClInclude Include="commands\Admin\ReloadCMD.h" />
+    <ClInclude Include="commands\Admin\SaveRawConfigCMD.h" />
     <ClInclude Include="commands\ExtensionListCMD.h" />
     <ClInclude Include="commands\ExtensionState.h" />
     <ClInclude Include="commands\Monitor\AlgoCMD.h" />
@@ -182,11 +192,13 @@
     <ClInclude Include="commands\Monitor\RejectReasonCMD.h" />
     <ClInclude Include="commands\Monitor\ScanTime.h" />
     <ClInclude Include="commands\Monitor\SystemInfoCMD.h" />
+    <ClInclude Include="commands\Monitor\UptimeCMD.h" />
     <ClInclude Include="commands\PushInterface.h" />
     <ClInclude Include="commands\UnsubscribeCMD.h" />
     <ClInclude Include="commands\UpgradeCMD.h" />
     <ClInclude Include="commands\VersionCMD.h" />
     <ClInclude Include="Connections.h" />
+    <ClInclude Include="IconCompositer.h" />
     <ClInclude Include="KnownHardware.h" />
     <ClInclude Include="M8MIcon.h" />
     <ClInclude Include="MinerInterface.h" />

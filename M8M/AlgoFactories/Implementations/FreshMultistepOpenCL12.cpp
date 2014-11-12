@@ -2,11 +2,12 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
-#include "QubitMultistepOpenCL12.h"
+#include "FreshMultistepOpenCL12.h"
 
+#include <iomanip>
 
-bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
-#if DEBUGBUFFER_SIZE
+bool FreshMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
+#if FRESH_DEBUGBUFFER_SIZE
 	auto UintHexOut = [](std::ofstream &out, aubyte *bytes, asizei count, bool splitting) -> aubyte* {
 		count *= 4;
 		const char *hex = "0123456789abcdef";
@@ -28,202 +29,89 @@ bool QubitMultistepOpenCL12::Dispatch(asizei setIndex, asizei slotIndex) {
 		return bytes + count * 4;
 	};
 #endif
-	QubitMultiStep_Options &options(settings[setIndex].options);
+	FreshMultiStep_Options &options(settings[setIndex].options);
 	AlgoInstance &use(settings[setIndex].algoInstances[slotIndex]);
-	switch(use.step) {
-	case 1: {
+    // This could be the same as Qubit, but it really isn't. Instad, I just dispatch everything and wait for a result.
+    // It turned out CL dispatch is super fast and I have plenty of CPU power anyway.
+    if(use.step < 1) return true; // missing input data
+    { // shavite3 head
 		const asizei woff[1] = { use.nonceBase };
 		const asizei workDim [1] = { options.HashCount() };
-		const asizei groupDim[1] = { 256 }; // based on observation from profiling slightly better.
+		const asizei groupDim[1] = { 64 };
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[0], 1, woff, workDim, groupDim, 0, NULL, NULL);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[0] kernel.";
-			
-#if DEBUGBUFFER_SIZE
-		{
-			const asizei start = 0;
-			const asizei size = 20 + 16;
-			cl_uint hostBuff[size];
-			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-			if(error != CL_SUCCESS) { return; }
-
-			std::ofstream dbg("debug_LUFFA_OUT.txt");
-			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-			const char *hex = "0123456789abcdef";
-			for(asizei loop = 0; loop < size * sizeof(hostBuff[0]); loop++) {
-				if(loop == 20 * sizeof(hostBuff[0])) dbg<<std::endl;
-				char hi = bytes[loop] >> 4;
-				char lo = bytes[loop] & 0x0F;
-				dbg<<hex[hi]<<hex[lo];
-			}
-		}
-#endif
-
-
-		break;
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to fresh[0] kernel.";
 	}
-	case 2: {
+    { // SIMD
 		const asizei woff[2] = { 0, use.nonceBase };
-		const asizei workDim [2] = { 2, options.HashCount() };
-		const asizei groupDim[2] = { 2, 32 }; // required by 2-way kernel.
+		const asizei workDim [2] = { 16, options.HashCount() };
+		const asizei groupDim[2] = { 16, 4 };
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[1], 2, woff, workDim, groupDim, 0, NULL, NULL);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[1] kernel.";
-
-#if DEBUGBUFFER_SIZE
-		{
-			const asizei start = 0;
-			const asizei size = 16 + // luffa output
-					            16; // cubehash output
-			cl_uint hostBuff[size];
-			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-			if(error != CL_SUCCESS) { return; }
-
-			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-			const char *hex = "0123456789abcdef";
-			asizei dump = 0;
-			{
-				std::ofstream dbg("debug_LUFFA_OUT.txt", std::ios::app);
-				dbg<<std::endl;
-				for(; dump < 16 * 4; dump++) {
-					char hi = bytes[dump] >> 4;
-					char lo = bytes[dump] & 0x0F;
-					dbg<<hex[hi]<<hex[lo];
-				}
-			}
-			{
-				std::ofstream dbg("debug_CUBEHASH_OUT.txt");
-				for(; dump < size * sizeof(hostBuff[0]); dump++) {
-					char hi = bytes[dump] >> 4;
-					char lo = bytes[dump] & 0x0F;
-					dbg<<hex[hi]<<hex[lo];
-				}
-			}
-		}
-#endif
-		break;
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to fresh[1] kernel.";
 	}
-	case 3: {
+    { // shavite3
 		const asizei woff[1] = { use.nonceBase };
 		const asizei workDim [1] = { options.HashCount() };
-		const asizei groupDim[1] = { 64 }; // 64 is required as profiler told me wsize 64 forced is very slighly better
+		const asizei groupDim[1] = { 64 };
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[2], 1, woff, workDim, groupDim, 0, NULL, NULL);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[2] kernel.";
-
-#if DEBUGBUFFER_SIZE
-		{
-			const asizei start = 0;
-			const asizei size = 16 + // cubehash output
-					            16; // shavite3 output
-			cl_uint hostBuff[size];
-			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-			if(error != CL_SUCCESS) { return; }
-
-			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-			const char *hex = "0123456789abcdef";
-			asizei dump = 0;
-			{
-				std::ofstream dbg("debug_CUBEHASH_OUT.txt", std::ios::app);
-				dbg<<std::endl;
-				for(; dump < 16 * 4; dump++) {
-					char hi = bytes[dump] >> 4;
-					char lo = bytes[dump] & 0x0F;
-					dbg<<hex[hi]<<hex[lo];
-				}
-			}
-			{
-				std::ofstream dbg("debug_SHAVITE3_OUT.txt");
-				asizei end = dump + 4 * 16;
-				for(; dump < end; dump++) {
-					char hi = bytes[dump] >> 4;
-					char lo = bytes[dump] & 0x0F;
-					dbg<<hex[hi]<<hex[lo];
-				}
-			}
-		}
-#endif
-		break;
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to fresh[2] kernel.";
 	}
-	case 4: {
+    { // SIMD
 		const asizei woff[2] = { 0, use.nonceBase };
 		const asizei workDim [2] = { 16, options.HashCount() };
 		const asizei groupDim[2] = { 16, 4 };
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[3], 2, woff, workDim, groupDim, 0, NULL, NULL);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[3] kernel.";
-
-#if DEBUGBUFFER_SIZE
-		{
-			const asizei start = 0;
-			const asizei size = 16 + // shavite3 output
-					            16; // SIMD output
-			cl_uint hostBuff[size];
-			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-			if(error != CL_SUCCESS) { return; }
-
-			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-			{
-				std::ofstream dbg("debug_SHAVITE3_OUT.txt", std::ios::app);
-				dbg<<std::endl;
-				bytes = UintHexOut(dbg, bytes, 16, false);
-			}
-			{
-				std::ofstream dbg("debug_SIMD_OUT.txt");
-				bytes = UintHexOut(dbg, bytes, 16, false);
-			}
-		}
-#endif
-		break;
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to fresh[3] kernel.";
 	}
-	case 5: {
+    { // echo
 		const asizei woff[2] = { 0, use.nonceBase };
 		const asizei workDim [2] = { 8, options.HashCount() };
 		const asizei groupDim[2] = { 8, 8 };
 		cl_int error = clEnqueueNDRangeKernel(use.res.commandq, use.res.kernel[4], 2, woff, workDim, groupDim, 0, NULL, NULL);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to qubit[4] kernel.";
-		const asizei size = (1 + options.OptimisticNonceCountMatch()) * sizeof(cl_uint);
-		void *raw = clEnqueueMapBuffer(use.res.commandq, use.res.nonces, CL_FALSE, CL_MAP_READ, 0, size, 0, NULL, &use.res.resultsTransferred, &error);
-		use.res.mappedNonceBuff = reinterpret_cast<cl_uint*>(raw);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueMapBuffer while mapping result nonce buffer.";
-#if DEBUGBUFFER_SIZE
+		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueNDRangeKernel while writing to fresh[4] kernel.";
+			
+#if FRESH_DEBUGBUFFER_SIZE
 		{
 			const asizei start = 0;
-			const asizei size = 16 + // SIMD output
-					            16+16+16; // ECHO output
-			cl_uint hostBuff[size];
-			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_uint), size * sizeof(cl_uint), hostBuff, 0, 0, 0);
-			if(error != CL_SUCCESS) { return; }
+			const asizei size = 8+32*10+32;
+			cl_ulong hostBuff[size];
+			error = clEnqueueReadBuffer(use.res.commandq, use.res.debugBUFFER, CL_TRUE, start * sizeof(cl_ulong), size * sizeof(cl_ulong), hostBuff, 0, 0, 0);
+			if(error != CL_SUCCESS) throw std::exception("Something went really wrong in debug buffer map!");
 
-			unsigned char *bytes = reinterpret_cast<unsigned char*>(hostBuff);
-			{
-				std::ofstream dbg("debug_SIMD_OUT.txt", std::ios::app);
-				dbg<<std::endl;
-				bytes = UintHexOut(dbg, bytes, 16, false);
-			}
-			{
-				std::ofstream dbg("debug_ECHO_OUT.txt");
-				dbg<<"ECHO hash out"<<std::endl;
-				bytes = UintHexOut(dbg, bytes, 16, false);
-				dbg<<"\nECHO target"<<std::endl;
-				bytes = UintHexOut(dbg, bytes, 16, false);
-			}
+			std::ofstream dbg("debug_FRESH_OUT.txt");
+            dbg<<"from prev hash=   ";
+            asizei next = 0;
+            for(int i = 0; i < 8; i++) dbg<<std::hex<<std::setfill('0')<<std::setw(16)<<hostBuff[next++];
+            for(int loop = 0; loop < 10; loop++) {
+                dbg<<"\nat end of round "<<loop<<" =      ";
+                for(int i = 0; i < 32; i++) dbg<<std::hex<<std::setfill('0')<<std::setw(16)<<hostBuff[next++];
+            }
+            dbg<<"test= "<<std::hex<<std::setfill('0')<<std::setw(16)<<hostBuff[0];
+            dbg<<"\ntarget= "<<std::hex<<std::setfill('0')<<std::setw(16)<<hostBuff[1];
+            dbg<<std::endl<<std::endl<<std::endl;
 		}
 #endif
-		break;
 	}
-	default: use.step--;
-	}
-	use.step++;
-	return use.step <= 5;
+    {
+	    const asizei size = (1 + options.OptimisticNonceCountMatch()) * sizeof(cl_uint);
+        cl_int error;
+	    void *raw = clEnqueueMapBuffer(use.res.commandq, use.res.nonces, CL_FALSE, CL_MAP_READ, 0, size, 0, NULL, &use.res.resultsTransferred, &error);
+	    use.res.mappedNonceBuff = reinterpret_cast<cl_uint*>(raw);
+	    if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clEnqueueMapBuffer while mapping result nonce buffer.";
+    }
+    use.step = 2;
+    return true;
 }
 
 
-void QubitMultistepOpenCL12::HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei setIndex, asizei resIndex) {
+void FreshMultistepOpenCL12::HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei setIndex, asizei resIndex) {
 	/* * * * * * * * * * * * */
 	//! \todo Implement qubit CPU-side hashing for validation.
-	throw std::string("TODO: qubit hash validation not implemented yet. I cannot be bothered with it!");
+	throw std::string("TODO: fresh hash validation not implemented yet. I cannot be bothered with it!");
 	/* * * * * * * * * * * * */
 }
 
 
-QubitMultistepOpenCL12::~QubitMultistepOpenCL12() {
+FreshMultistepOpenCL12::~FreshMultistepOpenCL12() {
 	// what if the nonce buffer is still mapped? I destroy both the event and the buffer anyway.
 	for(asizei s = 0; s < settings.size(); s++) {
 		for(asizei i = 0; i < settings[s].algoInstances.size(); i++) settings[s].algoInstances[i].res.Free();
@@ -231,7 +119,7 @@ QubitMultistepOpenCL12::~QubitMultistepOpenCL12() {
 }
 
 
-void QubitMultistepOpenCL12::GetSettingsInfo(SettingsInfo &out, asizei setting) const {
+void FreshMultistepOpenCL12::GetSettingsInfo(SettingsInfo &out, asizei setting) const {
 	// In line of theory I could design some fairly contrived way to do everything using GenResources...
 	// BUT I would end mixing logic and presentation code. Not a good idea. Since algo implementations don't change very often,
 	// I think it's a better idea to just keep them in sync.
@@ -256,10 +144,10 @@ void QubitMultistepOpenCL12::GetSettingsInfo(SettingsInfo &out, asizei setting) 
 }
 
 
-std::string QubitMultistepOpenCL12::GetBuildOptions(const QubitMultiStep_Options &opt, const auint index) {
+std::string FreshMultistepOpenCL12::GetBuildOptions(const FreshMultiStep_Options &opt, const auint index) {
 	std::stringstream build;
 	switch(index) {
-	case 0: build<<"-D LUFFA_HEAD"; break;
+	case 0: build<<"-D HEAD_OF_CHAINED_HASHING"; break;
 	case 1: break;
 	case 2: break;
 	case 3: break;
@@ -275,11 +163,11 @@ std::string QubitMultistepOpenCL12::GetBuildOptions(const QubitMultiStep_Options
 
 
 
-std::pair<std::string, std::string> QubitMultistepOpenCL12::GetSourceFileAndKernel(asizei settingIndex, auint step) const {
+std::pair<std::string, std::string> FreshMultistepOpenCL12::GetSourceFileAndKernel(asizei settingIndex, auint step) const {
     using std::string;
     switch(step) {
-	case 0: return std::make_pair(string("Luffa_1W.cl"), string("Luffa_1way"));
-	case 1: return std::make_pair(string("CubeHash_2W.cl"), string("CubeHash_2way"));
+	case 0: return std::make_pair(string("SHAvite3_1W.cl"), string("SHAvite3_1way"));
+	case 1: return std::make_pair(string("SIMD_16W.cl"), string("SIMD_16way"));
 	case 2: return std::make_pair(string("SHAvite3_1W.cl"), string("SHAvite3_1way"));
 	case 3: return std::make_pair(string("SIMD_16W.cl"), string("SIMD_16way"));
 	case 4: return std::make_pair(string("Echo_8W.cl"), string("Echo_8way"));
@@ -289,13 +177,13 @@ std::pair<std::string, std::string> QubitMultistepOpenCL12::GetSourceFileAndKern
 }
 
 
-void QubitMultistepOpenCL12::Parse(QubitMultiStep_Options &opt, const rapidjson::Value &params) {
+void FreshMultistepOpenCL12::Parse(FreshMultiStep_Options &opt, const rapidjson::Value &params) {
 	const rapidjson::Value::ConstMemberIterator li(params.FindMember("linearIntensity"));
 	if(li != params.MemberEnd() && li->value.IsUint() && li->value.GetUint()) opt.linearIntensity = li->value.GetUint();
 }
 
 
-asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev, RejectReasonFunc callback) {
+asizei FreshMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &plat, const OpenCL12Wrapper::Device &dev, RejectReasonFunc callback) {
 	//! \todo support multiple configurations.
 	bool fail = false;
 	auto badthing = [&callback, &fail](const char *str) { fail = true;    if(callback) callback(str); };
@@ -324,7 +212,7 @@ asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &p
 }
 
 
-void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add, cl_context ctx, cl_device_id use, const QubitMultiStep_Options &opt, asizei confIndex) {
+void FreshMultistepOpenCL12::BuildDeviceResources(FreshMultiStep_Resources &add, cl_context ctx, cl_device_id use, const FreshMultiStep_Options &opt, asizei confIndex) {
 	cl_int error;
 	cl_command_queue_properties cqprops = PROFILING_ENABLED? CL_QUEUE_PROFILING_ENABLE : 0;
 	add.commandq = clCreateCommandQueue(ctx, use, cqprops, &error);
@@ -394,8 +282,8 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 	add.nonces = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, (1 + opt.OptimisticNonceCountMatch()) * sizeof(cl_uint), NULL, &error);
 	if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to resulting nonces buffer.";
 
-#if DEBUGBUFFER_SIZE
-	add.debugBUFFER = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, DEBUGBUFFER_SIZE, NULL, &error);
+#if FRESH_DEBUGBUFFER_SIZE
+	add.debugBUFFER = clCreateBuffer(ctx, CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, FRESH_DEBUGBUFFER_SIZE, NULL, &error);
 	if(error) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to resulting debug buffer.";
 #endif
 
@@ -422,80 +310,53 @@ void QubitMultistepOpenCL12::BuildDeviceResources(QubitMultiStep_Resources &add,
 
 		cl_uint args = 0;
 		cl_mem input;
-		if(pieces == 0) {
-			cl_mem target[] = { add.wuData, add.io[0], nullptr };
-			const char *nameString[] = { "wuData", "io0" };
-			input = target[0];
-			for(asizei loop = 0; target[loop]; loop++) {
-				error = clSetKernelArg(add.kernel[pieces], auint(loop), sizeof(target[loop]), target + loop);
-				if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on " + nameString[loop];
+        switch(pieces) {
+        case 0:
+        case 2: { // SHAVite3
+            cl_mem target[2][4] = {
+                    { add.wuData, add.io[0], add.aesLUTTables, nullptr },
+                    { add.io[1],  add.io[0], add.aesLUTTables, nullptr }
+            };
+            const char *nameString[2][3] = {
+                    { "wuData", "io0", "AES tables" },
+                    { "io1", "io0", "AES tables" }
+            };
+			for(asizei loop = 0; target[pieces == 2][loop]; loop++) {
+			    input = target[pieces == 2][loop];
+				error = clSetKernelArg(add.kernel[pieces], auint(loop), sizeof(input), &input);
+				if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on " + nameString[pieces == 2][loop];
 				args++;
 			}
+            cl_uint roundCount = 14;
+            error = clSetKernelArg(add.kernel[pieces], auint(args), sizeof(roundCount), &roundCount);
+            if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg setting SHAvite3 round count.";
+            break;
 		}
-		else if(pieces == 4) {
-			cl_mem target[] = { add.io[1], add.nonces, add.dispatchData, nullptr };
-			const char *nameString[] = { "io1", "nonces", "dispatchData" };
-			input = target[0];
-			for(asizei loop = 0; target[loop]; loop++) {
-				error = clSetKernelArg(add.kernel[pieces], auint(loop), sizeof(target[loop]), target + loop);
-				if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on " + nameString[loop];
-				args++;
-			}
-		}
-		else {
-			cl_mem target[] = { add.io[1], add.io[0], nullptr };
-			const char *nameString[] = { "io1", "io0" };
-			if(pieces % 2) {
-				std::swap(nameString[0], nameString[1]);
-				std::swap(target[0], target[1]);
-			}
-			input = target[0];
-			for(asizei loop = 0; target[loop]; loop++) {
-				error = clSetKernelArg(add.kernel[pieces], auint(loop), sizeof(target[loop]), target + loop);
-				if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on " + nameString[loop];
-				args++;
-			}
-		}
-		switch(pieces) {
-		case 2:
-		case 4: {
-			error = clSetKernelArg(add.kernel[pieces], auint(args), sizeof(add.aesLUTTables), &add.aesLUTTables);
-			if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on AES round LUT buffer.";
-			args++;
-            if(pieces == 2) {
-                cl_uint roundCount = 14;
-                error = clSetKernelArg(add.kernel[pieces], auint(args), sizeof(roundCount), &roundCount);
-                if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg setting SHAvite3 round count.";
-            }
-			break;
-		}
-		case 3: {
-			cl_mem target[] = { input, add.alphaTable, add.betaTable, nullptr };
-			const char *nameString[] = { "inputCHAR", "alpha LUT", "beta LUT" };
+        case 1:
+        case 3: { // SIMD
+			cl_mem target[] = { add.io[0], add.io[1], add.io[0], add.alphaTable, add.betaTable, nullptr };
+			const char *nameString[] = { "io0-uint", "output uo1", "io0-ubyte", "alpha LUT", "beta LUT" };
 			for(asizei loop = 0; target[loop]; loop++) {
 				error = clSetKernelArg(add.kernel[pieces], args, sizeof(target[loop]), target + loop);
 				if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on " + nameString[loop];
 				args++;
 			}
 			break;
+        }
+        case 4: {
+			cl_mem target[] = { add.io[1], add.nonces, add.dispatchData, add.aesLUTTables, nullptr };
+			const char *nameString[] = { "io1", "nonces", "dispatchData", "AES tables" };
+			input = target[0];
+			for(asizei loop = 0; target[loop]; loop++) {
+				error = clSetKernelArg(add.kernel[pieces], auint(loop), sizeof(target[loop]), target + loop);
+				if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on " + nameString[loop];
+				args++;
+			}
+            #if FRESH_DEBUGBUFFER_SIZE
+                error = clSetKernelArg(add.kernel[pieces], auint(args), sizeof(add.debugBUFFER), &add.debugBUFFER);
+		        if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on \"debugBUFFER\"";
+            #endif
 		}
 		}
-#if DEBUGBUFFER_SIZE
-		error = clSetKernelArg(add.kernel[pieces], auint(args), sizeof(add.debugBUFFER), &add.debugBUFFER);
-		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on \"debugBUFFER\"";
-#endif
 	}
-	// {
-	// 	pieces--; // Last step is a bit more complicated.
-	// 	cl_mem target[] = { add.io[0], add.nonces, add.dispatchData, nullptr };
-	// 	const char *nameString[] = { "io0", "nonces", "dispatchData" };
-	// 	for(asizei loop = 0; target[loop]; loop++) {
-	// 		error = clSetKernelArg(add.kernel[pieces], auint(loop), sizeof(target[loop]), target + loop);
-	// 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on " + nameString[loop];
-	// 	}
-	// #if DEBUGBUFFER_SIZE
-	// 		error = clSetKernelArg(add.kernel[pieces], auint(args), sizeof(add.debugBUFFER), &add.debugBUFFER);
-	// 		if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " returned by clSetKernelArg on \"debugBUFFER\"";
-	// #endif
-	// }
 }

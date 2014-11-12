@@ -31,6 +31,9 @@
     <Filter Include="Source Files\AlgoFactories\Implementations">
       <UniqueIdentifier>{4fdf6dd8-3e51-49b2-86cd-47bd392d2c9f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Commands\Admin">
+      <UniqueIdentifier>{ab6eedc8-228a-43be-8f57-cc6efab01003}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="M8M.cpp">
@@ -41,6 +44,12 @@
     </ClCompile>
     <ClCompile Include="AbstractWSServer.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AlgoFactories\Implementations\GRSMYRMonolithicOpenCL12.cpp">
+      <Filter>Source Files\AlgoFactories\Implementations</Filter>
+    </ClCompile>
+    <ClCompile Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.cpp">
+      <Filter>Source Files\AlgoFactories\Implementations</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -142,6 +151,36 @@
     </ClInclude>
     <ClInclude Include="AbstractWSServer.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IconCompositer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\Monitor\UptimeCMD.h">
+      <Filter>Header Files\Commands\Monitor</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\Admin\GetRawConfigCMD.h">
+      <Filter>Header Files\Commands\Admin</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\Admin\ReloadCMD.h">
+      <Filter>Header Files\Commands\Admin</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\Admin\SaveRawConfigCMD.h">
+      <Filter>Header Files\Commands\Admin</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\Admin\ConfigFileCMD.h">
+      <Filter>Header Files\Commands\Admin</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoFactories\FreshCL12.h">
+      <Filter>Header Files\AlgoFactories</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoFactories\grsmyrCL12.h">
+      <Filter>Header Files\AlgoFactories</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.h">
+      <Filter>Header Files\AlgoFactories\Implementations</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoFactories\Implementations\grsmyrMonolithicOpenCL12.h">
+      <Filter>Header Files\AlgoFactories\Implementations</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -4,7 +4,6 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 
-
 window.server = {
 	configFile: undefined, /* I just put there the result of a configFile command. */
 	currentConfig: undefined
@@ -24,7 +23,8 @@ window.easyConfigSteps = [];
 
 var preferredImplementation = {
 	qubit: "fiveSteps",
-	grsmyr: "monolithic"
+	grsmyr: "monolithic",
+	fresh: "warm"
 };
 
 		
