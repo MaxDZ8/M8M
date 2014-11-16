@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>M8M multiple configurations</title>
+<link rel="stylesheet" href="styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>Multi-configuration howto</h1>
+	<p>
+		By default, M8M will load its configuration from <tt>%localappdata%\M8M\conf\init.json</tt>. Maybe you want to try different algorithms... or maybe you just want to see the difference between p2p and centralized pool.
+		There are two ways to do this: using a command line parameter or by redirecting loading.
+	</p>
+	<h2>Using a command-line parameter</h2>
+	The best way to handle multiple configurations is to create new shortcuts to M8M using the <tt>--config</tt> parameter.<br>
+	<ol>
+		<li>right click and hold on M8M.exe, move your mouse a little, release the button, a menu will pop up;</li>
+		<li>click "create shortcut";</li>
+		<li>right click on the new file. Click on "properties", it's usually at the bottom;</li>
+		<li>click "create shortcut";</li>
+		<li>in the upper part of the window, click the "Shortcut" tab;</li>
+		<li>the topmost editable field will be "Destination", it will end with ...<tt>M8M.exe</tt>;</li>
+		<li>add a space;</li>
+		<li>add <tt>--config</tt>;</li>
+		<li>add a space;</li>
+		<li>add the name of the file you want to use.</li>
+	</ol>
+	At this point the thing will look like<br>
+	<img src="cmdline--config.png" />
+	<p>
+		Due to a typo in 0.0.520 <tt>--config</tt> does not work properly: it is the only thing you can write which does <em>not</em> cause loading of a config file. Everything else will properly load the file, as long as it starts with <tt>--</tt>.<br>
+		An appropriate example would be: <tt>--whoops file_to_load.json</tt><br>
+		<img src="cmdline--whoops.png" alt="--whoops" />
+	</p>
+	<h2>Redirecting file loading</h2>
+	If you don't use <tt>--config</tt> then you can switch configuration by adding the <tt>userConfiguration</tt> switch in the configuration file. Your <tt>init.json</tt> might look like:<br>
+	<code>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;<strong>"userConfiguration": "loadAnotherFile.json",</strong><br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"pools": [<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"url": "somepool.com:9876",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"user": "ABCDBLAHBLAH",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"pass": "weak",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"coinDiffMul": 256,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"algo": "qubit",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"protocol": "stratum",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"name": "MYR-qubit-p2puk"<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"driver": "OCL",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"algo": "qubit",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"impl": "fiveSteps",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"checkNonces": false,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"implParams": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"qubit": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"fiveSteps": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"linearIntensity": 1024<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	}</code><br>
+	You can redirect only once and only if you don't use <tt>--config</tt> which implies that only <tt>init.json</tt> can use <tt>userConfiguration</tt>.
+</body>
+</html>

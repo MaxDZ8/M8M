@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>M8M first run</title>
+<link rel="stylesheet" href="styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>First run</h1>
+	Go to the folder where you just extracted files.<br>
+	<img src="findExecutable.png" alt="run miner/M8M.exe" /><br>
+	Double click on the "miner" folder.<br>
+	Double click on "M8M.exe".<br>
+	You will immediately see in windows notification area:<br>
+	<img src="noConfigs.png"/><br>
+	Additionally, your antivirus might complain about a program trying to access the internet. Allow.<br>
+	This is normal.<br>
+	It is very likely the icon will soon disappear. You can find it in the hidden notifications by clicking on the triangle pointing up. You can leave the icon there or drag it back to the notification area as shown.<br>
+	<img src="dragginBackToVisible.png" /><br>
+	Note clicking the icon does nothing.<br>
+	Right-click to open a menu. Click on "Enable web administration".<br>
+	<img src="enableWebAdmin.png" /><br>
+	Windows will complain again about the program trying to access the network. Allow.<br>
+	Your antivirus might do the same (or not, if it feels like it).<br>
+	Note the icon is now green - this means the miner is <em>listening</em> to connections for either monitoring or setup.<br>
+	Right click again and click on "Connect to web administration".<br>
+	<img src="connectAdmin.png" /><br>
+	Your browser should now start and show the following:<br>
+	<img src="ff-starting.png" /><br>
+	Click on the button to continue.<br>
+	Yes, I know Chrome is a bit off.<br>
+	Note at this point the icon will have a yellow color.<br>
+	<img src="connected.png" /><br>
+	Be careful when this happens. If you're not connected then someone else is. Try to always leave M8M in the default state with grey icon and no open ports. Opening ports is a security risk albeit we accept that for ease of use.
+	<a id="configWizard"><h2>The configuration wizard</h2></a>
+	<p>
+		Sets up a very basic configuration: a single algorithm on a single pool. In general you should use at least two pools, in case your primary one goes down but that's still a great way to have your setup kickstarted.
+	</p>
+	It is a three-step process. In the first, you are asked to select an algorithm to use from the supported ones. The second step requires some additional explanation.<br>
+	<img src="wizard-2.png" /><br>
+	The first line is perhaps the most problematic. A sure way to get the <em>URL</em> right is to copy-paste server address from a legacy miner command line. Some examples could be:
+	<ol>
+		<li>somepool.com:3333 - minimal and correct;</li>
+		<li>http://somepool.com:3525 - works but it's technically incorrect (stratum pools are not HTTP);</li>
+		<li>stratum+http://somepool.com:3525 - equivalent to (2), you don't need to specify protocol in M8M;</li>
+		<li>somepool.com:3333/ - does not work in 0.0.520 due to the trailing /, be careful with copy-paste.</li>
+	</ol>
+	<p>
+		Be careful about the <em>login</em>: the most straightforward way to start is by using p2pool. You just copy there your wallet address and you're set.<br>
+		Some other pools require you to register first: if you register as <em>this_is_me</em> then your worker <em>wrkr</em> will have <tt>this_is_me.wrkr</tt> as login.<br>
+		Some other pools ask about wallets like p2pool but they really are not.<br>
+		In general workers don't need to be registered: they get created on the fly on first login. In case of issues, try creating the worker in pool' setting.
+	</p>
+	<p>
+		The third step is perhaps the most peculiar.
+		<img src="wizard-3.png" /><br>
+		At this point you would have to consider a few things to squeeze your hardware to the max.<br>
+		By contrast, M8M wants to be something you launch and forget in the background while you work. It doesn't ask how fast you want your mining. It asks how smooth you want your system to be (so you can get along with your business) and tries to figure out an appropriate setting.<br>
+		This adjusts automatically to your hardware power so you don't have to think about anything! Slide all the way to the left and you might even forget M8M is running!
+	</p>
+	<p>
+		At last, you will be requested to apply changes. Click on the button to have some magic happen.<br>
+		<img src="wizard-4.png" /><br>
+		Pay attention to <tt>linearIntensity</tt>. Differently from legacy miners the amount of work generated depends on both <tt>linearIntensity</tt> and the algorithm <em>implementation</em> being used. The same value will generate different amounts of work on different algorithms and even across different implementations of the same algorithm.
+	</p>
+	<p>
+		If you set up everything correctly, the miner will shut down a split second and restart. The icon will be back to grey with a green block for a few seconds. It will then turn to white and hopefully after a while you will see:<br>
+		<img src="foundFirstShare.png" /><br>
+		This means the miner is now working. It does not imply it's working <strong>correctly</strong>. To check this, use the <a href="webmon.html">web monitor</a>.
+	</p>
+</body>
+</html>

@@ -1,66 +1,73 @@
-<!doctype html>
-<!-- The Time Machine GitHub pages theme was designed and developed by Jon Rohan, on Feb 7, 2012. -->
-<!-- Follow him for fun. http://twitter.com/jonrohan. Tail his code on http://github.com/jonrohan -->
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-
-  <link rel="stylesheet" href="stylesheets/stylesheet.css" media="screen">
-  <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-  <script type="text/javascript" src="javascripts/script.js"></script>
-
-  <title>M8M</title>
-  <meta name="description" content="An (hopefully) educational cryptocurrency miner.">
-
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-
+<meta charset="UTF-8">
+<title>M8M cryptocurrency miner</title>
+<link rel="stylesheet" href="styles.css" type="text/css" media="screen">		
 </head>
-
 <body>
-
-  <div class="wrapper">
-    <header>
-      <h1 class="title">M8M</h1>
-    </header>
-    <div id="container">
-      <p class="tagline">An (hopefully) educational cryptocurrency miner.</p>
-      <div id="main" role="main">
-        <div class="download-bar">
-        <div class="inner">
-          <a href="https://github.com/MaxDZ8/M8M/tarball/master" class="download-button tar"><span>Download</span></a>
-          <a href="https://github.com/MaxDZ8/M8M/zipball/master" class="download-button zip"><span>Download</span></a>
-          <a href="https://github.com/MaxDZ8/M8M" class="code">View M8M on GitHub</a>
-        </div>
-        <span class="blc"></span><span class="trc"></span>
-        </div>
-        <article class="markdown-body">
-          <p>M8M main documentation page.
-Github wikis sound great but they're very limited in layout and they often don't work round.
-This is just a placeholder for now, but I get access to full HTML capabilities.</p>
-
-<p>Github pages will supercede the wiki. It's just a placeholder for now.</p>
-        </article>
-      </div>
-    </div>
-    <footer>
-      <div class="owner">
-      <p><a href="https://github.com/MaxDZ8" class="avatar"><img src="https://avatars2.githubusercontent.com/u/4531580?v=3&amp;s=60" width="48" height="48"></a> <a href="https://github.com/MaxDZ8">MaxDZ8</a> maintains <a href="https://github.com/MaxDZ8/M8M">M8M</a></p>
-
-
-      </div>
-      <div class="creds">
-        <small>This page generated using <a href="http://pages.github.com/">GitHub Pages</a><br>theme by <a href="https://twitter.com/jonrohan/">Jon Rohan</a></small>
-      </div>
-    </footer>
-  </div>
-  <div class="current-section">
-    <a href="#top">Scroll to top</a>
-    <a href="https://github.com/MaxDZ8/M8M/tarball/master" class="tar">tar</a><a href="https://github.com/MaxDZ8/M8M/zipball/master" class="zip">zip</a><a href="" class="code">source code</a>
-    <p class="name"></p>
-  </div>
-
-  
+	<h1>M8M</h1>
+	<em>A minimalistic, hopefully educational cryptocurrency miner.</em>
+	<p>
+		Those pages serve as an online help for users looking to configure or run the program.<br>
+		You can also find there information about the various concepts involved in development of M8M.
+		Hopefully those things will be elaborated to the point of becoming a decent source explanations regarding the cryptocurrency mining process.<br>
+		For more information about the design rationale and the history of the program, refer to <a href="https://github.com/MaxDZ8/M8M/blob/master/README.md">project readme</a>.<br>
+	</p>
+	<h2>System requirements</h2>
+	<ul>
+		<li><strong>Windows 7 or later.</strong></li>
+		<li>At least one OpenCL-enabled card. For the time being, this must based on <strong>Graphics Core Next</strong> architecture.
+			<ul>
+				<li>Discrete cards branded Radeon 7000 or later (some mobile parts are effectively series 6000);</li>
+				<li>Radeon R series;</li>
+				<li>Recent APUs featuring GCN graphics, either <em>Kaveri</em> or <em>Kabini</em></li>
+				<li>If not sure, you can find this information on the <a href="using/webmon.html">web interface</a>.</li>
+			</ul>
+			</li>
+	</ul>
+	<h2>Usage</h2>
+	<ul>
+		<li>Performing a manual install is super simple: just extract to a folder of your choice.</li>
+		<li>The <a href="using/firstrun.html">first run</a> is the most critical phase as you need to set your miner settings. To keep it easy, use the <a href="using/firstrun.html#configWizard">init config wizard</a>.</li>
+		<li>Daily use is as simple as double clicking the executable (have a shortcut if you're super lazy). You'll probably just want to play with the <a href="using/webmon.html">web monitor</a>.</li>
+		<li>How to use <a href="using/multiconfig.html">multiple configuration</a> settings?</li>
+		<li><a href="using/webconf.html">Web administration</a> for easy changes and some troubleshooting.</li>
+		<li>What do <a href="https://docs.google.com/document/d/1wSefDj3mheZ7t0QyTTc1snTKX777zH5ZQgJ7oRpXAvI/edit?usp=sharing">the icons</a> mean?</li>
+	</ul>
+	<h2>Builds and releases</h2>
+	<p>
+		M8M is open source software. In every moment, you can just pull the source code and build your own executable.<br>
+		Sometimes, new <em>builds</em> will be made available. This can happen to fix an important bug or to test a new set of features. Builds are identified by a single number <tt>&lt;patch_num&gt;</tt>.<br>
+		<em>Versions</em> are somehow more important <em>builds</em>. They get tagged with an additional major and minor version. Those are usually provided in an installer named <tt>M8M-&lt;major_ver&gt;.&lt;minor_ver&gt;.&lt;patch_num&gt;</tt>.<br>
+		In both cases, <tt>&lt;patch_num&gt;</tt> always uniquely identifies the contents somehow: higher numbers imply a more recent version, hopefully always better!<br>
+		Consider <em>builds</em> (single number) as a work in progress (you might want to upgrade or not) while versions (three numbers) as a suggested upgrade.
+	</p>
+	<p>
+		The first public release was 249, appeared on <a href="http://www.gamedev.net">gamedev.net</a> 31 Jul 2014. Binary is not available on github but rather on <a href="https://docs.google.com/file/d/0B9JUZ-eI_WkrcUhLb1J6bmY3X0E">google drive</a>.<br>
+		All others are on <a href="https://github.com/MaxDZ8/M8M/releases">github</a>.
+	</p>
+	<h2>Algorithms</h2>
+	<ul>
+		<li><a href="algos/genChained.html">Generic chained hashing</a> (TODO)</li>
+		<li><a href="algos/qubit.html">Qubit</a> (TODO)</li>
+		<li><a href="algos/grsmyr.html">Gr&oslash;estl-myriadcoin</a> (TODO)</li>
+		<li><a href="algos/fresh.html">Fresh</a> (TODO)</li>
+	</ul>
+	<h2>Hash functions and primitives</h2>
+	<ul>
+		<li><a href="hash/luffa.html">Luffa</a> (TODO)</li>
+		<li><a href="hash/cubehash.html">Cubehash</a> (TODO)</li>
+		<li><a href="hash/shavite3.html">SHAVite-3</a> (TODO)</li>
+		<li><a href="hash/simd.html">SIMD</a> (TODO)</li>
+		<li><a href="hash/echo.html">Echo</a> (TODO)</li>
+		<li><a href="hash/groestl.html">Gr&oslash;estl</a> (TODO)</li>
+		<li><a href="hash/sha256.html">SHA256</a> (TODO)</li>
+	</ul>
+	<ul>
+		<li><a href="hash/aesr.html">AES round</a> (TODO)</li>
+	</ul>
+	<h2>Developers and technical</h2>
+	<a href="https://docs.google.com/document/d/16D0YZ5QjN1LsdoT4GuJTPrI0UoBIC_AbIG4d2YvjJtU/">Websocket protocol documentation</a>.
 </body>
 </html>
