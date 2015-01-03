@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MDZ_long_term_stats</title>
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>MDZ_long_term_stats</h1>
+	<table>
+		<thead><th>Locale</th><th>Presentation string</th></thead>
+		<tbody><td>en-GB</td><td>Long-term statistics</td></tbody>
+	</table>
+	<h2>Overview</h2>
+	<p>
+		This extension is exposed when user enables storage for saving performance and health data on miner. In general, M8M does not provide any kind of persistent storage as this could generate a potentially unbounded amount of data useful mostly to advanced users.<br>
+	</p>
+	<p>
+		The main purpose of this extension is to define a generic framework for retrieval of miner-side data. Data might come from different sources and most likely will have a different semantic. Those different <em>streams</em> of data can be queried or maintained on disk independently of each other.
+	</p>
+	<p>
+		This extension does not define any stream albeit for the purpose of discussion <em>stream</em> is used to refer to an hypothetical stream of data defined by other extensions. Streams are identified by an unique string similar in concept to extension tokens. Whatever an extension is eligible for long-term monitoring, it must define an unique stream name, semantics and data format for <tt>stream</tt>.
+	</p>
+	<h2>Interactions with other extensions</h2>
+	None.
+	<h2>Configuration file additions</h2>
+	A new value <code>LTS</code> is added. Its value can be:
+	<ol>
+	<li><code>true</code> to enable data storage with no disk quota limit;</li>
+	<li>an unsigned integer value (not zero) to enable storage up to a certain storage limit, measured in MiBs.</li>
+	</ol>
+	By default, <code>LTS: false</code> so it is not necessary to explicitly disable this feature resulting in no disk usage.<br>
+	When disk quotas are used, older samples are discarded first.
+	<h2>New common commands</h2>
+		<h3>statStreams</h3>
+			<p>
+			<strong>Parameters</strong>: none.
+			</p>
+			<p>
+			<strong>Purpose</strong>: provide a list of streams available for query and time of first sample available.
+			</p>
+			<p>
+			<strong>Reply</strong>:<br>
+			<code>
+			{<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;stream: [S<sub>0</sub>, S<sub>1</sub>, ... , S<sub>N-1</sub>],<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;presentation: [P<sub>0</sub>, P<sub>1</sub>, ... , P<sub>N-1</sub>]<br>
+			}
+			</code><br>
+			An object containing a set of equally-sized arrays containing exactly <em>N</em> elements. Each entry corresponds to an enabled <em>stream</em> of data. A <em>stream</em> is enumerated only if enabled by user and available for query. A <em>stream</em> is enumerated when those two conditions are met, even if no samples are available.<br>
+			<br>
+			Each element <code>S<sub>i</sub></code> must be a string, conceptually similar to an extension token. Those strings are used to query data from an uniquely identified <em>stream</em>.<br>
+			Each element <code>P<sub>i</sub></code> must be a string, it is to be considered similar to extension presentation string, potentially localized.<br>
+			Each element <code>C<sub>i</sub></code> must be an integer, number of available samples for the corresponding i-th stream. Alternatively, it can be the string <code>"unknown"</code> to indicate a stream which exact sample count cannot be trivially inferred. Note the sample count can be 0.<br>
+			</p>
+			<p>
+			<strong>Push</strong>: not allowed.
+			</p>
+		
+		<h3>statSamples</h3>
+			<p>
+			<strong>Parameters</strong>: an array of strings, each one being an S<sub>i</sub> token from a previous <tt>statStreams</tt> command.<br>
+			The empty array is considered equivalent to the <tt>stream</tt> array returned by the previous <tt>statStreams</tt> command and has the effect of querying all enabled <em>streams</em>.<br>
+			Not specifying a parameter is considered equivalent to specifying [].			
+			</p>
+			<p>
+			<strong>Purpose</strong>: retrieve information about data samples in the specified streams.
+			</p>
+			<p>
+			<strong>Reply</strong>: an object, containing as many sub-objects as the number of queried <em>streams</em> in no specified order. Each sub-object is identified by the unique stream name, which is also the string used to query it.<br>
+			Each object is in the following form:<br>
+			<code>
+			{<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;first: &lt;preciseTimePoint&gt;,<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;last: &lt;preciseTimePoint&gt;,<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;count: &lt;integer-count&gt;<br>
+			}
+			</code><br>
+			Where <code>&lt;preciseTimePoint&gt;</code> is an array containing two entries. The first is the number of seconds till the epoch of a certain recorded event while the second is the number of <em>microseconds</em> since the start of the identified second.<br>
+			The fields <code>first</code> and <code>last</code> identify the first and last sample taken for the given stream.<br>
+			The field <code>&lt;integer-count&gt;</code> is the amount of available samples at the moment the reply was produced.<br>
+			<br>
+			The average amount of samples per second can be computed as <code>(last - first) / count</code>.
+			</p>
+			<p>
+			<strong>Push</strong>: not allowed.
+			</p>
+		
+		<h3>getSamples</h3>
+			<p>
+			<strong>Parameters</strong>: an object containing one sub-object identified by the <em>stream name</em>, where each of those sub-objects has the following form<br>
+			<code>
+			{<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;first: &lt;bound-identifier&gt;,<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;count: &lt;bound-identifier&gt;<br>
+			}
+			</code><br>
+			Where <code>&lt;bound-identifier&gt;</code> is one of the following:
+			<ol>
+				<li>A <code>&lt;preciseTimePoint&gt;</code> value as previously defined.<br>
+					When used as <code>first</code> value, this is the minimum amount of time passed since epoch to consider a sample eligible for reporting. It is not required to match a sample time accurately.<br>
+					When used as <code>count</code> value, this effectively defines a maximum time elapsed since <code>first</code> to consider samples eligible for reporting.<br>
+					If <code>first</code> is not specified as a <code>&lt;preciseTimePoint&gt;</code> but <code>count</code> is, then a <code>&lt;preciseTimePoint&gt;</code> value is derived from the first sample reported.</li>
+				<li>An unsigned integer value.<br>
+					For <code>first</code>, this must be the index of a valid sample. The amount of valid samples available can be retrieved by the <code>statSamples</code> command. Note enabling disk quotas might result in those counts becoming stale.<br>
+					For <code>count</code>, the value will be silently clamped to fit the available range of samples at the time the reply is produced.</li>
+				<li><code>"begin"</code> (only for <code>first</code>): the first sample eligible for reporting will be the oldest available.</li>
+				<li><code>"all"</code> (only for <code>count</code>): reply will contain all samples successive to <code>first</code> at the time reply is produced. This is a guaranteed-to-work way to query the last few produced samples, as their indices cannot be accurately discovered.</li>
+			</ol>
+			</p>
+			<strong>Purpose</strong>: retrieve information about data samples in the specified streams.
+			</p>
+			<p>
+			<strong>Reply</strong>:  an object containing one sub-object identified by the <em>stream name</em>, where each of those sub-objects has the following form<br>
+			<code>
+			{<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;when: [T<sub>0</sub>, T<sub>1</sub>, ... , T<sub>N-1</sub>],<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;value: [V<sub>0</sub>, V<sub>1</sub>, ... , V<sub>N-1</sub>]<br>
+			}
+			</code><br>
+			Each <code>T<sub>i</sub></code> value is a <code>&lt;preciseTimePoint&gt;</code> as previously specified.<br>
+			Each <code>V<sub>i</sub></code> value must correspond to the <code>T<sub>i</sub></code>. The format of each <code>V<sub>i</sub></code> value is to be defined by each stream as <em>value type</em>.<br>
+			If a <em>stream</em> produces samples with no associated values the <code>value</code> array can be empty.<br>
+			If a <em>stream</em> conditionally produces values, then samples without a valid value must have the <code>null</code> value.
+			<p>
+			<strong>Push</strong>: not allowed.
+			</p>
+	<h2>New monitor commands</h2>
+	None.
+	<h2>New admin commands</h2>
+	None.
+	<h2>Issues</h2>
+		<h3>Isn't this a bit too easygoing in terms of security?</h3>
+		<strong>Solution: yes</strong>. It seems security should be achieved by other means however such as tunnelling / VPN, filesystem cryptography and firewalls. Those are more effective, flexible and reliable than anything I could hack.
+		<h3>Should <code>statStreams</code> provide more data?</h3>
+		<strong>Solution: no</strong>, I have decided against this, favouring modular approaches. Using multiple commands is easier.
+		<h3>Are disk quotas really so useful?</h3>
+		<strong>Notes:</strong> they complicate management significantly and introduce considerable amounts of uncertainty in the protocol:
+			<ul>
+			<li>sample counts are no more monotonically increasing;</li>
+			<li>a sample index can shortly become invalid;</li>
+			<li>two queries with the same sample indices could retrieve different data as the samples are effectively moved;</li>
+			<li>the way indices are updated is unspecified;</li>
+			<li>different streams might produce data at different rate; perhaps they should be tuned individually?</li>
+			<li>their goal can be easily accomplished by using a external tools or scripts.</li>
+			</ul>
+		<strong>Solution: ?</strong>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MDZ_clock_monitor</title>
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>MDZ_clock_monitor</h1>
+	<table>
+		<thead><th>Locale</th><th>Presentation string</th></thead>
+		<tbody><td>en-GB</td><td>Clock rate monitoring</td></tbody>
+	</table>
+	<h2>Overview</h2>
+	<p>
+		M8M currently pulls device clock rates from the driver. This is basically a nominal clock rate not reacting to any state.<br>
+		With thermal management becoming more and more advanced, devices can throttle when overloaded or self-overclock on certain situations.<br>
+	</p>
+	<p>
+		This extension allows a finer, real-time polling of clock values for better understanding of hardware dynamics. It is especially useful in conjunction with temperature monitoring.<br>
+	</p>
+	<h2>Interactions with other extensions</h2>
+	If <code>MDZ_long_term_stats</code> is supported then a new <em>stream</em> is defined with name <code>clockRate</code>.<br>
+	A new sample is generated every time at least one of the supported devices signals a clock rate change of at least 1 Mhz.<br>
+	The <em>value type</em> will have the following form:<br>
+	<code>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;device: [D<sub>0</sub>, D<sub>1</sub>, ... , D<sub>N-1</sub>],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;clock: [R<sub>0</sub>, R<sub>1</sub>, ... , R<sub>N-1</sub>]<br>
+	}
+	</code><br>
+	More information about <code>D<sub>i</sub></code> values can be inferred using <code>listClocks</code>.
+	<h2>Configuration file additions</h2>
+	A new value <code>clockPollingInterval</code> is added. Valid values are unsigned integers, representing the number of seconds between successive clock rate readings. Default value is 0, meaning monitoring is disabled.<br>
+	If a system does not contain at least one device exporting at least one readable clock rate, the extension will fail to start at initialization. In this case, the extension token will not be produced in the extension string.
+	<h2>New common commands</h2>
+	None.
+	<h2>New monitor commands</h2>
+		<h3>listClocks</h3>
+			<p>
+			<strong>Parameters</strong>: none.
+			</p>
+			<p>
+			<strong>Purpose</strong>: enumerate all available clock rates and give informations regarding usage.
+			</p>
+			<p>
+			<strong>Reply</strong>: an array containing as many entries as readable clocks, each entry is in the following form:<br>
+			<code>
+			{<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;presentation: &lt;string&gt;,<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;processorIndex: &lt;uint&gt;,<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;type: &lt;string&gt;,<br>
+			}
+			</code><br>
+			The field <code>processorIndex</code> is optional. If specified, the clock referres to a specific compute device regardless the device itself is used or not. The index is the very same linear-index to be used by standard commands.<br>
+			The field <code>type</code> gives an hint about clock usage. It can be <code>"memory"</code>, <code>"chip"</code> or <code>"unknown"</code>.
+			</p>
+			<p>
+			<strong>Push</strong>: not allowed.
+			</p>
+		<h3>probeClock</h3>
+			<p>
+			<strong>Parameters</strong>: an array of unsigned integers being the index of the clock to query.
+			</p>
+			<p>
+			<strong>Purpose</strong>: retrieve current clock rate.
+			</p>
+			<p>
+			<strong>Reply</strong>: an array containing as many entries as request. Each entry is an integer representing device current clock in MegaHertz.
+			</p>
+			<p>
+			<strong>Notes</strong>: 
+			<ol>
+			<li>implementations are free to actually poll the clocks or report the last known clock;</li>
+			<li>when <code>MDZ_long_term_stats</code> is supported, a sample can be produced by iterating on all available clocks and adding them to the lists whatever the measurement is different.</li>
+			</ol>
+			</p>
+			<p>
+			<strong>Push</strong>: allowed, but no more than one.
+			</p>
+	<h2>New admin commands</h2>
+	None.
+	<h2>Issues</h2>
+	None.
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MDZ_device_load</title>
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>MDZ_device_load</h1>
+	<table>
+		<thead><th>Locale</th><th>Presentation string</th></thead>
+		<tbody><td>en-GB</td><td>Device load monitoring</td></tbody>
+	</table>
+	<h2>Overview</h2>
+	<p>
+		Some drivers expose a simple way to assess how much performance is being used. This extension provides a way to monitor this value.
+	</p>
+	<h2>Interactions with other extensions</h2>
+	If <code>MDZ_long_term_stats</code> is supported then a new <em>stream</em> is defined with name <code>load%</code>.<br>
+	A new sample is generated every time at least one of the supported devices signals a temperature change of at least 1 degree Celsius.<br>
+	The <em>value type</em> will have the following form:<br>
+	<code>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;device: [D<sub>0</sub>, D<sub>1</sub>, ... , D<sub>N-1</sub>],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;load: [L<sub>0</sub>, L<sub>1</sub>, ... , L<sub>N-1</sub>]<br>
+	}
+	</code><br>
+	Each value <code>L<sub>i</sub></code> is a integer percentage. If a certain device does not support load monitoring, then its <code>L<sub>i</sub></code> value will be <code>null</code>.
+	<h2>Configuration file additions</h2>
+	A new value <code>devLoadInterval</code> is added. Valid values are unsigned integers, representing the number of seconds between successive temperature readings. Default value is 10.<br>
+	The extension is presented to remote peers only if at least one device supports load monitoring.
+	<h2>New common commands</h2>
+	None.
+	<h2>New monitor commands</h2>
+		<h3>probeLoad</h3>
+			<p>
+			<strong>Parameters</strong>: an array of unsigned integers, each one being the linearized index of the device. Specifying <code>[]</code> is equivalent to specifying all the devices.
+			</p>
+			<p>
+			<strong>Purpose</strong>: retrieve device load statistics.
+			</p>
+			<p>
+			<strong>Reply</strong>: an array containing as many entries as request. Each entry is an integer percentage. Given a device with linear index <code>i</code> its load percentage will be at the <code>i</code>-th position.<br>
+			If a device does not support load monitoring, value will be <code>null</code>.
+			</p>
+			<p>
+			<strong>Push</strong>: allowed, but no more than one.
+			</p>
+	<h2>New admin commands</h2>
+	None.
+	<h2>Issues</h2>
+		<h3>Is this really useful?</h3>
+		<strong>Notes:</strong> legacy miners have those but drivers (AMD drivers at least) does not report this with sufficient speed to be useful to adjust load to prevent system sluggish.<br>
+		There's also the problem that this is a very gross-grained metric while there are many things that could constitute load (such as for example used bandwidth).<br>
+		<strong>Solution: ?</strong>
+		<h3>Is this incoherent in style with regards to other probes?</h3>
+		<strong>Notes:</strong> it just pulls out a value for all devices, in contrast with others which allow to probe specific devices. It also maps directly to linear device index.<br>
+		<strong>Solution: yes</strong> - the whole point is this is much more specific in scope: a computing device is being used, that computing device will be monitored. Because of this very strict relationship, there's no need to have a more complicated mapping.
+</body>
+</html>

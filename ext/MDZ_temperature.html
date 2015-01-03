@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MDZ_temperature</title>
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>MDZ_temperature</h1>
+	<table>
+		<thead><th>Locale</th><th>Presentation string</th></thead>
+		<tbody><td>en-GB</td><td>Temperature monitoring</td></tbody>
+	</table>
+	<h2>Overview</h2>
+	<p>
+		When enabled this extension provides temperature of a variety of devices. This is mostly geared towards compute devices.
+	</p>
+	<p>
+		The main goal is to observe temperature differences across the day and relation to performance.
+	</p>
+	<h2>Interactions with other extensions</h2>
+	If <code>MDZ_long_term_stats</code> is supported then a new <em>stream</em> is defined with name <code>temperature</code>.<br>
+	A new sample is generated every time at least one of the supported devices signals a temperature change of at least 1 degree Celsius.<br>
+	The <em>value type</em> will have the following form:<br>
+	<code>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;device: [D<sub>0</sub>, D<sub>1</sub>, ... , D<sub>N-1</sub>],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;temperature: [T<sub>0</sub>, T<sub>1</sub>, ... , T<sub>N-1</sub>]<br>
+	}
+	</code><br>
+	More information about <code>D<sub>i</sub></code> values can be inferred using <code>listTemperatureSensors</code>.
+	<h2>Configuration file additions</h2>
+	A new value <code>tempInterval</code> is added. Valid values are unsigned integers, representing the number of seconds between successive temperature readings. Default value is 10.<br>
+	If a system does not contain at least one supported temperature sensor the extension will fail to start at initialization. In this case, the extension token will not be produced in the extension string.
+	<h2>New common commands</h2>
+	None.
+	<h2>New monitor commands</h2>
+		<h3>listTemperatureSensors</h3>
+			<p>
+			<strong>Parameters</strong>: none.
+			</p>
+			<p>
+			<strong>Purpose</strong>: retrieve description of the various sensors and reconstruct mappings to unique indices.
+			</p>
+			<p>
+			<strong>Reply</strong>: an array containing as many entries as supported temperature sensors, each entry is in the following form:<br>
+			<code>
+			{<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;presentation: &lt;string&gt;,<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;processorIndex: &lt;uint&gt;,<br>
+			}
+			</code><br>
+			The field <code>processorIndex</code> is optional. If specified, the sensor in attached to a specific compute device regardless the device itself is used or not. The index is the very same linear-index to be used by standard commands.<br>
+			</p>
+			<p>
+			<strong>Push</strong>: not allowed.
+			</p>
+		<h3>probeTemp</h3>
+			<p>
+			<strong>Parameters</strong>: an array of unsigned integers being the index of the sensor to query.
+			</p>
+			<p>
+			<strong>Purpose</strong>: retrieve current temperature.
+			</p>
+			<p>
+			<strong>Reply</strong>: an array containing as many entries as request. Each entry is a floating-point value.
+			</p>
+			<p>
+			<strong>Notes</strong>: 
+			<ol>
+			<li>implementations are free to actually poll the temperature sensors or report the known temperature reported at last refresh;</li>
+			<li>when <code>MDZ_long_term_stats</code> is supported, a sample can be produced by iterating on all sensors and adding them to the lists whatever the measured temperature is different.</li>
+			</ol>
+			</p>
+			<p>
+			<strong>Push</strong>: allowed, but no more than one.
+			</p>
+	<h2>New admin commands</h2>
+	None.
+	<h2>Issues</h2>
+	None.
+</body>
+</html>

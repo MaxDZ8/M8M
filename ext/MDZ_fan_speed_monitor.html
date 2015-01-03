@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MDZ_fan_speed_monitor</title>
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>MDZ_fan_speed_monitor</h1>
+	<table>
+		<thead><th>Locale</th><th>Presentation string</th></thead>
+		<tbody><td>en-GB</td><td>Fan speed monitoring</td></tbody>
+	</table>
+	<h2>Overview</h2>
+	<p>
+		Temperature alone tells little about the amount of work performed by a device as the user might prefer silent operation over keeping the computing devices cool.
+	</p>
+	<p>
+		This extension provides a way to query speed of available fans. Each fan could be mapped to a specific computing device or not.
+	</p>
+	<h2>Interactions with other extensions</h2>
+	If <code>MDZ_long_term_stats</code> is supported then a new <em>stream</em> is defined with name <code>fanSpeed</code>.<br>
+	A new sample is generated every time at least one of the supported sensors reports a different rotational speed.<br>
+	The <em>value type</em> will have the following form:<br>
+	<code>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;fan: [F<sub>0</sub>, F<sub>1</sub>, ... , F<sub>N-1</sub>],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;speed: [S<sub>0</sub>, S<sub>1</sub>, ... , S<sub>N-1</sub>]<br>
+	}
+	</code><br>
+	More information about <code>F<sub>i</sub></code> values can be inferred using <code>listFans</code>.
+	<h2>Configuration file additions</h2>
+	A new value <code>fanPollInterval</code> is added. Valid values are unsigned integers, representing the number of seconds between successive fan speed readings. Default value is 5.<br>
+	The extension will successfully initialize only on systems exposing at least one measurable fan. In case this doesn't happen, the extension token will not be produced in the extension string.
+	<h2>New common commands</h2>
+	None.
+	<h2>New monitor commands</h2>
+		<h3>listFans</h3>
+			<p>
+			<strong>Parameters</strong>: none.
+			</p>
+			<p>
+			<strong>Purpose</strong>: retrieve information on available fans for measurements.
+			</p>
+			<p>
+			<strong>Reply</strong>: an array containing as many entries as available fans on the system, each entry is in the following form:<br>
+			<code>
+			{<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;presentation: &lt;string&gt;,<br>
+			&nbsp;&nbsp;&nbsp;&nbsp;processorIndex: &lt;uint&gt;,<br>
+			}
+			</code><br>
+			The field <code>processorIndex</code> is optional. If specified, the fan is attached to a specific compute device regardless the device itself is used or not. The index is the very same linear-index to be used by standard commands.<br>
+			</p>
+			<p>
+			<strong>Push</strong>: not allowed.
+			</p>
+		<h3>probeFan</h3>
+			<p>
+			<strong>Parameters</strong>: an array of unsigned integers being the index of the fan to query.
+			</p>
+			<p>
+			<strong>Purpose</strong>: retrieve current fan speed.
+			</p>
+			<p>
+			<strong>Reply</strong>: an array containing as many entries as request. Each entry is an unsigned integer representing the percentage of maximum speed.
+			</p>
+			<p>
+			<strong>Notes</strong>: see issues.
+			</p>
+			<p>
+			<strong>Push</strong>: allowed, but no more than one.
+			</p>
+	<h2>New admin commands</h2>
+	None.
+	<h2>Issues</h2>
+		<h3>Fans are more complicated than that. Isn't <code>probeFan</code> a bit too easygoing?</h3>
+		<strong>Notes:</strong> sometimes fan speed is in RPM. Sometimes in % of max speed. Sometimes in... duty time of driving signal?<br>
+		<strong>Solution: ?</strong> - must be better investigated. In general RPM seems to be the only interesting thing as it's the main point with noise.
+</body>
+</html>
