@@ -20,7 +20,8 @@ public:
 		std::vector<std::string> valueErrors;
 
 		std::string raw, errDesc;
-		auint errOff, errCode;
+		asizei errOff;
+		auint errCode;
 	};
 	const RawConfig &track; //!< I could really just copy it there but rapidjson::Value has move semantics and I don't want to mess up outer state nor copy
 	GetRawConfigCMD(const RawConfig &loaded) : track(loaded), AbstractCommand("getRawConfig") { }
@@ -33,7 +34,7 @@ public:
 			build.AddMember("configuration", Value(track.good, build.GetAllocator()), build.GetAllocator());
 			if(track.valueErrors.size()) {
 				Value errors(kArrayType);
-				errors.Reserve(track.valueErrors.size(), build.GetAllocator());
+				errors.Reserve(rapidjson::SizeType(track.valueErrors.size()), build.GetAllocator());
 				for(asizei loop = 0; loop < track.valueErrors.size(); loop++) {
 					Value add(track.valueErrors[loop].c_str(), build.GetAllocator());
 					errors.PushBack(add, build.GetAllocator());

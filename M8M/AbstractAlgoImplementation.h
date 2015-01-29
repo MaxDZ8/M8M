@@ -13,9 +13,10 @@ class AbstractAlgoImplementation : public AlgoImplementationInterface {
     const char *name;
 	const char *version;
 public:
+	const bool littleEndianAlgo; //!< if this is false, the merkle root will be flipped after building by MakeNoncedHeader. This is the case most of the time.
 	typename MiningProcessorsProvider::ErrorFunc errorCallback;
-	AbstractAlgoImplementation(const char *caseInsensitiveName, const char *presentationVersionString, typename MiningProcessorsProvider::ErrorFunc f)
-		: name(caseInsensitiveName), version(presentationVersionString), errorCallback(f) { }
+	AbstractAlgoImplementation(const char *caseInsensitiveName, const char *presentationVersionString, typename MiningProcessorsProvider::ErrorFunc f, bool le)
+		: name(caseInsensitiveName), version(presentationVersionString), errorCallback(f), littleEndianAlgo(le) { }
 	~AbstractAlgoImplementation() { }
     
 	bool AreYou(const char *name) const { return !_stricmp(name, this->name); }
@@ -137,7 +138,7 @@ protected:
 	That string is concatenated to algorithm version (which is not a "custom" value but rather common) and hashed in a very stupid way. 
     Note this is called with no specific set of options so it must be able to sign all possible settings. */
 	std::string CustomVersioningStrings() const {
-        asizei index = 0;
+        auint index = 0;
         std::pair<std::string, std::string> load;
         std::vector< std::pair<std::string, std::string> > steps;
         while((load = GetSourceFileAndKernel(GetNumSettings(), index)).first.length()) {

@@ -22,7 +22,8 @@ struct PoolInfo {
 	const string name;
 	string algo;
 	PoolInfo(const string &nick, const string &url, const string &userutf8, const string &passutf8)
-		: user(userutf8), pass(passutf8), diffOneMul(64 * 1024), merkleMode(mm_SHA256D), name(nick), appLevelProtocol("stratum") {
+		: user(userutf8), pass(passutf8), diffOneMul(64 * 1024), merkleMode(mm_SHA256D), name(nick), appLevelProtocol("stratum"),
+		  diffMode(dm_btc) {
 		string rem = url.find("stratum+") == 0? url.substr(strlen("stratum+")) : url;
 		size_t stop = rem.find("://");
 		if(stop < rem.length()) {
@@ -39,7 +40,12 @@ struct PoolInfo {
 		mm_SHA256D,
 		mm_singleSHA256
 	};
+	enum DiffMode {
+		dm_btc,
+		dm_neoScrypt
+	};
 	MerkleMode merkleMode;
+	DiffMode diffMode;
 };
 
 

@@ -34,7 +34,7 @@ public:
 				break;														
 			}
 		}
-		build.AddMember("filename", Value(target.GetString(), target.GetSize(), build.GetAllocator()), build.GetAllocator());
+		build.AddMember("filename", Value(target.GetString(), rapidjson::SizeType(target.GetSize()), build.GetAllocator()), build.GetAllocator());
 		build.AddMember("explicit", Value(config.Explicit()), build.GetAllocator());
 		build.AddMember("redirected", config.Redirected(), build.GetAllocator());
 		build.AddMember("valid", config.Valid(), build.GetAllocator());

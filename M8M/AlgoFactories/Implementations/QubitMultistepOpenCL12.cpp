@@ -306,7 +306,8 @@ asizei QubitMultistepOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform &p
 	const std::string extensions = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::dis_extensions);
 	const auint vid = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::diu_vendorID);
 	const std::string chip = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::dis_chip);
-	KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vid, chip.c_str(), extensions.c_str());
+	auto chipType = dev.type.gpu? KnownHardware::ct_gpu : KnownHardware::ct_cpu;
+	KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vid, chip.c_str(), chipType, extensions.c_str());
 	if(arch < KnownHardware::arch_gcn_first || arch > KnownHardware::arch_gcn_last) badthing("must be AMD GCN");
 
     // Evaluate max concurrency. It mandates memory usage (constant) and a real hardware concurrency which is up to 16*HashCount (SIMD is 16-way)

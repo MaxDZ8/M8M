@@ -15,13 +15,13 @@ class ConfigInfoCMD : public AbstractCommand {
 
 	void FillJSON(rapidjson::Value &dst, AlgoImplementationInterface::SettingsInfo::BufferInfo &res, rapidjson::Document &doc) {
 		using namespace rapidjson;
-		dst.AddMember("space", Value(res.addressSpace.c_str(), res.addressSpace.length(), doc.GetAllocator()), doc.GetAllocator());
-		dst.AddMember("presentation", Value(res.presentation.c_str(), res.presentation.length(), doc.GetAllocator()), doc.GetAllocator());
+		dst.AddMember("space", Value(res.addressSpace.c_str(), rapidjson::SizeType(res.addressSpace.length()), doc.GetAllocator()), doc.GetAllocator());
+		dst.AddMember("presentation", Value(res.presentation.c_str(), rapidjson::SizeType(res.presentation.length()), doc.GetAllocator()), doc.GetAllocator());
 		dst.AddMember("footprint", Value(res.footprint), doc.GetAllocator());
 		dst.AddMember("accessType", Value(rapidjson::kArrayType), doc.GetAllocator());
 		rapidjson::Value &qual(dst["accessType"]);
 		for(asizei cp = 0; cp < res.accessType.size(); cp++) {
-			qual.PushBack(Value(res.accessType[cp].c_str(), res.accessType[cp].length(), doc.GetAllocator()), doc.GetAllocator());
+			qual.PushBack(Value(res.accessType[cp].c_str(), rapidjson::SizeType(res.accessType[cp].length()), doc.GetAllocator()), doc.GetAllocator());
 		}
 	}
 
@@ -57,7 +57,7 @@ public:
 				Value &fill(entry["resources"]);
 				for(asizei inner = 0; inner < info.resource.size(); inner++) {
 					fill.PushBack(Value(kObjectType), build.GetAllocator());
-					FillJSON(fill[inner], info.resource[inner], build);
+					FillJSON(fill[rapidjson::SizeType(inner)], info.resource[inner], build);
 				}
 			}
 			build.PushBack(entry, build.GetAllocator());

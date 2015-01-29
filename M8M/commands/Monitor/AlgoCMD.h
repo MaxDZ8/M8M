@@ -27,7 +27,7 @@ public:
 		}
 		if(mode != "primary") {
 			std::string msg("!!ERROR: \"parameters\" unrecognized value \"" + mode + "\"");
-			build.SetString(msg.c_str(), msg.length(), build.GetAllocator());
+			build.SetString(msg.c_str(), rapidjson::SizeType(msg.length()), build.GetAllocator());
 			return nullptr;
 		}
 		const char *algo = miner.GetMiningAlgo();
@@ -40,8 +40,8 @@ public:
 		char buffer[20]; // 8*2+1 would be sufficient for aulong
 		if(miner.GetMiningAlgoImpInfo(impl, ver)) {
 			_ui64toa_s(ver, buffer, sizeof(buffer), 16);
-			build.AddMember("impl", Value(impl.c_str(), impl.length(), build.GetAllocator()), build.GetAllocator());
-			build.AddMember("version", Value(buffer, strlen(buffer), build.GetAllocator()), build.GetAllocator());
+			build.AddMember("impl", Value(impl.c_str(), rapidjson::SizeType(impl.length()), build.GetAllocator()), build.GetAllocator());
+			build.AddMember("version", Value(buffer, rapidjson::SizeType(strlen(buffer)), build.GetAllocator()), build.GetAllocator());
 		}
 		return nullptr;
 	}

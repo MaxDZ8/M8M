@@ -17,6 +17,7 @@ conflicts to pad gather phase. */
 #include "AlgoFactories/QubitCL12.h"
 #include "AlgoFactories/FreshCL12.h"
 #include "AlgoFactories/grsmyrCL12.h"
+#include "AlgoFactories/NeoScryptCL12.h"
 #include <iomanip>
 #include "../Common/NotifyIcon.h"
 #include "M8MIcon.h"
@@ -248,9 +249,10 @@ MinerInterface* InstanceProcessingNodes(WebCommands &persist, const Settings *se
 	// invalid settings --> init OpenCL. It's a bit sub-optimal but easier thing to do to keep the whole thing more or less flowing.
 	if(!settings || !_stricmp("opencl", settings->driver.c_str()) || !_stricmp("ocl", settings->driver.c_str())) {
 		std::vector< std::unique_ptr< AlgoFamily<OpenCL12Wrapper> > > algos;
-        algos.push_back(std::make_unique<QubitCL12>(true, ErrorsToSTDOUT));
-        algos.push_back(std::make_unique<GRSMYRCL12>(true, ErrorsToSTDOUT));
-        algos.push_back(std::make_unique<FreshCL12>(true, ErrorsToSTDOUT));
+        algos.push_back(std::make_unique<QubitCL12>(false, ErrorsToSTDOUT));
+        algos.push_back(std::make_unique<GRSMYRCL12>(false, ErrorsToSTDOUT));
+        algos.push_back(std::make_unique<FreshCL12>(false, ErrorsToSTDOUT));
+		algos.push_back(std::make_unique<NeoScryptCL12>(true, ErrorsToSTDOUT));
 		std::unique_ptr< AbstractThreadedMiner<OpenCL12Wrapper> > ret(new AbstractThreadedMiner<OpenCL12Wrapper>(algos, sleepFunc));
 		RegisterMonitorCommands(persist, track.monitor.service, *ret, connections, track.monitor.values);
 		RegisterMonitorCommands(persist, track.admin.service, *ret, connections, track.monitor.values);
@@ -285,7 +287,7 @@ Windows allows to sleep on sockets and thread signals but I'm not sure other OSs
 bool ParseParam(std::wstring &value, const asizei argc, wchar_t **argv, const wchar_t *name, const wchar_t *defaultValue) {
 	bool found = false;
 	for(asizei loop = 0; loop < argc; loop++) {
-		if(wcsncmp(argv[loop], L"--", 2) == 0 && wcscmp(argv[loop] + 2, name)) {
+		if(wcsncmp(argv[loop], L"--", 2) == 0 && wcscmp(argv[loop] + 2, name) == 0) {
 			found = true;
 			value.clear();
 			if(loop + 1 < argc) {
@@ -311,7 +313,7 @@ bool ParseParam(std::wstring &value, const asizei argc, wchar_t **argv, const wc
 struct CFGLoadErrInfo {
 	std::unique_ptr<char[]> raw;
 	std::string errDesc;
-	asizei errCode;
+	auint errCode;
 	asizei errOff;
 };
 
@@ -399,6 +401,7 @@ Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value
 			const auto proto(load.FindMember("protocol"));
 			const auto coinDiff(load.FindMember("coinDiffMul"));
 			const auto merkleMode(load.FindMember("merkleMode"));
+			const auto diffMode(load.FindMember("diffMode"));
 			if(proto != load.MemberEnd() && proto->value.IsString()) add->appLevelProtocol = mkString(proto->value);
 			if(coinDiff != load.MemberEnd()) {
 				if(coinDiff->value.IsUint()) add->diffOneMul = coinDiff->value.GetUint();
@@ -409,6 +412,12 @@ Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value
 				if(mmode == "SHA256D") add->merkleMode = PoolInfo::mm_SHA256D;
 				else if(mmode == "singleSHA256") add->merkleMode = PoolInfo::mm_singleSHA256;
 				else throw std::string("Unknown merkle mode: \"" + mmode + "\".");
+			}
+			if(diffMode != load.MemberEnd() && diffMode->value.IsString()) {
+				std::string mmode(mkString(diffMode->value));
+				if(mmode == "btc") add->diffMode = PoolInfo::dm_btc;
+				else if(mmode == "neoScrypt") add->diffMode = PoolInfo::dm_neoScrypt;
+				else throw std::string("Unknown difficulty calculation mode: \"" + mmode + "\".");
 			}
 			ret->pools.push_back(std::move(add));
 		}

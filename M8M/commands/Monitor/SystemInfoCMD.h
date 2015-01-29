@@ -21,13 +21,13 @@ public:
 		build.AddMember("API", StringRef(procs.GetName()), build.GetAllocator());
 		build.AddMember("platforms", Value(kArrayType), build.GetAllocator());
 		Value &platforms(build["platforms"]);
-		platforms.Reserve(procs.platforms.size(), build.GetAllocator());
+		platforms.Reserve(rapidjson::SizeType(procs.platforms.size()), build.GetAllocator());
 		for(asizei loop = 0; loop < procs.platforms.size(); loop++) {
 			ProcessorProvider::Platform &plat(procs.platforms[loop]);
 			Value padd(kObjectType);
 #define GS(x) { \
 	const std::string temp(procs.GetDeviceGroupInfo(plat, ProcessorProvider::dgis_##x)); \
-	padd.AddMember(#x, Value(temp.c_str(), temp.length(), build.GetAllocator()), build.GetAllocator()); \
+	padd.AddMember(#x, Value(temp.c_str(), rapidjson::SizeType(temp.length()), build.GetAllocator()), build.GetAllocator()); \
 }
 			GS(profile);
 			GS(version);
@@ -37,13 +37,13 @@ public:
 
 			padd.AddMember(StringRef("devices"), Value(kArrayType), build.GetAllocator());
 			Value &devices(padd["devices"]);
-			devices.Reserve(plat.devices.size(), build.GetAllocator());
+			devices.Reserve(rapidjson::SizeType(plat.devices.size()), build.GetAllocator());
 			for(asizei dev = 0; dev < plat.devices.size(); dev++) {
 				const ProcessorProvider::Device &device(plat.devices[dev]);
 				Value add(kObjectType);
 #define GDSTR(x) { \
 	const std::string temp(procs.GetDeviceInfo(device, ProcessorProvider::dis_##x)); \
-	add.AddMember(#x, Value(temp.c_str(), temp.length(), build.GetAllocator()), build.GetAllocator()); \
+	add.AddMember(#x, Value(temp.c_str(), rapidjson::SizeType(temp.length()), build.GetAllocator()), build.GetAllocator()); \
 }
 #define GDUI(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(device, ProcessorProvider::diu_##x)), build.GetAllocator());
 #define GDUL(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(device, ProcessorProvider::diul_##x)), build.GetAllocator());
@@ -90,15 +90,16 @@ public:
 					if(device.type.gpu) append("GPU");
 					if(device.type.accelerator) append("Accelerator");
 					if(device.type.cpu) append("CPU");
-					add.AddMember("type", Value(type.c_str(), type.length(), build.GetAllocator()), build.GetAllocator());
+					add.AddMember("type", Value(type.c_str(), rapidjson::SizeType(type.length()), build.GetAllocator()), build.GetAllocator());
 				}
 				{
 					const auint vendor = OpenCL12Wrapper::GetDeviceInfo(device, OpenCL12Wrapper::diu_vendorID);
 					const std::string chipName(procs.GetDeviceInfo(device, procs.dis_chip));
 					const std::string extensions(procs.GetDeviceInfo(device, procs.dis_extensions));
-					KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vendor, chipName.c_str(), extensions.c_str());
+					auto chipType = device.type.gpu? KnownHardware::ct_gpu : KnownHardware::ct_cpu;
+					KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vendor, chipName.c_str(), chipType, extensions.c_str());
 					const char *hw = KnownHardware::GetArchPresentationString(arch, false);
-					if(hw && strlen(hw)) add.AddMember("arch", Value(hw, strlen(hw), build.GetAllocator()), build.GetAllocator());
+					if(hw && strlen(hw)) add.AddMember("arch", Value(hw, rapidjson::SizeType(strlen(hw)), build.GetAllocator()), build.GetAllocator());
 				}
 				devices.PushBack(add, build.GetAllocator());
 			}

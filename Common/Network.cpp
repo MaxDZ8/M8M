@@ -15,7 +15,7 @@ asizei NetworkInterface::AbstractDataSocket::Receive(aubyte *storage, asizei buf
 }
 
 
-void WindowsNetwork::SetBlocking(int socket, bool blocks) {
+void WindowsNetwork::SetBlocking(SOCKET socket, bool blocks) {
 	unsigned long state = !blocks; // 0 nonblocking disabled!
 	if(ioctlsocket(socket, FIONBIO, &state)) throw std::exception("Cannot set socket blocking state.");
 }
@@ -168,10 +168,10 @@ NetworkInterface::ConnectedSocketInterface& WindowsNetwork::BeginConnection(cons
 	if(getaddrinfo(host, portService, &hints, &result)) throw std::exception("getaddrinfo failed.");
 	for(addrinfo *check = result; check; check = check->ai_next) {
 		newConnection->candidates.reserve(newConnection->candidates.size() + 1);
-		int up = socket(check->ai_family, check->ai_socktype, check->ai_protocol);
+		SOCKET up = socket(check->ai_family, check->ai_socktype, check->ai_protocol);
 		if(up == INVALID_SOCKET) throw std::exception("Failed socket creation");
 		SetBlocking(up, false);
-		if(connect(up, check->ai_addr, check->ai_addrlen)) {
+		if(connect(up, check->ai_addr, int(check->ai_addrlen))) {
 			auto error = GetSocketError();
 			if(error == se_connRefused) continue; // this sometimes happens, for example connecting to "localhost" for some reason resolves to "0.0.0.0", which is invalid.
 			if(GetSocketError() != se_wouldBlock) throw std::exception("Could not start connection procedure for socket.");
@@ -217,8 +217,8 @@ asizei WindowsNetwork::SleepOn(std::vector<SocketInterface*> &read, std::vector<
 	FD_ZERO(&readReady);
 	FD_ZERO(&writeReady);
 	FD_ZERO(&failures);
-	auto scan = [this, &failures](fd_set &set, std::vector<SocketInterface*> &monitor) -> int {
-		int biggest = 0;
+	auto scan = [this, &failures](fd_set &set, std::vector<SocketInterface*> &monitor) -> SOCKET {
+		SOCKET biggest = 0;
 		for(asizei loop = 0; loop < monitor.size(); loop++) {
 			auto el = connections.find(monitor[loop]);
 			if(el == connections.cend()) { // maybe it's a listening socket
@@ -248,12 +248,12 @@ asizei WindowsNetwork::SleepOn(std::vector<SocketInterface*> &read, std::vector<
 		}
 		return biggest;
 	};
-	int biggest = max(scan(readReady, read), scan(writeReady, write));
+	SOCKET biggest = max(scan(readReady, read), scan(writeReady, write));
 	biggest++; // select needs a +1 to test with strict inequality <
 	timeval timeout;
-	timeout.tv_sec = timeoutms / 1000;
+	timeout.tv_sec = long(timeoutms / 1000);
 	timeout.tv_usec = (timeoutms % 1000) * 1000;
-	int result = select(biggest, &readReady, &writeReady, &failures, &timeout);
+	int result = select(int(biggest), &readReady, &writeReady, &failures, &timeout);
 	if(!result) return 0;
 	if(result < 1) throw std::exception("Some error occured while waiting for sockets to connect.");
 	auto activated = [&failures, this](SocketInterface *hilevel, const fd_set &search) -> bool {
@@ -338,7 +338,8 @@ SockErr WindowsNetwork::GetSocketError() {
 
 
 asizei WindowsNetwork::ConnectedSocket::Send(const abyte *message, asizei count) {
-	int sent = send(socket, message, count, 0);
+	int len = count > 128 * 1024 * 1024? 128 * 1024 * 1024 : int(count); // max 128 MiB per write seems enough
+	SOCKET sent = send(socket, message, len, 0);
 	if(sent < 0) {
 		this->failed = true;
 		return 0;
@@ -348,7 +349,8 @@ asizei WindowsNetwork::ConnectedSocket::Send(const abyte *message, asizei count)
 
 
 asizei WindowsNetwork::ConnectedSocket::Receive(abyte *storage, asizei count) {
-	int received = recv(socket, storage, count, 0);
+	int len = count > 128 * 1024 * 1024? 128 * 1024 * 1024 : int(count); // max 128 MiB per write seems enough
+	int received = recv(socket, storage, len, 0);
 	if(received < 0) {
 		int err = WSAGetLastError();
 		if(err != WSAEWOULDBLOCK) throw std::exception("send(...) returned negative count, this is an unhandled error.");
@@ -369,7 +371,7 @@ bool WindowsNetwork::ConnectedSocket::CanSend() const {
 	fd_set me;
 	FD_ZERO(&me);
 	FD_SET(socket, &me);
-	int result = select(socket + 1, NULL, &me, NULL, 0);
+	SOCKET result = select(int(socket + 1), NULL, &me, NULL, 0);
 	return result != 0;
 }
 
@@ -395,7 +397,7 @@ NetworkInterface::ServiceSocketInterface& WindowsNetwork::NewServiceSocket(ausho
 	char number[8]; // 64*1024+null
 	if(port) _itoa_s(port, number, 10);
 	if(getaddrinfo(NULL, port? number : NULL, &hints, &result)) throw std::exception("getaddrinfo failed.");
-	int listener = INVALID_SOCKET;
+	SOCKET listener = INVALID_SOCKET;
 	ScopedFuncCall clearSocket([&listener]() { if(listener != INVALID_SOCKET) closesocket(listener); });
 	listener = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 	if(listener == INVALID_SOCKET) throw std::exception("Error creating new Service Socket, creation failed.");
@@ -413,8 +415,8 @@ NetworkInterface::ServiceSocketInterface& WindowsNetwork::NewServiceSocket(ausho
 NetworkInterface::ConnectedSocketInterface& WindowsNetwork::BeginConnection(ServiceSocketInterface &listener) {
 	auto real(servers.find(&listener));
 	if(real == servers.cend()) throw std::exception("Trying to create a connection from a socket not managed by this object.");
-	int connSock = real->second->socket;
-	int client = accept(connSock, NULL, NULL);
+	SOCKET connSock = real->second->socket;
+	SOCKET client = accept(connSock, NULL, NULL);
 	if(client == INVALID_SOCKET) throw std::exception("Could not accept an incoming connection.");
 	SetBlocking(client, false);
 	ScopedFuncCall clearSocket([client]() { if(client) closesocket(client); });

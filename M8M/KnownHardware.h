@@ -16,6 +16,11 @@ struct KnownHardware {
 		arch_gcn_last
 	};
 
+	enum ChipType {
+		ct_cpu,
+		ct_gpu
+	};
+
 	static const char* GetArchPresentationString(Architecture arch, bool forceNonNull) {
 		switch(arch) {
 		case arch_gcn_1_0: return "Graphics Core Next 1.0";
@@ -25,17 +30,17 @@ struct KnownHardware {
 		return forceNonNull? "Unknown" : nullptr;
 	}
 
-	static Architecture GetArchitecture(const unsigned __int32 vendorid, const char *chipname, const char *extensions) {
+	static Architecture GetArchitecture(const unsigned __int32 vendorid, const char *chipname, ChipType ct, const char *extensions) {
 #define TEST(x) if(!strcmp(#x, chipname)) return arch;
 		switch(vendorid) {
 		case 0x00001002: { // AMD
-			{
+			if(ct == ct_gpu) {
 				const Architecture arch = arch_gcn_1_0;
 				TEST(Capeverde);
 				TEST(Pitcairn);
 				TEST(Tahiti);
 			}
-			{
+			if(ct == ct_gpu) {
 				const Architecture arch = arch_gcn_1_1;
 				TEST(Hawaii);
 				TEST(Bonaire);
@@ -43,7 +48,7 @@ struct KnownHardware {
 				TEST(Curacao);
 				TEST(Oland);
 			}
-			{
+			if(ct == ct_gpu) {
 				const char *begin = extensions;
 				const char *end = extensions + strlen(extensions);
 				const char *match = "cl_khr_int64_base_atomics"; // I've been told this is GCN-only for the time being

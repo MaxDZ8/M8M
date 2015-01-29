@@ -109,3 +109,8 @@ adouble LEToDouble(const std::array<aulong, 4> &target);
 
 
 }
+
+
+/*! A slightly modified / simplified form of target calculation, premiered with NeoScrypt.
+It is, at its core, more or less the same thing: dividing by power-of-two so it keeps being precise on progressive divisions. */
+std::array<aulong, 4> MakeTargetBits_NeoScrypt(adouble diff, adouble diffOneMul);

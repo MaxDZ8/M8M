@@ -49,7 +49,7 @@ public:
 			cl_context_properties platform[] = { CL_CONTEXT_PLATFORM, reinterpret_cast<cl_context_properties>(procs[loop].clid), 0, 0 }; // a single zero would suffice
             devices.resize(procs[loop].devices.size());
             for(asizei cp = 0; cp < devices.size(); cp++) devices[cp] = procs[loop].devices[cp].clid;
-	        cl_context ctx = clCreateContext(platform, devices.size(), devices.data(), errorCallback, NULL, &error);
+	        cl_context ctx = clCreateContext(platform, cl_uint(devices.size()), devices.data(), errorCallback, NULL, &error);
 	        if(error != CL_SUCCESS) throw std::string("OpenCL error ") + std::to_string(error) + " while trying to create context.";
 			ScopedFuncCall clear([ctx]() { clReleaseContext(ctx); });
             platContext.push_back(ctx);
@@ -111,7 +111,7 @@ public:
 		if(use.res.mappedNonceBuff[0] > options.OptimisticNonceCountMatch())
 			throw std::string("Found ") + std::to_string(use.res.mappedNonceBuff[0]) + " nonces, but only " + std::to_string(options.OptimisticNonceCountMatch()) + " could be stored.";
 		using std::min;
-		const asizei nonceCount = min(asizei(use.res.mappedNonceBuff[0]), options.OptimisticNonceCountMatch());
+		const asizei nonceCount = min(use.res.mappedNonceBuff[0], options.OptimisticNonceCountMatch());
 		results.reserve(results.size() + nonceCount);
 		for(asizei cp = 0; cp < nonceCount; cp++)
 			results.push_back(use.res.mappedNonceBuff[1 + cp]);
@@ -172,7 +172,7 @@ public:
 	}
 
 protected:
-	AbstractCLAlgoImplementation(const char *name, const char *version, OpenCL12Wrapper::ErrorFunc errorCallback) : AbstractAlgoImplementation(name, version, errorCallback) { }
+	AbstractCLAlgoImplementation(const char *name, const char *version, OpenCL12Wrapper::ErrorFunc errorCallback, bool le) : AbstractAlgoImplementation(name, version, errorCallback, le) { }
 
 	/*! Statically mangle the parameter set passed and pull out the values you understand. It's just as simple.
     Additional code around this will ensure the settings are unique, as long as the result is the same by operator==.

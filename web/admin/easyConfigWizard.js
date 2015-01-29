@@ -135,6 +135,8 @@ function newConfigSaveAndReboot() {
 			algo: window.wizConfig.algo,
 			protocol: "stratum"
 		};
+		var diffMode = coinDiffModeByAlgo(window.wizConfig.algo);
+		if(diffMode) cmd.params.configuration.pools[0].diffMode = diffMode;
 		if(window.wizConfig.poolName && window.wizConfig.poolName.length) {
 			cmd.params.configuration.pools[0].name = window.wizConfig.poolName;
 		}
@@ -197,9 +199,24 @@ function coinDiffByAlgo(algo) {
 	var diffMul = {
 		qubit: 256,
 		fresh: 256,
-		grsmyr: 1
+		grsmyr: 1,
+		neoScrypt: 65536
 	};
 	var diff = diffMul[algo];
 	if(diff === undefined) throw "Unrecognized algorithm: \"" + algo + "\".";
+	return diff;
+}
+
+
+// Difficulty calculation mode. Neoscrypt had this idea of introducing a new one.
+// Maybe it makes more sense but to me it's just a nuisance.
+// Needs to be specified if non-null.
+function coinDiffModeByAlgo(algo) {
+	var diffMode = {
+		// Only need to specify nonstandard diff algos here.
+		neoScrypt: "neoScrypt"
+	};
+	var diff = diffMode[algo];
+	if(diff === undefined) return null;
 	return diff;
 }

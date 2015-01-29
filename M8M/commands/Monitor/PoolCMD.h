@@ -32,7 +32,7 @@ public:
 		}
 		if(mode != "primary") {
 			const string msg("!!ERROR: \"parameters\" unrecognized value \"" + mode + "\"");
-			build.SetString(msg.c_str(), msg.length(), build.GetAllocator());
+			build.SetString(msg.c_str(), rapidjson::SizeType(msg.length()), build.GetAllocator());
 			return nullptr;
 		}
 
@@ -41,9 +41,9 @@ public:
 		if(!pool) return nullptr;
 		build.AddMember("name", Value(kStringType), build.GetAllocator());
 		build.AddMember("url", Value(kStringType), build.GetAllocator());
-		build["name"].SetString(pool->GetName(), strlen(pool->GetName()));
+		build["name"].SetString(pool->GetName(), rapidjson::SizeType(strlen(pool->GetName())));
 		const std::string url(getPoolURL(*pool));
-		build["url"].SetString(url.c_str(), url.length(), build.GetAllocator());
+		build["url"].SetString(url.c_str(), rapidjson::SizeType(url.length()), build.GetAllocator());
 		
 		std::vector< std::pair<const char*, StratumState::AuthStatus> > workers;
 		pool->GetUserNames(workers);
@@ -54,7 +54,7 @@ public:
 				Value add(kObjectType);
 				add.AddMember("login", Value(kStringType), build.GetAllocator());
 				add.AddMember("authorized", Value(kStringType), build.GetAllocator());
-				add["login"].SetString(workers[loop].first, strlen(workers[loop].first)); //!< \todo why is SetString(char*) instead of SetString(const char*)?
+				add["login"].SetString(workers[loop].first, rapidjson::SizeType(strlen(workers[loop].first))); //!< \todo why is SetString(char*) instead of SetString(const char*)?
 				Value &auth(add["authorized"]);
 				switch(workers[loop].second) {
 				case StratumState::as_accepted: auth.SetBool(true); break;

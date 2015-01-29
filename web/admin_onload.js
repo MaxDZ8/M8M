@@ -24,7 +24,8 @@ window.easyConfigSteps = [];
 var preferredImplementation = {
 	qubit: "fiveSteps",
 	grsmyr: "monolithic",
-	fresh: "warm"
+	fresh: "warm",
+	neoScrypt: "smooth"
 };
 
 		
@@ -248,6 +249,7 @@ function reference_parallelGPUClocks() {
 
 
 function reference_linearIntensity() {
+	if(window.wizConfig.algo === "neoScrypt") return 64;
 	return 512; // Fairly smooth
 }
 
@@ -296,6 +298,7 @@ function modConfigSaveAndReboot() {
 		protocol: "stratum",
 		name: poolName
 	};
+	
 	minerMonitor.request(cmd, function(reply) { 
 		var parent = document.getElementById("modCurrConf");
 		serverCFGSaved(reply, parent);

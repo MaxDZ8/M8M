@@ -88,7 +88,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 				asizei prev = processing.wu.nonce2;
 				processing.wu.nonce2++;
 				if(processing.wu.nonce2 <= prev) throw std::exception("nonce2 overflow... wait WHAT???");
-				processing.wu.MakeNoncedHeader();
+				processing.wu.MakeNoncedHeader(mangle.algo.littleEndianAlgo);
 				processing.hashesSoFar = 0;
 			}
 		}
@@ -181,7 +181,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 						auint prevN2 = mangling? mangling->nonce2 : 0;
 						mangling = std::move(input.wu);
 						if(mangling->restart == false) mangling->nonce2 = prevN2;
-						mangling->MakeNoncedHeader();
+						mangling->MakeNoncedHeader(algo.littleEndianAlgo);
 					}
 					if(owner == nullptr || mangling == nullptr) {
 						sleepFunc(1000);
@@ -208,7 +208,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 					}
 				}
 				if(waiting == numTasks) {
-					clWaitForEvents(allWait.size(), allWait.data());
+					clWaitForEvents(cl_uint(allWait.size()), allWait.data());
 				}
 			}
 		} catch(std::exception ohno) {

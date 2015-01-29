@@ -78,10 +78,10 @@ public:
 
 	virtual void MakeCBMerkle(std::array<aubyte, 32> &initialMerkle) const = 0;
 
-	void MakeNoncedHeader() {
+	void MakeNoncedHeader(bool littleEndianAlgo) {
+		const char *hex = "0123456789abcdef";
 		std::array<aubyte, 32> merkleRoot;
 		MakeCBMerkle(merkleRoot);
-
 		std::array<aubyte, 64> merkleSHA;
 		std::copy(merkleRoot.cbegin(), merkleRoot.cend(), merkleSHA.begin());
 		for(asizei loop = 0; loop < coinbase.merkles.size(); loop++) {
@@ -90,12 +90,30 @@ public:
 			btc::SHA256Based(DestinationStream(merkleRoot.data(), sizeof(merkleRoot)), merkleSHA);
 			std::copy(merkleRoot.cbegin(), merkleRoot.cend(), merkleSHA.begin());
 		}
-		btc::FlipIntegerBytes<8>(merkleRoot.data(), merkleSHA.data());
-				
+		// vvv I tried to do that using std::copy, but I hate it.
+		if(littleEndianAlgo) memcpy_s(merkleRoot.data(), sizeof(merkleRoot), merkleSHA.data(), sizeof(merkleRoot));
+		else btc::FlipIntegerBytes<8>(merkleRoot.data(), merkleSHA.data()); // most of the time
+		
 		aubyte *raw = header.data();
 		memcpy_s(raw, 128, blankHeader.data(), sizeof(blankHeader));
 		raw += coinbase.merkleOff;
 		memcpy_s(raw, 128 - coinbase.merkleOff, merkleRoot.data(), sizeof(merkleRoot));
+		
+		if(littleEndianAlgo) { // the structure is the same but several bytes must be flipped.
+			raw = header.data();
+			for(auint shuffle = 0; shuffle < coinbase.merkleOff; shuffle += 4) {
+				aubyte load[4];
+				for(auint i = 0; i < 4; i++) load[i] = raw[shuffle + i];
+				for(auint i = 0; i < 4; i++) raw[shuffle + 3 - i] = load[i];
+			}
+			// merkle is already in the right layout
+			// nbits, ntime
+			for(auint shuffle = 68; shuffle < 76; shuffle += 4) {
+				aubyte load[4];
+				for(auint i = 0; i < 4; i++) load[i] = raw[shuffle + i];
+				for(auint i = 0; i < 4; i++) raw[shuffle + 3 - i] = load[i];
+			}
+		}
 	}
 
 protected:

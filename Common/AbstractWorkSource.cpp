@@ -31,7 +31,7 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
 		}
 	}
 	if(canRead == false) return e_nop; // sends are still considered nops, as they don't really change the hi-level state
-	int received = Receive(recvBuffer.NextBytes(), recvBuffer.Remaining());
+	asizei received = Receive(recvBuffer.NextBytes(), recvBuffer.Remaining());
 	if(!received) return e_nop;
 
 	recvBuffer.used += received;

@@ -5,8 +5,8 @@
 #include "StratumState.h"
 
 
-size_t StratumState::PushMethod(const char *method, const string &pairs) {
-	size_t used = nextRequestID++;
+asizei StratumState::PushMethod(const char *method, const string &pairs) {
+	asizei used = nextRequestID++;
 	string idstr("{");
 	idstr += "\"id\": \"" + std::to_string(used) + "\", ";
 	idstr += "\"method\": \"";
@@ -40,7 +40,7 @@ void StratumState::PushResponse(const string &serverid, const string &pairs) {
 
 
 StratumState::StratumState(const char *presentation, aulong diffOneMul, PoolInfo::MerkleMode mm)
-	: nextRequestID(1), difficulty(16.0), nameVer(presentation), merkleOffset(0), coinDiffMul(diffOneMul), merkleMode(mm), errorCount(0) {
+	: nextRequestID(1), difficulty(16.0), nameVer(presentation), merkleOffset(0), coinDiffMul(diffOneMul), merkleMode(mm), errorCount(0), diffMode(PoolInfo::dm_btc) {
 	dataTimestamp = 0;
 	size_t used = PushMethod("mining.subscribe", KeyValue("params", "[]", false));
 	ScopedFuncCall pop([this]() { this->pending.pop(); });
@@ -57,8 +57,9 @@ stratum::AbstractWorkUnit* StratumState::GenWorkUnit() const {
 	
 	// The difficulty parameter here should always be non-zero. In some other cases instead it will be 0, 
 	// in that case, produce the difficulty value by the work target string. We check it above anyway but worth a note.
+	std::array<aulong, 4> targetBits(diffMode == PoolInfo::dm_btc? btc::MakeTargetBits(difficulty, adouble(coinDiffMul)) : MakeTargetBits_NeoScrypt(difficulty, adouble(coinDiffMul)));
 	stratum::WUJobInfo wuJob(subscription.extraNonceOne, block.job);
-	stratum::WUDifficulty wuDiff(difficulty, btc::MakeTargetBits(difficulty, adouble(coinDiffMul)));
+	stratum::WUDifficulty wuDiff(difficulty, targetBits);
 	std::unique_ptr<stratum::AbstractWorkUnit> retwu;
 	switch(merkleMode) {
 	case PoolInfo::mm_SHA256D: retwu.reset(new stratum::DoubleSHA2WorkUnit(wuJob, block.ntime, wuDiff, blankHeader)); break;
@@ -90,7 +91,7 @@ void StratumState::Authorize(const char *user, const char *psw) {
 	identification += "\", \"";
 	identification += psw;
 	identification += "\"]";
-	size_t used = PushMethod("mining.authorize", KeyValue("params", identification, false));
+	asizei used = PushMethod("mining.authorize", KeyValue("params", identification, false));
 	ScopedFuncCall popMsg([this]() { this->pending.pop(); });
 	pendingRequests.insert(std::make_pair(used, "mining.authorize"));
 	ScopedFuncCall popPending([this, used]() { this->pendingRequests.erase(used); });
@@ -197,7 +198,7 @@ void StratumState::Notify(const stratum::MiningNotify &msg) {
 	const std::string PADDING_HEX("000000800000000000000000000000000000000000000000000000000000000000000000000000000000000080020000");
 	std::array<unsigned __int8, 48> workPadding;
 	stratum::parsing::AbstractParser::DecodeHEX(workPadding, PADDING_HEX);
-	const size_t clearNonce = 0;
+	const auint clearNonce = 0;
 	const size_t sz = sizeof(msg.blockVer) + sizeof(msg.prevHash) + 32 +
 		              sizeof(msg.ntime) + sizeof(msg.nbits) + sizeof(clearNonce) + 
 					  sizeof(workPadding);

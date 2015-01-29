@@ -105,3 +105,23 @@ adouble LEToDouble(const std::array<aulong, 4> &target) {
 
 
 }
+
+
+std::array<aulong, 4> MakeTargetBits_NeoScrypt(adouble diff, adouble diffOneMul) {
+	diff /=	double(2ull << 16);
+	auint div = 6;
+	while(div < 6 && diff > 1.0) {
+		diff /= double(2ull << 32);
+		div--;
+	}
+	const aulong slice = aulong(double((2ull << 32) - (2ull << 16)) * diffOneMul / diff);
+	std::array<aulong, 4> ret;
+	bool allSet = slice == 0 && div == 6;
+	memset(ret.data(), allSet? 0xFF : 0x00, sizeof(ret));
+	if(!allSet) {
+		auint *dwords = reinterpret_cast<auint*>(ret.data());
+		dwords[div] = auint(slice);
+		dwords[div + 1] = auint(slice >> 32);
+	}
+	return ret;
+}

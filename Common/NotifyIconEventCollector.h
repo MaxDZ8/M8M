@@ -101,20 +101,20 @@ public:
 		os.WakeupSignal();
 	}
 	template<class Function>
-	asizei AddMenuItem(const wchar_t *msg, Function &&onClick, bool enabled = true) {
+	auint AddMenuItem(const wchar_t *msg, Function &&onClick, bool enabled = true) {
 		if(!msg || !wcslen(msg)) throw std::exception("Menu items must always have some text.");
 		MenuItem add;
 		add.callback = onClick;
 		add.message = msg;
 		building.push_back(std::move(add));
 		building.back().enabled = enabled;
-		return building.size() - 1;
+		return auint(building.size() - 1);
 	}
 	bool GetMenuItemStatus(asizei i) {
 		std::unique_lock<std::mutex> lock(mutex);
 		return sharedState.commands[i].enabled;
 	}
-	void SetMenuItemStatus(asizei i, bool enable) {
+	void SetMenuItemStatus(auint i, bool enable) {
 		{
 			std::unique_lock<std::mutex> lock(mutex);
 			sharedState.commandChanges.push_back(MenuItemEvent(i, enable? MenuItemEvent::esc_enabled : MenuItemEvent::esc_disabled));

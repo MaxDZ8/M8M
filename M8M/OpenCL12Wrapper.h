@@ -46,7 +46,7 @@ struct OpenCL12Wrapper {
 			asizei tried = 0;
 			while(tried < 5) {
 				tried++;
-				err = clGetDeviceIDs(store[loop], CL_DEVICE_TYPE_ALL, devBuff.size(), devBuff.data(), &avail);
+				err = clGetDeviceIDs(store[loop], CL_DEVICE_TYPE_ALL, cl_uint(devBuff.size()), devBuff.data(), &avail);
 				if(avail > devBuff.size()) {
 					devBuff.resize(avail);
 					continue;

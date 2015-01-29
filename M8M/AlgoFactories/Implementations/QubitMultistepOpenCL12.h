@@ -14,11 +14,11 @@
 
 
 struct QubitMultiStep_Options {
-    asizei linearIntensity;
+    auint linearIntensity;
 
 	QubitMultiStep_Options() : linearIntensity(10) { }
 	auint HashCount() const { return 256 * linearIntensity; }
-	asizei OptimisticNonceCountMatch() const { const asizei estimate(HashCount() / (64 * 1024));    return 32u > estimate? 32u : estimate; }
+	auint OptimisticNonceCountMatch() const { const auint estimate(HashCount() / (64 * 1024));    return 32u > estimate? 32u : estimate; }
 	bool operator==(const QubitMultiStep_Options &other) const { return linearIntensity == other.linearIntensity; }
 };
 
@@ -61,7 +61,7 @@ class QubitMultistepOpenCL12 : public AbstractCLAlgoImplementation<5, QubitMulti
 public:
 	const bool PROFILING_ENABLED;
 
-	QubitMultistepOpenCL12(bool profiling, OpenCL12Wrapper::ErrorFunc f = nullptr) : PROFILING_ENABLED(profiling), AbstractCLAlgoImplementation("fiveSteps", "1", f) {	}
+	QubitMultistepOpenCL12(bool profiling, OpenCL12Wrapper::ErrorFunc f = nullptr) : PROFILING_ENABLED(profiling), AbstractCLAlgoImplementation("fiveSteps", "1", f, false) {	}
 	bool Dispatch(asizei setIndex, asizei slotIndex);
 	void HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei setIndex, asizei slotIndex);
 

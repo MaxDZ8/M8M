@@ -131,7 +131,8 @@ asizei GRSMYRMonolithicOpenCL12::ChooseSettings(const OpenCL12Wrapper::Platform 
 	const std::string extensions = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::dis_extensions);
 	const auint vid = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::diu_vendorID);
 	const std::string chip = OpenCL12Wrapper::GetDeviceInfo(dev, OpenCL12Wrapper::dis_chip);
-	KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vid, chip.c_str(), extensions.c_str());
+	auto chipType = dev.type.gpu? KnownHardware::ct_gpu : KnownHardware::ct_cpu;
+	KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vid, chip.c_str(), chipType, extensions.c_str());
 	if (arch < KnownHardware::arch_gcn_first || arch > KnownHardware::arch_gcn_last) badthing("must be AMD GCN");
 
 	// Qubit limits concurrency to match a certain buffer size. Monolithic kernels don't have this limitation.

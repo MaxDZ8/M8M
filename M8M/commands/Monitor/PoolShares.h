@@ -61,7 +61,7 @@ private:
 				build.SetObject();
 				for(asizei p = 0; p < workers.GetNumPools(); p++) {
 					std::string pname(workers.GetPoolName(p));
-					build.AddMember(Value(pname.c_str(), pname.length(), build.GetAllocator()), Value(kObjectType), build.GetAllocator());
+					build.AddMember(Value(pname.c_str(), rapidjson::SizeType(pname.length()), build.GetAllocator()), Value(kObjectType), build.GetAllocator());
 					Value &pool(build[workers.GetPoolName(p).c_str()]);
 					pool.AddMember("sent", Value(kArrayType), build.GetAllocator());
 					pool.AddMember("accepted", Value(kArrayType), build.GetAllocator());

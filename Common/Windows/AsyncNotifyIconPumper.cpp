@@ -20,7 +20,7 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
         using namespace Gdiplus;
 	    GdiplusStartupInput gdipstart;
         Gdiplus::GdiplusStartupOutput gdipInitResult;
-        ULONG gdiplusToken;
+        ULONG_PTR gdiplusToken;
 	    Status res = GdiplusStartup(&gdiplusToken, &gdipstart, &gdipInitResult);
 	    if(res != Ok) throw std::string("Could not init GDI+");
 	    ScopedFuncCall cleargdi([gdiplusToken]() { GdiplusShutdown(gdiplusToken); });

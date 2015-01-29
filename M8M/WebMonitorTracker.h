@@ -23,7 +23,7 @@ public:
 
 private:
 	NotifyIcon &menu;
-	asizei miON, miOFF, miCONN;
+	auint miON, miOFF, miCONN;
 
 	void EnableWeb() {
 		if(AreYouListening() == false) {

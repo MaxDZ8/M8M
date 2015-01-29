@@ -15,13 +15,13 @@
 
 
 struct GRSMYRMonolithic_Options {
-    asizei linearIntensity;
+    auint linearIntensity;
 
 	GRSMYRMonolithic_Options() : linearIntensity(10) { }
 	// Compared to Qubit, grsmyr looks slower (say 25%) BUT I implement it monolithically so to maintain a similar degree of interactivity
 	// I have to go half.
 	auint HashCount() const { return 512 * linearIntensity; }
-	asizei OptimisticNonceCountMatch() const { const asizei estimate(HashCount() / (64 * 1024));    return 32u > estimate? 32u : estimate; }
+	auint OptimisticNonceCountMatch() const { const auint estimate(HashCount() / (64 * 1024));    return 32u > estimate? 32u : estimate; }
 	bool operator==(const GRSMYRMonolithic_Options &other) const { return linearIntensity == other.linearIntensity; }
 };
 
@@ -61,7 +61,7 @@ class GRSMYRMonolithicOpenCL12 : public AbstractCLAlgoImplementation<1, GRSMYRMo
 public:
 	const bool PROFILING_ENABLED;
 
-	GRSMYRMonolithicOpenCL12(bool profiling, OpenCL12Wrapper::ErrorFunc f = nullptr) : PROFILING_ENABLED(profiling), AbstractCLAlgoImplementation("monolithic", "1", f) {	}
+	GRSMYRMonolithicOpenCL12(bool profiling, OpenCL12Wrapper::ErrorFunc f = nullptr) : PROFILING_ENABLED(profiling), AbstractCLAlgoImplementation("monolithic", "1", f, false) {	}
 	bool Dispatch(asizei setIndex, asizei slotIndex);
 	void HashHeader(std::array<aubyte, 32> &hash, const std::array<aubyte, 128> &header, asizei setIndex, asizei slotIndex) {
 		throw std::exception("not implemented yet!");

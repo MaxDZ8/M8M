@@ -129,7 +129,7 @@ get a 256-value interval.
  - 1 produces LOOP_32_4
  - 2 produces LOOP_64_2
  - 3 produces LOOP_128_1 */
-void SIMD16W_MergeIntervals(uint exponent, local int *state, global short *alpha) {
+void SIMD16W_MergeIntervals(uint exponent, local int *state, constant short *alpha) {
 	exponent = min(exponent, 3u);
 	const uint intervals = 8 >> exponent; // this is a constant
 	const uint ilen = 16 / intervals; // this is workgroup x size, but if that changes odds are things will have to be redesigned anyway

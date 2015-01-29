@@ -16,16 +16,18 @@ public:
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		using namespace rapidjson;
 		build.SetArray();
-		asizei index, device = 0;
+		asizei index;
+		rapidjson::SizeType device = 0;
 		while(miner.GetDeviceConfig(index, device)) {
 			if(index) build.PushBack(Value(kNullType), build.GetAllocator());
 			else {
 				build.PushBack(Value(kArrayType), build.GetAllocator());
 				Value &reason(build[device]);
 				std::vector<std::string> algoReason(miner.GetBadConfigReasons(device));
-				reason.Reserve(algoReason.size(), build.GetAllocator());
-				for(asizei loop = 0; loop < algoReason.size(); loop++)
-					reason.PushBack(Value(algoReason[loop].c_str(), algoReason[loop].length(), build.GetAllocator()), build.GetAllocator());
+				reason.Reserve(rapidjson::SizeType(algoReason.size()), build.GetAllocator());
+				for(asizei loop = 0; loop < algoReason.size(); loop++) {
+					reason.PushBack(Value(algoReason[loop].c_str(), rapidjson::SizeType(algoReason[loop].length()), build.GetAllocator()), build.GetAllocator());
+				}
 			}
 			device++;
 		}

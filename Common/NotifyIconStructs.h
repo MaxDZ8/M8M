@@ -29,9 +29,9 @@ struct MenuItemEvent {
 		esc_enabled,
 		esc_disabled
 	};
-	asizei controlIndex;
+	auint controlIndex;
 	EnableStateChange statusChange;
-	MenuItemEvent(asizei index, EnableStateChange newState) : controlIndex(index), statusChange(newState) { }
+	MenuItemEvent(auint index, EnableStateChange newState) : controlIndex(index), statusChange(newState) { }
 };
 
 

@@ -217,7 +217,7 @@ private:
 	public:
 		const std::string host;
 		const std::string port;
-		int socket;
+		SOCKET socket;
 		bool failed;
 		ConnectedSocket(const char *hostname, const char *portOrService)
 			: host(hostname? hostname : ""), port(portOrService? portOrService : ""), socket(INVALID_SOCKET), failed(false) {
@@ -234,15 +234,15 @@ private:
 
 	struct ServiceSocket : public ServiceSocketInterface {
 		const aushort port;
-		int socket;
+		SOCKET socket;
 		bool failed;
-		ServiceSocket(int s, aushort p) : socket(s), port(p), failed(false) { }
+		ServiceSocket(SOCKET s, aushort p) : socket(s), port(p), failed(false) { }
 		~ServiceSocket() { if(socket != INVALID_SOCKET) closesocket(socket); }
 		aushort GetPort() const { return port; }
 		bool Works() const { return !failed; }
 	};
 
-	void SetBlocking(int socket, bool blocks);
+	void SetBlocking(SOCKET socket, bool blocks);
 	
 	//! Maps Win32 error codes to my portable codes.
 	static std::unique_ptr< std::map<int, SockErr> > errMap;
@@ -250,7 +250,7 @@ private:
 
 	struct PendingConnection {
 		ConnectedSocket *which;
-		std::vector<int> candidates;
+		std::vector<SOCKET> candidates;
 		PendingConnection(ConnectedSocket *resource = nullptr) : which(resource) { }
 		~PendingConnection() {
 			for(asizei loop = 0; loop < candidates.size(); loop++) {
