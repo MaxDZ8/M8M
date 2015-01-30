@@ -1,0 +1,11 @@
+M8M/Resource.aps
+M8M/Debug
+M8M/x64/debug
+M8M/x64/release
+Common/Debug
+Common/x64/debug
+Common/x64/release
+x64/Debug
+x64/Release
+M8M.sdf
+M8M.v12.suo
