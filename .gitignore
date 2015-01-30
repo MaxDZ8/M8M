@@ -1,2 +1,12 @@
 M8M.v11.suo
 M8M.sdf
+Common/Debug/*.*
+Common/x64/Debug/*.*
+Common/x64/Release/*.*
+M8M/Debug/*.*
+M8M/x64/Debug/*.*
+M8M/x64/Release/*.*
+M8M.v12.suo
+x64/Debug/*.*
+x64/Release/*.*
+M8M/Resource.aps

@@ -51,6 +51,9 @@
     <ClCompile Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.cpp">
       <Filter>Source Files\AlgoFactories\Implementations</Filter>
     </ClCompile>
+    <ClCompile Include="AlgoFactories\Implementations\NeoScryptOpenCL12.cpp">
+      <Filter>Source Files\AlgoFactories\Implementations</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AbstractThreadedMiner.h">
@@ -182,5 +185,24 @@
     <ClInclude Include="AlgoFactories\Implementations\grsmyrMonolithicOpenCL12.h">
       <Filter>Header Files\AlgoFactories\Implementations</Filter>
     </ClInclude>
+    <ClInclude Include="AlgoFactories\NeoScryptCL12.h">
+      <Filter>Header Files\AlgoFactories</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoFactories\Implementations\NeoScryptMultistepOpenCL12.h">
+      <Filter>Header Files\AlgoFactories\Implementations</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resource.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\linkIcon.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
