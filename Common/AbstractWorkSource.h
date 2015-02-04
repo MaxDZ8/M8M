@@ -65,7 +65,7 @@ public:
 	//! This call is to allow outer code to understand which pool is being manipulated.
 	const char* GetName() const { return name.c_str(); }
 
-	aulong GetCoinDiffMul() const;
+	PoolInfo::DiffMultipliers GetDiffMultipliers() const;
 	void GetUserNames(std::vector< std::pair<const char*, StratumState::AuthStatus> > &list) const;
 
 	template<typename Func>
@@ -78,7 +78,7 @@ protected:
 	/*! Used to enumerate workers to register to this remote server.
 	Return nullptr as first element to terminate enumeration. */
 	typedef std::vector< std::pair<const char*, const char*> > Credentials;
-	AbstractWorkSource(const char *presentation, const char *name, const char *algo, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v);
+	AbstractWorkSource(const char *presentation, const char *name, const char *algo, const PoolInfo::DiffMultipliers &diffMul, PoolInfo::MerkleMode mm, const Credentials &v);
 
 	virtual void MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error) = 0;
 

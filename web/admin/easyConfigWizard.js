@@ -10,10 +10,15 @@ validate the input and pull it in internal state.
 If no error is returned the wizard will go to the specified step and 
 updateContents is called. When those are called, previous step is still in the document. New step is not. */
 var fetchWizardInput = {
-	wzPool: function() {
+	wzNonsensicalPoolDiffMultiplier: function() {
 		var algo = document.getElementById("algoSelect").value;
 		if(algo.length === 0) return "An algorithm must be selected.";
 		window.wizConfig.algo = algo;
+	},
+	wzPool: function() {
+		var input = document.getElementById("poolDiffMul");
+		if(!Math.floor(input.valueAsNumber)) return "Pool difficulty factor must be at least 1.";
+		window.wizConfig.feudalDiffOverride = Math.floor(input.valueAsNumber);
 	},
 	wzHWIntensity: function() {
 		var pool = document.getElementById("poolURL").value;
@@ -37,6 +42,11 @@ var fetchWizardInput = {
 
 
 var updateContents = {
+	wzNonsensicalPoolDiffMultiplier: function() {
+		var diffMuls = coinDiffByAlgo(window.wizConfig.algo);
+		var input = document.getElementById("poolDiffMul");
+		input.value = diffMuls.stratum;
+	},
 	wzPool: function() {
 		document.getElementById("selectedPoolAlgo").textContent = window.wizConfig.algo;
 		document.getElementById("poolURL").focus();
@@ -131,10 +141,12 @@ function newConfigSaveAndReboot() {
 			url: stripProtocol(window.wizConfig.poolURL),
 			user: window.wizConfig.workerLogin,
 			pass: window.wizConfig.workerPass,
-			coinDiffMul: coinDiffByAlgo(window.wizConfig.algo),
+			diffMultipliers: coinDiffByAlgo(window.wizConfig.algo),
 			algo: window.wizConfig.algo,
 			protocol: "stratum"
 		};
+		if(window.wizConfig.feudalDiffOverride !== undefined)
+			cmd.params.configuration.pools[0].diffMultipliers.stratum = window.wizConfig.feudalDiffOverride;
 		var diffMode = coinDiffModeByAlgo(window.wizConfig.algo);
 		if(diffMode) cmd.params.configuration.pools[0].diffMode = diffMode;
 		if(window.wizConfig.poolName && window.wizConfig.poolName.length) {
@@ -191,17 +203,23 @@ function reloadCallback(obj, container) {
 	}
 }
 
+/*! This function returns the "difficulty multipliers" of a coin.
+In legacy miners it is a function of the algo itself. In M8M, it is fully decoupled and data driven.
 
-// This function returns the "difficulty multiplier" of a coin.
-// In legacy miners it is a function of the algo itself.
-// In M8M, it is fully decoupled but that's how it goes!
+There are three multipliers. The first is a number to be multiplied by the value received by stratum
+set_difficulty notification. It is ... unfortunately ... very often overriden by pool operators as they
+feel good about it. Those are therefore only default values.
+"one" is a multiplier by TRUE_DIFF_ONE. The above makes up a numerator and this value * TRUE_DIFF_ONE
+makes the denominator.
+The "share" multiplier is used to figure out the "value" of a share. It's currently unused but while we're at it... */
 function coinDiffByAlgo(algo) {
 	var diffMul = {
-		qubit: 256,
-		fresh: 256,
-		grsmyr: 1,
-		neoScrypt: 65536
-	};
+		qubit:     { stratum: 256, one:   256, share:   256 },
+		fresh:     { stratum:   1, one:   256, share:   256 },
+		grsmyr:    { stratum:   1, one:     1, share:     1 },
+		neoScrypt: { stratum:   1, one: 65536, share: 65536 },
+		lyra2RE:   { stratum:   1, one:   128, share:   128 }
+	};            // ^ can be overriden by pool settings
 	var diff = diffMul[algo];
 	if(diff === undefined) throw "Unrecognized algorithm: \"" + algo + "\".";
 	return diff;

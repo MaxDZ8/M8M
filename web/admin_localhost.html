@@ -32,7 +32,7 @@
 The code pulls out this div and builds a window.easyConfigSteps array. Stuff which is not a <div> is trashed. -->
 <div id="easyConfigSteps">
 	<div id="wzAlgo">
-		<h1>1/3 - Coin information</h1>
+		<h1>1/4 - Coin information</h1>
 		<p>
 			<em>Proof-of-Work</em> requires your GPU to compute numbers according to a certain <em>algorithm</em>. An <em>algorithm</em> is a description of how to produce a result.<br>
 			Most coins require you to use a specific algorithm, while others give you choice. You should read about the coin of your choice and understand which algorithms are to be used. Keep in mind that selecting the wrong algorithm will just cause your resuls to be always considered invalid!
@@ -47,10 +47,24 @@ The code pulls out this div and builds a window.easyConfigSteps array. Stuff whi
 			</select>
 			<br>
 		</p>
+		<button onclick="wizard_goto('wzNonsensicalPoolDiffMultiplier')">Next</button>
+	</div>
+	<div id="wzNonsensicalPoolDiffMultiplier">
+		<h1>2/4 - Pool-specific difficulty multiplier</h1>
+		<p>
+			For some reason, certain pool operators have decided their pools must be different from the others.<br>
+			Unfortunately, there's no way for me to fix that. Go to your selected pool and try to figure out if your pool uses a special difficulty multiplier instead of default.<br>
+			It's usually something like: <tt>--difficulty-multiplier <em>NUMBER</em></tt>.<br>
+			Typical numbers are 1, 256, 65536, 16, 1024...
+		</p>
+		<p>
+			I have written a default value here. If you cannot figure out what number to put there, you can probably just go to the next step.<br>
+			<input id="poolDiffMul" type="number" autofocus inputmode="numeric" min="1" step="1" />
+		</p>
 		<button onclick="wizard_goto('wzPool')">Next</button>
 	</div>
 	<div id="wzPool">
-		<h1>2/3 - Pool information</h1>
+		<h1>3/4 - Pool information</h1>
 		<p>
 			A <em>pool</em> is a team of computers working together to find the result. The result is called <em>nonce</em>.
 			When a nonce is found, the resulting reward is split across all contributors in the pool. Pools typically decide how much to give you considering both your performance and the time spent.
@@ -84,7 +98,7 @@ The code pulls out this div and builds a window.easyConfigSteps array. Stuff whi
 		<button onclick="wizard_goto('wzHWIntensity')">Next</button>
 	</div>
 	<div id="wzHWIntensity">
-		<h1>3/3 - System performance and hashing options</h1>
+		<h1>4/4 - System performance and hashing options</h1>
 		<p>
 			The below slider will allow you to select the "size" of "GPU work".<br>
 			Move the slider to the left to select a small work size: this is inefficient for computation but allows your system to stay responsive to your commands.<br>
@@ -121,6 +135,7 @@ The code pulls out this div and builds a window.easyConfigSteps array. Stuff whi
 	<label for="modLogin">Login</label><br><input type="text" inputmode="verbatim" id="modLogin" size="50"/><br>
 	<label for="modPass">Password</label><br><input type="text" inputmode="verbatim" id="modPass" size="50"/><br>
 	<label for="modPoolName">Pool name</label><br><input type="text" inputmode="verbatim" id="modPoolName" size="50"/><br>
+	<label for="modPoolDiff">Pool difficulty multiplier</label><input type="text" inputmode="numeric" id="modPoolDiff" step="1" min="1"/><br>
 	<!-- those two controls are mutually exclusive. I will pull hardware data from the server as in the easyConfig wizard and figure out a slider setting
 	from the current linearIntensity.
 	If this setting is valid (multiple of step and in range of slider) then the slider will be used.

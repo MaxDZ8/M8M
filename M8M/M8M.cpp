@@ -399,13 +399,43 @@ Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value
 			unique_ptr<PoolInfo> add(new PoolInfo(poolName, mkString(addr->value), mkString(user->value), mkString(psw->value)));
 			add->algo = mkString(algo->value);
 			const auto proto(load.FindMember("protocol"));
-			const auto coinDiff(load.FindMember("coinDiffMul"));
+			const auto diffMul(load.FindMember("diffMultipliers"));
 			const auto merkleMode(load.FindMember("merkleMode"));
 			const auto diffMode(load.FindMember("diffMode"));
 			if(proto != load.MemberEnd() && proto->value.IsString()) add->appLevelProtocol = mkString(proto->value);
-			if(coinDiff != load.MemberEnd()) {
-				if(coinDiff->value.IsUint()) add->diffOneMul = coinDiff->value.GetUint();
-				else if(coinDiff->value.IsUint64()) add->diffOneMul = coinDiff->value.GetUint64();
+			if(diffMul == load.MemberEnd()) {
+				errors.push_back(std::string("pools[") + std::to_string(index) + "].diffMultipliers not found, old config file?");
+				continue;
+			}
+			else if(diffMul->value.IsObject() == false) {
+				errors.push_back(std::string("pools[") + std::to_string(index) + "].diffMultipliers not an object, old config file?");
+				continue;
+			}
+			else {
+				auto stratum(diffMul->value.FindMember("stratum"));
+				auto one(diffMul->value.FindMember("one"));
+				auto share(diffMul->value.FindMember("share"));
+				auto valid = [&errors, index, &diffMul](adouble &dst, rapidjson::Value::ConstMemberIterator &value) {
+					if(value == diffMul->value.MemberEnd()) {
+						const std::string name(value->name.GetString(), value->name.GetStringLength());
+						errors.push_back(std::string("pools[") + std::to_string(index) + "].diffMultipliers." + name + " missing.");
+						return false;
+					}
+					adouble good = .0;
+					if(value->value.IsUint()) good = adouble(value->value.GetUint());
+					else if(value->value.IsUint64()) good = adouble(value->value.GetUint64());
+					else if(value->value.IsDouble()) good = value->value.GetDouble();
+					if(good == .0 || good < .0) {
+						const std::string name(value->name.GetString(), value->name.GetStringLength());
+						errors.push_back(std::string("pools[") + std::to_string(index) + "].diffMultipliers." + name + " must be number > 0.");
+						return false;
+					}
+					dst = good;
+					return true;
+				};
+				if(!valid(add->diffMul.one, one)) continue;
+				if(!valid(add->diffMul.share, share)) continue;
+				if(!valid(add->diffMul.stratum, stratum)) continue;
 			}
 			if(merkleMode != load.MemberEnd() && merkleMode->value.IsString()) {
 				std::string mmode(mkString(merkleMode->value));

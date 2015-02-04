@@ -43,10 +43,10 @@ public:
 	std::function<void()> allWorkersFailedAuthCallback;
 	aulong errorCount;
 
-	const aulong coinDiffMul;
+	const PoolInfo::DiffMultipliers diffMul;
 	const PoolInfo::MerkleMode merkleMode;
 	PoolInfo::DiffMode diffMode;
-	StratumState(const char *presentation, aulong diffOneMul, PoolInfo::MerkleMode hashMode);
+	StratumState(const char *presentation, const PoolInfo::DiffMultipliers &diffMul, PoolInfo::MerkleMode hashMode);
 	const string& GetSessionID() const { return subscription.sessionID; }
 	/*! The outer code should maintain a copy of this value. This to understand when the
 	work unit sent by the remote host has changed. It then makes sense to call RestartWork(). */

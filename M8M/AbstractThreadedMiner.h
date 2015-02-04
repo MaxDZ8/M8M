@@ -38,7 +38,7 @@ class AbstractThreadedMiner : public AbstractMiner<MiningProcessorsProvider> {
 			const auint lenonce = HTOLE(shares[test]);
 			memcpy_s(header.data() + 64 + 12, 128 - (64 + 12), &lenonce, sizeof(lenonce));
 			algo.HashHeader(hash, header, setting, slot);
-			const aulong diffone = 0xFFFF0000ull * owner.GetCoinDiffMul();
+			const aulong diffone = 0xFFFF0000ull * owner.GetDiffMultipliers().share;
 			aulong adjusted;
 			memcpy_s(&adjusted, sizeof(adjusted), hash.data() + 24, sizeof(adjusted));
 			if(LETOH(adjusted) <= diffone) candidates.push_back(lenonce); // could still be stale

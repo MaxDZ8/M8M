@@ -111,7 +111,7 @@ bool AbstractWorkSource::NeedsToSend() const {
 }
 
 
-aulong AbstractWorkSource::GetCoinDiffMul() const { return stratum.coinDiffMul; }
+PoolInfo::DiffMultipliers AbstractWorkSource::GetDiffMultipliers() const { return stratum.diffMul; }
 
 
 void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, StratumState::AuthStatus> > &list) const {
@@ -121,8 +121,8 @@ void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, Stratu
 }
 
 
-AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poolName, const char *algorithm, aulong coinDiffMul, PoolInfo::MerkleMode mm, const Credentials &v)
-	: stratum(presentation, coinDiffMul, mm), algo(algorithm), name(poolName) {
+AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poolName, const char *algorithm, const PoolInfo::DiffMultipliers &diffMul, PoolInfo::MerkleMode mm, const Credentials &v)
+	: stratum(presentation, diffMul, mm), algo(algorithm), name(poolName) {
 	for(asizei loop = 0; loop < v.size(); loop++) stratum.Authorize(v[loop].first, v[loop].second);
 #if defined(M8M_STRATUM_DUMPTRAFFIC)
 	stratumDump.open("stratumTraffic.txt");

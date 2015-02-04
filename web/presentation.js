@@ -489,7 +489,7 @@ var presentation = {
 			}
 		}
 		if(sent === 0) return;
-		var string = "" + accepted + "/" + sent + " (";
+		var string = "" + accepted + "/" + sent + " (rejected: ";
 		string += Math.floor(rejected / sent * 1000) / 10 + "%)";
 		document.getElementById("poolNonceStats").textContent = string;
 	},

@@ -39,8 +39,8 @@ void StratumState::PushResponse(const string &serverid, const string &pairs) {
 }
 
 
-StratumState::StratumState(const char *presentation, aulong diffOneMul, PoolInfo::MerkleMode mm)
-	: nextRequestID(1), difficulty(16.0), nameVer(presentation), merkleOffset(0), coinDiffMul(diffOneMul), merkleMode(mm), errorCount(0), diffMode(PoolInfo::dm_btc) {
+StratumState::StratumState(const char *presentation, const PoolInfo::DiffMultipliers &muls, PoolInfo::MerkleMode mm)
+	: nextRequestID(1), difficulty(16.0), nameVer(presentation), merkleOffset(0), diffMul(muls), merkleMode(mm), errorCount(0), diffMode(PoolInfo::dm_btc) {
 	dataTimestamp = 0;
 	size_t used = PushMethod("mining.subscribe", KeyValue("params", "[]", false));
 	ScopedFuncCall pop([this]() { this->pending.pop(); });
@@ -57,7 +57,9 @@ stratum::AbstractWorkUnit* StratumState::GenWorkUnit() const {
 	
 	// The difficulty parameter here should always be non-zero. In some other cases instead it will be 0, 
 	// in that case, produce the difficulty value by the work target string. We check it above anyway but worth a note.
-	std::array<aulong, 4> targetBits(diffMode == PoolInfo::dm_btc? btc::MakeTargetBits(difficulty, adouble(coinDiffMul)) : MakeTargetBits_NeoScrypt(difficulty, adouble(coinDiffMul)));
+	const adouble target = difficulty * diffMul.stratum;
+	const adouble diffOneMul = adouble(diffMul.one);
+	std::array<aulong, 4> targetBits(diffMode == PoolInfo::dm_btc? btc::MakeTargetBits(target, diffOneMul) : MakeTargetBits_NeoScrypt(target, diffOneMul));
 	stratum::WUJobInfo wuJob(subscription.extraNonceOne, block.job);
 	stratum::WUDifficulty wuDiff(difficulty, targetBits);
 	std::unique_ptr<stratum::AbstractWorkUnit> retwu;

@@ -293,11 +293,13 @@ function modConfigSaveAndReboot() {
 		url: stripProtocol(document.getElementById("modURL").value),
 		user: document.getElementById("modLogin").value,
 		pass: document.getElementById("modPass").value,
-		coinDiffMul: coinDiffByAlgo(algo),
+		diffMultipliers: coinDiffByAlgo(algo),
 		algo: algo,
 		protocol: "stratum",
 		name: poolName
 	};
+	var arbitrary = Math.floor(document.getElementById("modPoolDiff").valueAsNumber);
+	if(arbitrary) cmd.params.configuration.pools[0].diffMultipliers.stratum = arbitrary;
 	
 	minerMonitor.request(cmd, function(reply) { 
 		var parent = document.getElementById("modCurrConf");

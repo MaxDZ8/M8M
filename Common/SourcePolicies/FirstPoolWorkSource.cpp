@@ -6,7 +6,7 @@
 
 
 FirstPoolWorkSource::FirstPoolWorkSource(const char *presentation, const PoolInfo &init, NetworkInterface::ConnectedSocketInterface &tcpip)
-	: AbstractWorkSource(presentation, init.name.c_str(), init.algo.c_str(), init.diffOneMul, init.merkleMode, PullCredentials(init)),
+	: AbstractWorkSource(presentation, init.name.c_str(), init.algo.c_str(), init.diffMul, init.merkleMode, PullCredentials(init)),
 	  fetching(init), pipe(tcpip), errorCallback(DefaultErrorCallback(false)) {
 }
 

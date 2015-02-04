@@ -16,13 +16,16 @@ struct PoolInfo {
 	string service; // usually "http". Follows "://", but I'm not including those. If not found, set "http"
 	string host; // stuff up to :, if found
 	string explicitPort; // I keep it as string, it's used as string in sockets anyway
-	unsigned __int64 diffOneMul; //!< BTC: 1, LTC: 64*1024, QRK: 256. Using the LTC constant is really the best thing to do by default as this implies no work (detected as valid) will get trashed (big IF)
+	struct DiffMultipliers {
+		double stratum, one, share;
+		DiffMultipliers() : stratum(0), one(0), share(0) { }
+	} diffMul;
 	const string user;
 	const string pass;
 	const string name;
 	string algo;
 	PoolInfo(const string &nick, const string &url, const string &userutf8, const string &passutf8)
-		: user(userutf8), pass(passutf8), diffOneMul(64 * 1024), merkleMode(mm_SHA256D), name(nick), appLevelProtocol("stratum"),
+		: user(userutf8), pass(passutf8), merkleMode(mm_SHA256D), name(nick), appLevelProtocol("stratum"),
 		  diffMode(dm_btc) {
 		string rem = url.find("stratum+") == 0? url.substr(strlen("stratum+")) : url;
 		size_t stop = rem.find("://");
