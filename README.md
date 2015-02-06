@@ -1,4 +1,6 @@
 #M8M
+![Icons](https://github.com/MaxDZ8/M8M/blob/gh-pages/M8M-normal-states.gif)
+
 *An (hopefully) educational cryptocurrency miner.*
 
 --------------------------------------------------------------------------------
@@ -92,7 +94,7 @@ In other words, it is **not** my intention to damage you, your computer or your 
 ##Usage
 
 This document does not include installation nor usage instructions as it focuses on source code.
-Please use the wiki instead: https://github.com/MaxDZ8/M8M/wiki#usage
+See github pages instead: http://maxdz8.github.io/M8M/
 
 ##Building 
 
@@ -107,6 +109,3 @@ Link dependancies include:
 If you want to update rapidjson either overwrite the existing files in the local-include directory or set up proper include paths.
 
 As M8M currently targets Windows®, you'll hopefully be just fine downloading the Visual Studio 2012 solution file, as soon as it is released.
-
-##Algorithms supported
-https://github.com/MaxDZ8/M8M/wiki#algorithms-supported
