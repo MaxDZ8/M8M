@@ -6,6 +6,12 @@ h3 {
 	margin-left: 1em;
 }
 
+
+h3:before {
+	content: "\000A7\000A0";
+	color: black;
+}
+
 td {
 	background: rgb(240, 240, 240);
 }

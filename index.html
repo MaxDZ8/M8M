@@ -48,6 +48,97 @@
 		The first public release was 249, appeared on <a href="http://www.gamedev.net">gamedev.net</a> 31 Jul 2014. Binary is not available on github but rather on <a href="https://docs.google.com/file/d/0B9JUZ-eI_WkrcUhLb1J6bmY3X0E">google drive</a>.<br>
 		All others are on <a href="https://github.com/MaxDZ8/M8M/releases">github</a>.
 	</p>
+	<h2>FAQ</h2>
+	<h3>Can you elaborate on <code>linearIntensity</code>?</h3>
+	It controls the amount of hashes to be computed at each step of the computation. This is referred as <em>hashCount</em>. Differently from legacy miners, this is <em>not</em> the global work size to GPU, nor there is a direct mapping to the amount of concurrent work.<br>
+	The goal is to control how much time GPU will spend on hashing at each step, which relates to system performance.<br>
+	Legacy (OpenCL) miners use three methods of controlling global work size:
+	<ol>
+	<li>intensity &rarr; global work size = 2<sup>intensity</sup>; adjustments might apply, depending on algos, you might be setting offsets. This is the oldest and most gross-grained method.</li>
+	<li>xintensity ("experimental intensity" or shader-count based intensity) is something that scales with GPU power.
+		<ol>
+		<li>In concept, it is global work size = <code>SHADER_COUNT</code> * xintensity, where <code>SHADER_COUNT</code> estimates "how big" your GPU is.</li>
+		<li>At a certain point somebody decided this could just multiply a work size determined exponentially as above.</li>
+		</ol>
+		Nonetheless, it's <em>something</em> multiplied by "gpu size". Behaviour is selected by algorithm.<br>
+		It has a few quirks: the word "shader" is not in CL parlance and the term has been used in different ways over the years. Nowadays, it seems to be equivalent to "core count" in marketing parlance... whatever legacy miners compute this as intended is debatable.<br>
+		In practice <code>xintensity</code> is a quite sensible setting, akin to the slider in the web wizard which eventually determines <code>linearIntensity</code>.
+	</li>
+	<li>rawIntensity &rarr; global work size = rawIntensity; it provides extreme amount of control, debatably useful in this specific context with an extreme chance of producing sub-optimal/invalid settings but it's rather clear in both concept and implementation.</li>
+	</ol>
+	<p>
+	None of the above works as <code>linearIntensity</code>. Incrementing <code>linearIntensity</code> by 1 increases the amount of hashes to be computed for each step by an algorithm-implementation-specific amount. <strong>The <em>idea</em> is the same <code>linearIntensity</code> produces more or less the same system responsiveness regardless of the algorithm or implementation being used.</strong>
+	</p>
+	<p>
+	The <em>hashCount</em> is therefore always <code>linearIntensity</code> multiplied by an algorithm implementation constant. It is implied algorithm implementation using multiple steps can go with an higher multiplier.
+	</p>
+	<p>
+	Once <em>hashCount</em> has been determined, global work size is <em>hashCount</em> multiplied by internal parallelism used by the specific kernel for the corresponding processing step. When a kernel employs parallel computing the work size is a 2D vector. As convention, the value <em>hashCount</em> is the 'y' while kernel parallelism degree is the 'x'. In other terms, parallel kernels employ multiple execution units to produce an hash.
+	</p>
+	<p>
+	Note <code>linearIntensity</code> by itself does not scale on hardware performance. It is a easily predictable behaviour.
+	</p>
+	As example, Qubit fivesteps (signature 69b38ac0d0b99f73) with <code>linearIntensity</code>=128 &rarr; <em>hashCount</em>=32768=32Ki. Produces five work dispatch calls:
+	<ol>
+		<li>Luffa&lt;1, 32Ki&gt;(...) // "single threaded"</li>
+		<li>CubeHash&lt;2, 32Ki&gt;(...) // 64Ki work items</li>
+		<li>SHAVite3&lt;1, 32Ki&gt;(...)</li>
+		<li>Echo&lt;8, 32Ki&gt;(...) // 256Ki WI &rarr; 4096 64-way wavefronts on AMD GCN in "teams" of 8</li>
+		<li>SIMD&lt;16, 32Ki&gt;(...)</li>
+	</ol>
+	<h3>What about dynamic intensity?</h3>
+	There's a plan to add it but it's far from high priority.
+	
+	<h3>How can I tune <em>&lt;this parameter&gt;</em>?</h3>
+	<p>
+		It's likely you cannot. M8M is a completely new, different code base. The parameter you're looking for likely does not exist.
+	</p>
+	<p>
+		In theory, algorithm implementations are free to define any amount of specific parameters. In practice, at the time this is being written (<a href="https://github.com/MaxDZ8/M8M/commit/3dca11c571eb2aeac8b069f578501cf33d43ab04">last commit to master branch</a>) the only parameter is <code>linearIntensity</code>. It is common to all algorithm implementations.
+	</p>
+	<h3>Are you going to release "power-optimized", low temperature kernels?</h3>
+	<p>
+		No. Low temperature kernels typically perform poorly on a performance/watt metric. This is because there are fixed costs to pay to keep the system in performance mode. Even if modern GPUs are a bit smarter it is usually best to run them at peak performance for shorter amount of time.
+	</p>
+	<p>
+		As in this context there's no "shorter amount of time", if temperature is a concern to you, lower clocks.
+	</p>
+	<h3>It runs slower than usual miners!</h3>
+	<p>
+		That's unfortunate but there's probably very little I can do as I have no high-end hardware to test.
+	</p>
+	Note statements like this give me no useful info. Provide information at least on:
+	<ol>
+		<li>Number of video cards, model, clocks for every one;</li>
+		<li>Any modification including custom BIOS;</li>
+		<li>Driver model;</li>
+		<li>OS;</li>
+	</ol>
+	<p>
+		If you're looking for high performance, you might be better off with the "legacy" miner applications. The <strong>main goal</strong> is to be non-invasive to workflow and <strong>keep the system responsive</strong>, slight performance losses are considered acceptable. This expectation originated from Qubit performance which turned out to be quite faster. It is somewhat ironic that Qubit received little to no optimizations at all.
+	</p>
+	<p>
+		As a side note all kernels run at least just as fast on all the test hardware I have. That's a Feb-2014 Radeon 7750 I bought for 99 bucks and no, I don't plan to upgrade, much less to go multi-gpu.
+	</p>
+	<h3>Are you going to work on <em>&lt;that algorithm&gt;?</em></h3>
+	Maybe. You'll have max chances if you ask immediately after a release is published. Typically development stops a while until I figure what to do next.
+	
+	<h3>Are you going to release kernel for <em>&lt;some card&gt;?</em></h3>
+	Unlikely, especially if you look for performance. Working with remote hardware is possible but I'm not all that eager to experience the thrill.
+	
+	<h3>How can I solo mine?</em></h3>
+	By using another mining application. Support for solo mining has been left out on purpose as it is my opinion this is better carried out by setting up a dedicated stratum server. I have no interest in solo mining anyway.
+	
+	<h3>Are you going to support <em>&lt;an old driver version&gt;?</em></h3>
+	<p>
+		No. In particular, there will be no active back-ports, never. M8M follows the same practice as games: updated drivers. In theory you should always have the latest on your system. In practice it could be a couple of versions late.
+	</p>
+	<p>
+		Some releases (regardless they get triple-version or not) will be tested with a certain driver. If you're not running that you're basically on your own.
+	</p>	
+	<h3>How can I avoid using a particular card? What about card-specific settings?</em></h3>
+	As of <a href="https://github.com/MaxDZ8/M8M/commit/3dca11c571eb2aeac8b069f578501cf33d43ab04">last commit to master branch</a> this is not possible. This feature will <em>not</em> be introduced as long as the basic functionality isn't proven to work.
+	
 	<h2>Algorithms</h2>
 	<ul>
 		<li><a href="algos/genChained.html">Generic chained hashing</a> (TODO)</li>
@@ -70,6 +161,7 @@
 		<li><a href="hash/aesr.html">AES round</a> (TODO)</li>
 		<li><a href="hash/salsaBC.html">Salsa</a> (TODO)</li>
 		<li><a href="hash/chachaBC.html">Chacha</a> (TODO)</li>
+		<li><a href="hash/blaker.html">Blake round</a> (TODO)</li>
 	</ul>
 	<h2>Developers and technical</h2>
 	<a href="https://docs.google.com/document/d/16D0YZ5QjN1LsdoT4GuJTPrI0UoBIC_AbIG4d2YvjJtU/">Websocket protocol documentation</a>.<br>
