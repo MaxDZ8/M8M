@@ -2,6 +2,20 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
+ 
+/* Adding a note since it seems this file attracts a lot of readers for some reason.
+The assumptions made while writing this file have turned out to be **false**.
+So, don't even try understanding **this nonsense**. A better way of doing the same thing can be found in Fresh,
+which is basically the same thing. The idea here was to be able to dispatch multiple concurrent algos.
+It is unnecessary.
+
+Next M8M version will feature an overhauled, consistently more compact algorithm structure.
+
+Also, kernel validity checking is now no more here. The validity checking project has been overhauled as well
+and published @ https://github.com/MaxDZ8/oclcckvck and now meant to be deployable to end-users.
+*/
+
+
 #include "QubitMultistepOpenCL12.h"
 
 
