@@ -112,9 +112,10 @@ void AbstractWSServer::ReadWrite(std::vector<Network::SocketInterface*> &toRead,
 			auto matched = commands.find(command.c_str());
 			std::string reply;
 			std::unique_ptr<commands::PushInterface> stream;
-			if(matched->second->Mangle(reply, stream, object) == false) {
-				throw std::exception("Impossible, code out of sync. Command name already matched!");
-			}
+            if(matched == commands.cend()) reply = "!!ERROR: no such command \"" + command + '"';
+            else if(matched->second->Mangle(reply, stream, object) == false) {
+			    throw std::exception("Impossible, code out of sync. Command name already matched!");
+            }
 			if(!reply.length()) {
 				throw std::exception("Invalid zero-length reply.");
 			}

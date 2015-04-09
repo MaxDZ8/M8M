@@ -9,6 +9,7 @@
 #include "../BTC/Structs.h"
 #include <time.h>
 
+
 namespace stratum {
 
 struct WUJobInfo {
@@ -56,9 +57,11 @@ public:
 	auint nonce2;
 	bool restart; //!< if this is false then keep the nonce2 you're already iterating, but with the new data.
 	std::array<aubyte, 128> header; //!< Updated by calling MakeNoncedHeader, call this when a new nonce is set.
+	double networkDiff; 
 	
 	AbstractWorkUnit(const WUJobInfo &family, int networkTime, const WUDifficulty &diff, const std::array<aubyte, 128> &startHeader)
 		: WUJobInfo(family), WUDifficulty(diff), ntime(networkTime), blankHeader(startHeader), genTime(time(NULL)), nonce2(0), restart(false) {
+		networkDiff = std::numeric_limits<double>::infinity();
 			/* OBSOLETE and no more used. This is the midstate for scrypt1024.
 		// Automatically compute the 'midstate'
 		aubyte flipped[64];
@@ -79,7 +82,6 @@ public:
 	virtual void MakeCBMerkle(std::array<aubyte, 32> &initialMerkle) const = 0;
 
 	void MakeNoncedHeader(bool littleEndianAlgo) {
-		const char *hex = "0123456789abcdef";
 		std::array<aubyte, 32> merkleRoot;
 		MakeCBMerkle(merkleRoot);
 		std::array<aubyte, 64> merkleSHA;
@@ -114,6 +116,30 @@ public:
 				for(auint i = 0; i < 4; i++) raw[shuffle + 3 - i] = load[i];
 			}
 		}
+	}
+
+	//! \todo This is valid only after MakeNoncedHeader has been called... perhaps it should be updated here... once?
+	double ExtractNetworkDiff(bool littleEndianAlgo, aulong algoDiffNumerator) {
+		// This looks like share difficulty calculation... but not quite.
+		aulong diff;
+		double numerator;
+		const auint *src = reinterpret_cast<const auint*>(header.data() + 72);
+		if(littleEndianAlgo) {
+			aulong blob = BETOH(*src) & 0xFFFFFF00;
+			blob <<= 8;
+			blob = 
+			diff = SWAP_BYTES(blob);
+			numerator = static_cast<double>(algoDiffNumerator);
+		}
+		else {
+			aubyte pow = header[72];
+			aint powDiff = (8 * (0x1d - 3)) - (8 * (pow - 3)); // don't ask.
+			diff = BETOH(*src) & 0x0000000000FFFFFF;
+			numerator = static_cast<double>(algoDiffNumerator << powDiff);
+		}
+		if(diff == 0) diff = 1;
+		networkDiff = numerator / double(diff);
+		return networkDiff;
 	}
 
 protected:

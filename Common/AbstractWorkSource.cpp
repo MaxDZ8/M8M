@@ -4,16 +4,18 @@
  */
 #include "AbstractWorkSource.h"
 
+#define STRATUM_DUMPTRAFFIC 1
 
-#if defined(M8M_STRATUM_DUMPTRAFFIC)
-static std::ofstream stratumDump;
+#if STRATUM_DUMPTRAFFIC
+#include <fstream>
+std::ofstream stratumDump("stratumTraffic.txt");
 #endif
 
 AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrite) {
     // As a start, dispatch my data to the server. It is required to do this first as we need to
     // initiate connection with a mining.subscribe. Each tick, we send as many bytes as we can until
     // write buffer is exhausted.
-	const time_t PREV_WORK_STAMP(stratum.Working());
+	const time_t PREV_WORK_STAMP(stratum.LastNotifyTimestamp());
     if(stratum.pending.size() && canWrite) {
         asizei count = 1;
         while(count && stratum.pending.size()) {
@@ -21,7 +23,7 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
             count = Send(msg.data + msg.sent, msg.total - msg.sent);
             msg.sent += count;
             if(msg.sent == msg.total) {
-#if defined(M8M_STRATUM_DUMPTRAFFIC)
+#if STRATUM_DUMPTRAFFIC
 				stratumDump<<">>sent to server:"<<std::endl;
 				for(asizei i = 0; i < msg.total; i++) stratumDump<<msg.data[i];
 				stratumDump<<std::endl;
@@ -45,7 +47,7 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
 		char *limit = std::find(pos, recvBuffer.NextBytes(), '\n');
 		if(limit >= recvBuffer.NextBytes()) pos = limit;
 		else { // I process one line at time
-#if defined(M8M_STRATUM_DUMPTRAFFIC)
+#if STRATUM_DUMPTRAFFIC
 			stratumDump<<">>from server:";
 			for(asizei i = 0; pos + i < limit; i++) stratumDump<<pos[i];
 			stratumDump<<std::endl;
@@ -102,7 +104,8 @@ AbstractWorkSource::Event AbstractWorkSource::Refresh(bool canRead, bool canWrit
 #endif
 	}
 	else return e_nop;
-	return stratum.Working() != PREV_WORK_STAMP? e_newWork : e_gotRemoteInput;
+    if(stratum.LastNotifyTimestamp() == PREV_WORK_STAMP || stratum.Subscribed() == false) return e_gotRemoteInput;
+	return e_newWork;
 }
 
 
@@ -124,11 +127,8 @@ void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, Stratu
 AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poolName, const char *algorithm, const PoolInfo::DiffMultipliers &diffMul, PoolInfo::MerkleMode mm, const Credentials &v)
 	: stratum(presentation, diffMul, mm), algo(algorithm), name(poolName) {
 	for(asizei loop = 0; loop < v.size(); loop++) stratum.Authorize(v[loop].first, v[loop].second);
-#if defined(M8M_STRATUM_DUMPTRAFFIC)
-	stratumDump.open("stratumTraffic.txt");
-#endif
-	stratum.shareResponseCallback = [this](bool ok) {
+	stratum.shareResponseCallback = [this](asizei index, StratumShareResponse status) {
 		// if(ok) stats.shares.accepted++;
-		if(this->shareResponseCallback) this->shareResponseCallback(ok);
+		if(this->shareResponseCallback) this->shareResponseCallback(*this, index, status);
 	};
 }

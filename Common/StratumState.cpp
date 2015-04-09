@@ -58,10 +58,9 @@ stratum::AbstractWorkUnit* StratumState::GenWorkUnit() const {
 	// The difficulty parameter here should always be non-zero. In some other cases instead it will be 0, 
 	// in that case, produce the difficulty value by the work target string. We check it above anyway but worth a note.
 	const adouble target = difficulty * diffMul.stratum;
-	const adouble diffOneMul = adouble(diffMul.one);
-	std::array<aulong, 4> targetBits(diffMode == PoolInfo::dm_btc? btc::MakeTargetBits(target, diffOneMul) : MakeTargetBits_NeoScrypt(target, diffOneMul));
+	std::array<aulong, 4> targetBits(diffMode == PoolInfo::dm_btc? btc::MakeTargetBits(target, diffMul.one) : MakeTargetBits_NeoScrypt(target, diffMul.one));
 	stratum::WUJobInfo wuJob(subscription.extraNonceOne, block.job);
-	stratum::WUDifficulty wuDiff(difficulty, targetBits);
+	stratum::WUDifficulty wuDiff(target, targetBits);
 	std::unique_ptr<stratum::AbstractWorkUnit> retwu;
 	switch(merkleMode) {
 	case PoolInfo::mm_SHA256D: retwu.reset(new stratum::DoubleSHA2WorkUnit(wuJob, block.ntime, wuDiff, blankHeader)); break;
@@ -116,27 +115,27 @@ StratumState::AuthStatus StratumState::GetAuthenticationStatus(const char *name)
 }
 
 
-void StratumState::SendWork(auint ntime, auint nonce2, auint nonce) {
+asizei StratumState::SendWork(const std::string &job, auint ntime, auint nonce2, auint nonce) {
 	const char *user = workers[0].name.c_str(); //!< \todo quick hack to match, should be tracked by worker!
-	auto worker(std::find_if(workers.begin(), workers.end(), [user](const Worker &test) { return test.name == user; }));
-	if(worker == workers.end()) return; //!< \todo maybe I should pop an error here
+	auto &worker(workers[0]);
 
 	const char *sep = "\", \"";
 	std::stringstream params;
 	params<<std::hex;
-	params<<"[\""<<worker->name<<sep<<block.job<<sep
+	params<<"[\""<<worker.name<<sep<<job<<sep
 		  <<std::setw(8)<<std::setfill('0')<<nonce2<<sep
 		  <<std::setw(8)<<std::setfill('0')<<ntime<<sep
 		  <<std::setw(8)<<std::setfill('0')<<HTON(nonce)<<"\"]";
 	const std::string message(params.str());
-	size_t used = PushMethod("mining.submit", KeyValue("params", message, false));
+	const size_t used = PushMethod("mining.submit", KeyValue("params", message, false));
 	ScopedFuncCall popMsg([this]() { this->pending.pop(); });
-	submittedWork.insert(std::make_pair(used, &(*worker)));
+	submittedWork.insert(std::make_pair(used, &worker));
 	ScopedFuncCall popSubmitted([this, used]() { this->submittedWork.erase(used); });
 	pendingRequests.insert(std::make_pair(used, "mining.submit"));
 	popMsg.Dont();
 	popSubmitted.Dont();
-	worker->nonces.sent++;
+	worker.nonces.sent++;
+    return used;
 }
 
 
@@ -182,8 +181,8 @@ void StratumState::Response(asizei id, const stratum::MiningSubmitResponse &msg)
 			w->second->authorized = time(NULL);
 			w->second->authStatus = as_inferred;
 		}
+	    if(shareResponseCallback) shareResponseCallback(id, msg.accepted? ssr_accepted : ssr_rejected);
 	}
-	if(shareResponseCallback) shareResponseCallback(msg.accepted);
 }
 
 

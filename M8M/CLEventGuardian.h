@@ -20,12 +20,13 @@ Enqueue calls usually return an event and don't allow one to be set... so basica
 class CLEventGuardian {
 public:
     explicit CLEventGuardian() = default;
+    ~CLEventGuardian() { Shutdown(); }
 
     /*! Add an event to wait on, no questions asked. Keep those unique. */
     void Watch(cl_event add) {
         auto use(std::find_if(threadPool.cbegin(), threadPool.cend(), [](const std::unique_ptr<Watcher> &test) {
             std::unique_lock<std::mutex> lock(test->mutex);
-            return test->watch == 0 && test->available;
+            return test->watch == 0 && test->state == Watcher::s_running;
         }));
         if(use == threadPool.cend()) {
             threadPool.push_back(std::make_unique<Watcher>());
@@ -40,7 +41,7 @@ public:
             while(true) {
                 {
                     std::unique_lock<std::mutex> lock(use->get()->mutex);
-                    if(use->get()->available) break;
+                    if(use->get()->state != Watcher::s_created) break;
                 }
                 std::this_thread::yield();
             }
@@ -48,19 +49,32 @@ public:
 
         auto &mangler(*use);
         std::unique_lock<std::mutex> specific(mangler->mutex);
-        assigned++;
         mangler->watch = add;
-        mangler->available = false;
+        mangler->wakeup = true;
         specific.unlock();
         mangler->cvar.notify_one();
     }
 
-    //! Wait ot the currentl watched set of events.
-    //! You probably want to just kick failed events and put the successful ones somewhere.
+    //! Wait over the currently watched set of events, get out when at least one completes.
+    //! Since we're gonna wait, I take the chance to remove dead/terminated threads.
     std::vector< std::pair<cl_event, cl_int> >&& operator()() {
+        asizei assigned = 0; // this could be kept at watch, but I have to remove deads anyway so...
+        for(asizei check = 0; check < threadPool.size(); check++) {
+            std::unique_lock<std::mutex> lock(threadPool[check]->mutex); // a bit ugly
+            switch(threadPool[check]->state) {
+            case Watcher::s_terminated:
+            case Watcher::s_dead:
+                // terminated threads try pushing their events already...
+                threadPool.erase(threadPool.begin() + check);
+                check--;
+                break;
+            case Watcher::s_running:
+                if(threadPool[check]->watch) assigned++;
+                break;
+            }
+        }
         std::unique_lock<std::mutex> lock(collect.mutex);
         if(assigned && collect.triggered.empty()) collect.something.wait(lock, [this]() { return collect.triggered.size() != 0; });
-        assigned -= collect.triggered.size();
         return std::move(collect.triggered);
     }
 
@@ -72,6 +86,7 @@ public:
             for(auto &thread : threadPool) {
                 std::unique_lock<std::mutex> specific(thread->mutex);
                 thread->keepGoing = false;
+                thread->wakeup = true;
                 thread->cvar.notify_one();
                 workers.push_back(&thread->signaler);
             }
@@ -92,14 +107,21 @@ private:
     The event this->wake is then cleared to zero, indicating the thread can be reused. */
     struct Watcher {
         std::thread signaler;
-        cl_event watch;
+        cl_event watch; //!< if 0, the thread is available to look at something else and sleeping
         bool keepGoing; //!< RO to this->signaler. Will cause this->signaler to exit gracefully.
-        bool available; //!< this->signaler sets it to true when able to get a new value from this->watch. After assigning a new this->watch value, set this to false.
-        bool dead; //!< WO to this->signaler. Set if the thread exited due to exception.
+        bool wakeup; //!< this->signaler sets it to true providing a new watch or updating keepGoing.
+        enum State {
+            s_created,
+            s_running,
+            s_dead,
+            s_terminated
+        } state; //!< WO to this->signaler.
         std::condition_variable cvar;
         std::mutex mutex;
-        explicit Watcher() : keepGoing(true), available(false), dead(false) { }
+        explicit Watcher() : keepGoing(true), wakeup(false), state(s_created) { }
+    private:
         Watcher(const Watcher &meh) = delete;
+        Watcher& operator=(const Watcher &other) = delete;
     };
 
 
@@ -111,24 +133,31 @@ private:
     } collect;
 
     std::vector<std::unique_ptr<Watcher>> threadPool; //!< It seems C++11 spec suggests thread abstractions to be "as thin as possible" so better to keep those!
-    asizei assigned; //!< of threadPool, assigned threads have been given an event to watch and will eventually wake up us.
 
     static void __stdcall AsyncWatch(ThisCollector &collect, Watcher *self) {
+        cl_event lastWait = 0;
+        cl_int lastWaitError = 0;
         try {
             while(true) {
                 cl_event waiting;
                 {
                     std::unique_lock<std::mutex> lock(self->mutex);
+                    self->state = self->s_running;
+                    self->cvar.wait(lock, [self]() { return self->wakeup; });
+                    self->wakeup = false;
                     if(self->keepGoing == false) break;
-                    self->available = true;
-                    self->cvar.wait(lock, [self]() { return self->available == false; });
                     waiting = self->watch;
                 }
                 if(waiting) {
+                    lastWait = waiting;
                     cl_int err = clWaitForEvents(1, &waiting);
                     if(err == CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST) {
+                        lastWaitError = err;
                         cl_int pollErr = clGetEventInfo(waiting, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(err), &err, NULL);
-                        if(pollErr != CL_SUCCESS) throw "I just give up.";
+                        if(pollErr != CL_SUCCESS) {
+                            lastWaitError = pollErr;
+                            throw "I just give up.";
+                        }
                     }
                     {
                         std::unique_lock<std::mutex> lock(collect.mutex);
@@ -139,9 +168,18 @@ private:
                 }
             }
         } catch(...) {
-            std::unique_lock<std::mutex> lock(self->mutex);
-            self->dead = true;
+            {
+                std::unique_lock<std::mutex> lock(self->mutex);
+                self->state = self->s_dead;
+            }
+            {
+                std::unique_lock<std::mutex> lock(collect.mutex);
+                collect.triggered.push_back(std::make_pair(lastWait, lastWaitError));
+                self->watch = 0;
+            }
+            collect.something.notify_one();
         }
+        if(self->state != self->s_dead) self->state = self->s_terminated;
     }
 
     // Noncopiable, nonmovable

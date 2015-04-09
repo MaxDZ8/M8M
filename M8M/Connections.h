@@ -5,7 +5,7 @@
 #pragma once
 #include "../Common/SourcePolicies/FirstPoolWorkSource.h"
 #include <iostream>
-#include "MinerInterface.h"
+#include "NonceStructs.h"
 
 using std::cout;
 using std::endl;
@@ -19,8 +19,14 @@ class Connections {
 public:
 	//! \note When this is called nobody owns ownership of the work unit, which is ready to generate header but not hashed yet!
 	typedef std::function<void(AbstractWorkSource &pool, stratum::AbstractWorkUnit*)> DispatchCallback;
+	DispatchCallback dispatchFunc;
 
-	Connections(Network &factory, DispatchCallback df) : network(factory), dispatchFunc(df), addedPoolCount(0) { }
+    typedef std::function<void(const AbstractWorkSource &pool)> ActivityCallback;
+    ActivityCallback onPoolCommand; //!< if provided, call this every time a certain pool receives something terminated with newline, (maybe not a command in protocol sense)
+
+	Connections(Network &factory) : network(factory), addedPoolCount(0) {
+        dispatchFunc = [](AbstractWorkSource &pool, stratum::AbstractWorkUnit*) { }; // better to nop this rather than checking
+    }
 	~Connections() {
 		for(asizei loop = 0; loop < routes.size(); loop++) {
 			if(routes[loop].pool) routes[loop].pool->Shutdown();
@@ -44,7 +50,8 @@ public:
 			NetworkInterface::SocketInterface *test = toRead[loop];
 			auto goner = std::find_if(routes.begin(), routes.end(), [test](const Remote &server) { return server.connection == test; });
 			if(goner != routes.end() && test->Works() == false) {
-				cout<<"Shutting down connection for pool "<<routes[loop].pool->GetName();
+                std::string name(routes[loop].pool->name.length()? routes[loop].pool->name : ("[" + std::to_string(loop) + "]"));
+				cout<<"Shutting down connection for pool "<<name<<endl;
 				network.CloseConnection(*goner->connection);
 				routes.erase(goner);
 			}
@@ -57,35 +64,21 @@ public:
 			bool canWrite = w != toWrite.cend();
 			if(!canRead && !canWrite) continue; // socket was not managed by me but that's fine.
 			if(canRead || canWrite) {
-				cout<<"Pool "<<loop<<" ";
-				if(canRead) cout<<'R';
-				if(canWrite) cout<<'W';
-				cout<<endl;
 				AbstractWorkSource &pool(*routes[loop].pool);
 				auto happens = pool.Refresh(canRead, canWrite);
 				switch(happens) {
-				case AbstractWorkSource::e_nop: 
+				case AbstractWorkSource::e_nop:
 				case AbstractWorkSource::e_gotRemoteInput:
 					break;
 				case AbstractWorkSource::e_newWork: dispatchFunc(pool, pool.GenWorkUnit()); break;
 				default:
 					cout<<"Unrecognized pool event: "<<happens;
 				}
+                if(happens != AbstractWorkSource::e_nop && canRead) { // maybe this should happen at every byte received instead of every command?
+                    if(onPoolCommand) onPoolCommand(pool);
+                }
 			}
 		}
-	}
-	/*! Send a bunch of shares to the pool matching by job id.
-	\todo This is a bit easy-going as there's no guarantee job ids are going to be unique across different pools. I'll have to fix it in the future. */
-	asizei SendShares(const MinerInterface::Nonces &found) {
-		asizei enqueued = 0;
-		for(asizei loop = 0; loop < routes.size(); loop++) {
-			if(routes[loop].pool.get() != found.owner) continue;
-			if(routes[loop].pool->SendShares(found.job, found.nonce2, found.nonces)) {
-				enqueued += found.nonces.size();
-				break;
-			}
-		}
-		return enqueued;
 	}
 
 	const Network::ConnectedSocketInterface& GetConnection(const AbstractWorkSource &wsrc) const {
@@ -101,7 +94,7 @@ public:
 	}
 
 	asizei GetNumServers() const { return routes.size(); }
-	const AbstractWorkSource& GetServer(asizei pool) const { return *routes[pool].pool; }
+	AbstractWorkSource& GetServer(asizei pool) const { return *routes[pool].pool; }
 
 	void AddPool(const PoolInfo &conf) {
 		routes.push_back(Remote());
@@ -127,7 +120,6 @@ public:
 
 private:
 	Network &network;
-	DispatchCallback dispatchFunc;
 	struct Remote {
 		Network::ConnectedSocketInterface *connection;
 		unique_ptr<AbstractWorkSource> pool;

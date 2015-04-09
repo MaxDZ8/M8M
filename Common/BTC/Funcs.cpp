@@ -68,7 +68,6 @@ std::array<aulong, 4> MakeTargetBits(adouble diff, adouble diffOneMul) {
 	bits64      = 0x0000000000000000000000000000000000000000000000010000000000000000
 	Because all those integers have a reduced range, they can be accurately represented by a double.
 	See diffCalc.html for a large-integer testing framework. */
-	const adouble TRUE_DIFF_ONE = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 	const adouble BITS_192 = 6277101735386680763835789423207666416102355444464034512896.0;
 	const adouble BITS_128 = 340282366920938463463374607431768211456.0;
 	const adouble BITS_64 = 18446744073709551616.0;

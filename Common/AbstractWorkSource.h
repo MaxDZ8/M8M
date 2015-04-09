@@ -12,11 +12,6 @@
 #include "../Common/AREN/ArenDataTypes.h"
 
 
-#if defined(M8M_STRATUM_DUMPTRAFFIC)
-#include <fstream>
-extern std::ofstream stratumDump;
-#endif
-
 using std::string;
 
 
@@ -34,7 +29,7 @@ public:
 		e_newWork
 	};
 	
-	std::function<void(bool success)> shareResponseCallback;
+	std::function<void(const AbstractWorkSource &me, asizei id, StratumShareResponse shareStatus)> shareResponseCallback;
 
 	/*! Stratum pools are based on message passing. Every time we can, we must mangle input from the server,
 	process it to produce output and act accordingly. The input task is the act of listening to the remote server
@@ -46,11 +41,15 @@ public:
 	\note Because Send and Receive are supposed to be nonblocking anyway parameters are somewhat redundant.*/
 	virtual Event Refresh(bool canRead, bool canWrite);
 
-	bool SendShares(const std::string &job, auint nonce2, const std::vector<auint> &nonces) { 
-		auint ntime = stratum.GetJobNetworkTime(job);
-		if(!ntime) return false;
-		for(asizei loop = 0; loop < nonces.size(); loop++) stratum.SendWork(ntime, nonce2, nonces[loop]);
-		return true;
+    /*! Returns a non-zero ntime value if the job is considered "current". If not, the job is considered "stale" and you might
+    consider dropping the shares, or perhaps not. In practice, unless the outer code keeps some ntime around (for example by rolling)
+    there's no chance those shares will be accepted as server needs a valid ntime to hash and 0 sure won't do it. */
+    auint IsCurrentJob(const std::string &job) const { return stratum.GetJobNetworkTime(job); }
+
+    //! Blindly send shares. Initially, this filtered the values by "stale" status but it's now just a forwarder, that logic is delegated.
+    //! \return Index of this result in the global stream to the pool. You can use this to reconstruct info from callbacks.
+	asizei SendShare(const std::string &job, auint ntime, auint nonce2, auint nonce) { 
+		return stratum.SendWork(job, ntime, nonce2, nonce);
 	}
 
 	stratum::AbstractWorkUnit* GenWorkUnit() { return stratum.GenWorkUnit(); }
@@ -61,9 +60,6 @@ public:
 	virtual ~AbstractWorkSource() { }
 
 	bool NeedsToSend() const;
-
-	//! This call is to allow outer code to understand which pool is being manipulated.
-	const char* GetName() const { return name.c_str(); }
 
 	PoolInfo::DiffMultipliers GetDiffMultipliers() const;
 	void GetUserNames(std::vector< std::pair<const char*, StratumState::AuthStatus> > &list) const;
@@ -97,7 +93,7 @@ protected:
 
 	StratumState stratum;
 
-private:	
+private:
 	/*! Data received by calling Receive(...) is stored here. Then, a pass searches for
 	newline messages and dispatches them to parsers. */
 	struct RecvBuffer {
