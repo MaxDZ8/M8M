@@ -3,34 +3,39 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include "../../MinerInterface.h"
 #include "../AbstractCommand.h"
+#include "../../ProcessingNodesFactory.h"
 
 namespace commands {
 namespace monitor {
 
 class RejectReasonCMD : public AbstractCommand {
-	MinerInterface &miner;
+    std::vector< std::vector<MinerSupport::ConfReasons> > rejectReasons;
 public:
-	RejectReasonCMD(MinerInterface &worker) : miner(worker), AbstractCommand("rejectReason") { }
+	RejectReasonCMD(const std::vector< std::vector<MinerSupport::ConfReasons> > &why) : rejectReasons(why), AbstractCommand("rejectReason") { }
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		using namespace rapidjson;
 		build.SetArray();
-		asizei index;
-		rapidjson::SizeType device = 0;
-		while(miner.GetDeviceConfig(index, device)) {
-			if(index) build.PushBack(Value(kNullType), build.GetAllocator());
-			else {
-				build.PushBack(Value(kArrayType), build.GetAllocator());
-				Value &reason(build[device]);
-				std::vector<std::string> algoReason(miner.GetBadConfigReasons(device));
-				reason.Reserve(rapidjson::SizeType(algoReason.size()), build.GetAllocator());
-				for(asizei loop = 0; loop < algoReason.size(); loop++) {
-					reason.PushBack(Value(algoReason[loop].c_str(), rapidjson::SizeType(algoReason[loop].length()), build.GetAllocator()), build.GetAllocator());
-				}
-			}
-			device++;
-		}
+        build.Reserve(SizeType(rejectReasons.size()), build.GetAllocator());
+        for(auto &el : rejectReasons) {
+            Value arr(kArrayType);
+            arr.Reserve(SizeType(el.size()), build.GetAllocator());
+            for(auto &conf : el) {
+                if(conf.bad.empty()) continue;
+                Value entry(kObjectType);
+                entry.AddMember("confIndex", conf.configIndex, build.GetAllocator());
+                Value list(kArrayType);
+                list.Reserve(SizeType(conf.bad.size()), build.GetAllocator());
+                for(auto &reason : conf.bad) {
+                    Value string(reason.c_str(), SizeType(reason.length()), build.GetAllocator());
+                    list.PushBack(string, build.GetAllocator());
+                }
+                entry.AddMember("reasons", list, build.GetAllocator());
+                arr.PushBack(entry, build.GetAllocator());
+            }
+            build.PushBack(arr, build.GetAllocator());
+
+        }
 		return nullptr;
 	}
 };

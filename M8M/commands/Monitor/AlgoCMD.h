@@ -3,16 +3,26 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include "../../MinerInterface.h"
 #include "../AbstractCommand.h"
+#include "AbstractAlgorithm.h"
 
 namespace commands {
 namespace monitor {
 
 class AlgoCMD : public AbstractCommand {
-	MinerInterface &miner;
+    const std::string algorithm;
+    const std::string implementation;
+    const std::string versionHash;
+
+    static std::string Hex(aulong signature) {
+		char buffer[20]; // 8*2+1 would be sufficient for aulong
+		_ui64toa_s(signature, buffer, sizeof(buffer), 16);
+        return std::string(buffer);
+    }
+
 public:
-	AlgoCMD(MinerInterface &worker) : miner(worker), AbstractCommand("algo") { }
+	AlgoCMD(const AlgoIdentifier &running, aulong signature)
+        : algorithm(running.algorithm), implementation(running.implementation), versionHash(Hex(signature)), AbstractCommand("algo") { }
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		// Specification mandates there should be 1 parameter of value "primary".
 		// This is not really required (works perfectly with no params at all) but required for being future proof.
@@ -30,19 +40,11 @@ public:
 			build.SetString(msg.c_str(), rapidjson::SizeType(msg.length()), build.GetAllocator());
 			return nullptr;
 		}
-		const char *algo = miner.GetMiningAlgo();
 		build.SetObject();
-		if(algo == nullptr) return nullptr;
-		build.AddMember("algo", StringRef(algo), build.GetAllocator());
-		// can be put there directly as miner is managed by same thread, guaranteed lifetime, miner destroyed between passes.
-		std::string impl;
-		aulong ver;
-		char buffer[20]; // 8*2+1 would be sufficient for aulong
-		if(miner.GetMiningAlgoImpInfo(impl, ver)) {
-			_ui64toa_s(ver, buffer, sizeof(buffer), 16);
-			build.AddMember("impl", Value(impl.c_str(), rapidjson::SizeType(impl.length()), build.GetAllocator()), build.GetAllocator());
-			build.AddMember("version", Value(buffer, rapidjson::SizeType(strlen(buffer)), build.GetAllocator()), build.GetAllocator());
-		}
+		if(algorithm.empty()) return nullptr; // the values are persistent as long as the parser is. Parsers go down after services have been stopped so,
+		build.AddMember("algo", StringRef(algorithm.c_str()), build.GetAllocator());
+        build.AddMember("impl", StringRef(implementation.c_str()), build.GetAllocator());
+        build.AddMember("version", StringRef(versionHash.c_str()), build.GetAllocator());
 		return nullptr;
 	}
 };

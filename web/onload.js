@@ -72,25 +72,12 @@ window.onload = function() {
 			presentation.appendDevicePlatforms(pdesc);
 			window.minerMonitor.requestSimple("algo", function(reply) {
 				presentation.updateMiningElements(reply);
-				window.minerMonitor.requestSimple("pool", function(poolinfo) {
+				window.minerMonitor.requestSimple("pools", function(reply) {
+					var poolinfo = reply[0];
 					presentation.updatePoolElements(poolinfo);
 					
 					/*! \todo This will have to be moved a day so updatePoolElements will work on stored state instead! */
-					server.remote = {};
-					if(poolinfo.name) {
-						server.remote[poolinfo.name] = {};
-						server.remote[poolinfo.name].url = poolinfo.url;
-						server.remote[poolinfo.name].worker = [];
-						var w = server.remote[poolinfo.name].worker;
-						for(var init = 0; init < poolinfo.users.length; init++) {
-							var build = {};
-							build.sent = 0;
-							build.accepted = 0;
-							build.rejected = 0;
-							build.name = poolinfo.users[init].login;
-							w.push(build);
-						}
-					}
+					server.remote = reply;
 					
 					window.minerMonitor.requestSimple("deviceConfig", function(configInfo) {
 						presentation.updateConfigElements(configInfo);
@@ -98,21 +85,21 @@ window.onload = function() {
 							presentation.updateRejectElements(rejInfo);
 							fillConfigTable();
 						});
-					});
-					var cmd = {
-						command: "poolShares",
-						enable: true,
-					};					
-					window.minerMonitor.requestStream(cmd, function(pinfo) {
-						for(var key in pinfo) {
-							if(key === "pushing") continue; // ugly, I should really figure out a better protocol
-							var src = pinfo[key];
-							var dst = window.server.remote[key];
-							for(var cp = 0; cp < src.sent.length; cp++) {
-								dst.worker[cp].sent = src.sent[cp];
-								dst.worker[cp].accepted = src.accepted[cp];
-								dst.worker[cp].rejected = src.rejected[cp];
-							}
+					});		
+					window.minerMonitor.requestStream({ command: "poolShares" }, function(pinfo) {
+						for(var loop = 0; loop < pinfo.length; loop++) {
+							var src = pinfo[loop];
+							var dst = window.server.remote[loop];
+								//! \todo multi-worker support
+								if(dst.shares === undefined) {
+									dst.shares = {};
+									dst.shares.accepted = 0;
+									dst.shares.rejected = 0;
+									dst.shares.sent = 0;
+								}
+								if(src.sent !== undefined) dst.shares.sent = src.sent;
+								if(src.accepted !== undefined) dst.shares.accepted = src.accepted;
+								if(src.rejected !== undefined) dst.shares.rejected = src.rejected;
 						}
 						presentation.refreshPoolWorkerStats();
 					});
@@ -132,41 +119,32 @@ window.onload = function() {
 		};
 		window.minerMonitor.request(cmd, function(cinfo, ptime) {
 			presentation.updateConfigInfo(cinfo);
-			var request = {
-				command: "scanTime",
-				devices: [],
-				requesting: {}
-			};
 			var active = 0;
+			var measurementNames = ["min", "last", "avg", "max"];
 			for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
 				if(server.hw.linearDevice[loop].visPattern === undefined) {
 					presentation.hashTimeCells.push(null);
 					continue;
 				}
-				// ^ stupid, nonsensical way to say the device is not used so don't send us stats.
 				server.hw.linearDevice[loop].lastPerf = {};
 				var row = document.getElementById("configInfo").childNodes[active++];
-				var names = ["last", "min", "slrAvg", "slidingAvg", "max"];
 				var mapping = {};
-				for(var gen = 0; gen < names.length; gen++) {
-					var key = names[gen];
+				for(var gen = 0; gen < measurementNames.length; gen++) {
+					var key = measurementNames[gen];
 					mapping[key] = document.createElement("td");
 					row.appendChild(mapping[key]);
-					request.requesting[key] = true;
 				}
 				presentation.hashTimeCells.push(mapping);
-				request.devices.push(loop);
 			}
-			window.minerMonitor.requestStream(request, function(obj) {
+			window.minerMonitor.requestStream({ command: "scanTime" }, function(obj) {
 				var how = presentation.perfMode;
-				presentation.refreshPerfHeaders(obj);
-				var names = ["last", "min", "slrAvg", "slidingAvg", "max"];
-				for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
+				document.getElementById("twindow").textContent = obj.twindow;
+				for(var loop = 0; loop < server.hw.linearDevice.length; loop++) { // same length as obj.measurements
 					var device = server.hw.linearDevice[loop];
-					if(device.configIndex === undefined) continue;
-					for(var cp = 0; cp < names.length; cp++) {
-						var newValue = obj.measurements[loop][names[cp]];
-						if(newValue !== undefined) device.lastPerf[names[cp]] = newValue;
+					if(device.configIndex === undefined) continue; // corresponding entry is null
+					for(var cp = 0; cp < measurementNames.length; cp++) {
+						var newValue = obj.measurements[loop][measurementNames[cp]];
+						if(newValue !== undefined) device.lastPerf[measurementNames[cp]] = newValue;
 					}
 				}
 				var niceHR = presentation.refreshDevicePerf();
@@ -175,19 +153,14 @@ window.onload = function() {
 				else header.textContent = "Hashrate [" + niceHR.prefix + "H/s]";
 			});
 			
-			request = {
-				command: "deviceShares",
-				devices: []
-			};
 			active = 0;
 			for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
 				if(server.hw.linearDevice[loop].visPattern === undefined) {
 					presentation.noncesCells.push(null);
 					continue;
 				}
-				request.devices.push(loop);
 				var row = document.getElementById("configInfo").childNodes[active++];
-				names = [ "good", "bad", "stale", "lastResult" ];
+				var names = [ "found", "bad", "discarded", "stale", "lastResult", "dsps" ];
 				mapping = {};
 				for(var gen = 0; gen < names.length; gen++) {
 					var key = names[gen];
@@ -196,7 +169,7 @@ window.onload = function() {
 				}
 				presentation.noncesCells.push(mapping);
 			}
-			window.minerMonitor.requestStream(request, presentation.refreshDeviceShareStats);
+			window.minerMonitor.requestStream({ command: "deviceShares" }, presentation.refreshDeviceShareStats);
 			
 			presentation.resultTimeElapsedRefresh = window.setInterval(function() {
 				presentation.refreshResultTimeElapsed();

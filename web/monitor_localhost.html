@@ -38,8 +38,7 @@
 						<th>Platform</th>
 						<th>Processor</th>
 						<th>Memory</th>
-						<th>Configured as</th>
-						<th>Notes</th>
+						<th>Configuration</th>
 						<th>Index</th>
 					</tr></thead>
 					<tbody id="sysInfoDevices"></tbody>
@@ -65,18 +64,19 @@
 							<th rowspan="2" rowspan="2">Hash count</th>
 							<th rowspan="2" rowspan="2">Memory usage</th>
 							<th rowspan="2" rowspan="2">Device used</th>
-							<th class="divth" colspan="5" id="perfMeasureHeader">Scan time [ms]</th>
-							<th class="divth" colspan="3">Nonces</th>
-							<th rowspan="2">Since last result</th>
+							<th class="divth" colspan="4" id="perfMeasureHeader">Scan time [ms]</th>
+							<th class="divth" colspan="4">Nonces</th>
+							<th rowspan="2">Since last<br>result</th>
+							<th rowspan="2">Diff solved<br>per second</th>
 						</tr>
 						<tr>
-							<th class="subth">Last</th>
-							<th class="subth">Avg<sub>s</sub></th>
-							<th class="subth">Avg<sub id="twindow">T</sub></th>
 							<th class="subth">Min</th>
+							<th class="subth">Last</th>
+							<th class="subth">Avg<sub id="twindow">T</sub></th>
 							<th class="subth">Max</th>
-							<th class="subth">Good</th>
+							<th class="subth">Found</th>
 							<th class="subth">Bad!</th>
+							<th class="subth">Low</th>
 							<th class="subth">Stale</th>
 						</tr>
 					</thead>

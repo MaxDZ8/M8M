@@ -8,21 +8,22 @@
 namespace commands {
 namespace admin {
 
+struct RawConfig {
+	/*! If config can be parsed good.IsObject() will return true and contain the parsed object.
+	This only means it's synctactically correct. The values however might still be wrong so those errors are pooled
+	in the valueErrors array.
+	Otherwise, object cannot even be parsed. In that case there will be no good json value to inspect but there will be
+	valid values in raw, errDesc, errOff, errCode. */
+	rapidjson::Document good;
+	std::vector<std::string> valueErrors;
+
+	std::string raw, errDesc;
+	asizei errOff;
+	auint errCode;
+};
+
 class GetRawConfigCMD : public AbstractCommand {
 public:
-	struct RawConfig {
-		/*! If config can be parsed good.IsObject() will return true and contain the parsed object.
-		This only means it's synctactically correct. The values however might still be wrong so those errors are pooled
-		in the valueErrors array.
-		Otherwise, object cannot even be parsed. In that case there will be no good json value to inspect but there will be
-		valid values in raw, errDesc, errOff, errCode. */
-		rapidjson::Document good;
-		std::vector<std::string> valueErrors;
-
-		std::string raw, errDesc;
-		asizei errOff;
-		auint errCode;
-	};
 	const RawConfig &track; //!< I could really just copy it there but rapidjson::Value has move semantics and I don't want to mess up outer state nor copy
 	GetRawConfigCMD(const RawConfig &loaded) : track(loaded), AbstractCommand("getRawConfig") { }
 

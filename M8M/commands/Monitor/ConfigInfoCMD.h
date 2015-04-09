@@ -3,7 +3,7 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include "../../MinerInterface.h"
+#include "../../AbstractAlgorithm.h"
 #include "../AbstractCommand.h"
 
 
@@ -11,58 +11,78 @@ namespace commands {
 namespace monitor {
 
 class ConfigInfoCMD : public AbstractCommand {
-	const MinerInterface &miner;
-
-	void FillJSON(rapidjson::Value &dst, AlgoImplementationInterface::SettingsInfo::BufferInfo &res, rapidjson::Document &doc) {
-		using namespace rapidjson;
-		dst.AddMember("space", Value(res.addressSpace.c_str(), rapidjson::SizeType(res.addressSpace.length()), doc.GetAllocator()), doc.GetAllocator());
-		dst.AddMember("presentation", Value(res.presentation.c_str(), rapidjson::SizeType(res.presentation.length()), doc.GetAllocator()), doc.GetAllocator());
-		dst.AddMember("footprint", Value(res.footprint), doc.GetAllocator());
-		dst.AddMember("accessType", Value(rapidjson::kArrayType), doc.GetAllocator());
-		rapidjson::Value &qual(dst["accessType"]);
-		for(asizei cp = 0; cp < res.accessType.size(); cp++) {
-			qual.PushBack(Value(res.accessType[cp].c_str(), rapidjson::SizeType(res.accessType[cp].length()), doc.GetAllocator()), doc.GetAllocator());
-		}
-	}
-
 public:
-	ConfigInfoCMD(MinerInterface &shared) : miner(shared), AbstractCommand("configInfo") { }
+    struct ConfigInfo {
+        const rapidjson::Value *specified = nullptr; //!< original json value pulled from config file
+        std::vector<std::string> rejectReasons; //!< device-independant reasons for which the object was discarded.
+
+        // Stuff below is only valid when rejectReasons.empty() is true. 
+
+        std::vector<auint> devices; //!< might be from different context/platforms. Linear indices.
+    };
+
+
+    struct ConfigDesc {
+        bool selected = false; //!< true if {algo,impl} pair selects a valid algo
+        bool specified = false; //!< true if a valid config object has been pulled from config file
+        // if object has been specified, here are the configurations in the order they appear in config
+        std::vector<ConfigInfo> configs; //!< if this is non-empty the [i] configuration object has been considered invalid.
+        std::vector<AbstractAlgorithm::ConfigDesc> informative; //!< config for each device, in linear index order, valid indices contained in configs
+    };
+
+    const ConfigDesc conf;
+
+	ConfigInfoCMD(const ConfigDesc &desc) : conf(desc), AbstractCommand("configInfo") { }
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		// .params is an array of strings, static informations to be retrieved
 		using namespace rapidjson;
-		Value::ConstMemberIterator &params(input.FindMember("params"));
-		if(params == input.MemberEnd() || params->value.IsArray() == false) throw std::string("Parameter array is missing.");
-		bool hashCount = false;
-		bool memUsage = false;
-		for(SizeType loop = 0; loop < params->value.Size(); loop++) {
-			if(params->value[loop].IsString() == false) continue;
-			const std::string test(params->value[loop].GetString(), params->value[loop].GetStringLength());
-			if(test == "hashCount") hashCount = true;
-			else if(test == "memUsage") memUsage = true;
-		}
-		std::string impl;
-		aulong version;
-		const char *algo = miner.GetMiningAlgo();
-		miner.GetMiningAlgoImpInfo(impl, version);
-		const AlgoImplementationInterface *ai = algo? miner.GetAI(algo, impl.c_str()) : nullptr;
-		build.SetArray();
-		if(!ai) return nullptr;
-		for(asizei loop = 0; loop < ai->GetNumSettings(); loop++) {
-			AlgoImplementationInterface::SettingsInfo info;
-			if(ai) ai->GetSettingsInfo(info, loop);
-			Value entry(kObjectType);
-			if(hashCount) entry.AddMember("hashCount", info.hashCount, build.GetAllocator());
-			if(memUsage) {
-				entry.AddMember("resources", Value(kArrayType), build.GetAllocator());
-				Value &fill(entry["resources"]);
-				for(asizei inner = 0; inner < info.resource.size(); inner++) {
-					fill.PushBack(Value(kObjectType), build.GetAllocator());
-					FillJSON(fill[rapidjson::SizeType(inner)], info.resource[inner], build);
-				}
-			}
-			build.PushBack(entry, build.GetAllocator());
-		}
+        if(conf.selected == false) {
+            build.SetNull();
+            return nullptr;
+        }
+        build.SetArray();
+        if(conf.specified == false) return nullptr;
+        build.Reserve(SizeType(conf.configs.size()), build.GetAllocator());
+        for(auto &el : conf.configs) {
+            Value entry;
+            if(el.rejectReasons.size()) {
+                Value reasons(kArrayType);
+                for(auto &str : el.rejectReasons) reasons.PushBack(StringRef(str.c_str()), build.GetAllocator());
+                entry.SetObject();
+                entry.AddMember("rejectReasons", reasons, build.GetAllocator());
+                Document copy;
+                copy.CopyFrom(*el.specified, build.GetAllocator());
+                entry.AddMember("settings", copy, build.GetAllocator());
+            }
+            else {
+                entry.SetArray();
+                for(auto &dev : el.devices) {
+                    Value spec(kObjectType);
+                    spec.AddMember("device", dev, build.GetAllocator());
+                    spec.AddMember("hashCount", conf.informative[dev].hashCount, build.GetAllocator());
+                    spec.AddMember("memUsage", Describe(conf.informative[dev].memUsage, build.GetAllocator()), build.GetAllocator());
+                    entry.PushBack(spec, build.GetAllocator());
+                }
+            }
+            build.PushBack(entry, build.GetAllocator());
+        }
 		return nullptr;
+	}
+
+private:
+	static rapidjson::Value Describe(const std::vector<AbstractAlgorithm::ConfigDesc::MemDesc> &resources, rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator> &alloc) {
+		using namespace rapidjson;
+        Value arr(kArrayType);
+        arr.Reserve(SizeType(resources.size()), alloc);
+        for(auto &res : resources) {
+            Value entry(kObjectType);
+            entry.AddMember("space", StringRef(res.memoryType == AbstractAlgorithm::ConfigDesc::as_device? "device" : "host"), alloc);
+            entry.AddMember("presentation", StringRef(res.presentation.c_str()), alloc);
+            entry.AddMember("footprint", res.bytes, alloc);
+            entry.AddMember("notes", Value(kArrayType), alloc); // not implemented yet
+            arr.PushBack(entry, alloc);
+        }
+        return arr;
 	}
 };
 

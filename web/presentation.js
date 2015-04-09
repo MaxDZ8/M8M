@@ -81,7 +81,6 @@ var presentation = {
 			}
 			addCell(global + '<br>' + cache + '<br>' + lds);
 			device.configCell = addCell("...");
-			device.noteCell = addCell("...");
 			addCell(device.linearIndex);
 			
 			function addCell(text) {
@@ -254,17 +253,60 @@ var presentation = {
 	},
 	
 	updateRejectElements: function(rejInfo) {
+		function buildReasonsLine(container, cfgRej) {
+			var line = document.createElement("tr");
+			var cell = document.createElement("td");
+			cell.textContent = '[' + cfgRej.confIndex + ']';
+			cell.rowSpan = cfgRej.reasons.length;
+			line.appendChild(cell);
+			for(var loop = 0; loop < cfgRej.reasons.length; loop++) {
+				cell = document.createElement("td");
+				cell.innerHTML = cfgRej.reasons[loop];
+				line.appendChild(cell);
+				container.appendChild(line);
+				line = document.createElement("tr");
+			}
+		}
 		for(var loop = 0; loop <  rejInfo.length; loop++) {
 			var device = server.hw.linearDevice[loop];
-			if(rejInfo[loop] === null) device.noteCell.textContent = '\u2714';
-			else {
-				var put = "";
-				for(var inner = 0; inner < rejInfo[loop].length; inner++) {
-					if(inner) put += "<br>";
-					put += rejInfo[loop][inner];
-				}
-				device.noteCell.innerHTML = put;
+			device.configCell.appendChild(document.createElement("br"));
+			/* Since protocol version 1.1 a device can be in use and still have configuration reject reasons.
+			This is perfectly normal and supposed to be the cornerstone to have multiple configurations depending on device performance.
+			The catch here is rejInfo[i].reasons is guaranteed (by protocol spec) to be non-empty. */
+			var div = document.createElement("div");
+			compatible.modClass(div, "detailsBox", "add");
+			div.style.display = "none";
+			div.style.zIndex = loop * 10 + 50;
+			div.innerHTML = "<h3>Configuration reject reasons</h3><strong>For device " + loop + "</strong><br>";
+			if(rejInfo[loop].length === 0) {
+				div.innerHTML += "This device is eligible to all configurations.<br>";
 			}
+			else {
+				var table = document.createElement("table");
+				var section = document.createElement("thead");
+				var row = document.createElement("tr");
+				var text = [ "Configuration", "Reasons" ];
+				for(var c = 0; c < 2; c++) {
+					var cell = document.createElement("th");
+					cell.innerHTML = text[c];
+					row.appendChild(cell);
+				}
+				section.appendChild(row);
+				table.appendChild(section);
+				section = document.createElement("tbody");
+				for(var conf = 0; conf < rejInfo[loop].length; conf++) {
+					var rr = rejInfo[loop][conf];
+					for(var rc = 0; rc < rr.reasons.length; rc++) buildReasonsLine(section, rr);
+				}
+				table.appendChild(section);
+				div.appendChild(table);
+			}
+			div.appendChild(presentation.support.makeDetailShowHideButton(div, "Close"));
+			var container = document.getElementById("sysInfo");
+			container.appendChild(div);
+			var btn = presentation.support.makeDetailShowHideButton(div, "Details");
+			device.configCell.appendChild(btn);
+			presentation.support.makeMovable(div);
 		}
 	},
 	
@@ -273,35 +315,52 @@ var presentation = {
 		while(tbody.childNodes.lastChild) tbody.childNodes.removeChild(tbody.childNodes.lastChild);
 		for(var conf = 0; conf < cinfo.length; conf++) {
 			server.config[conf] = {};
+			server.config[conf].hashCount = [];
 			
-			var row = document.createElement("tr");			
-			var devices = window.server.getDevicesUsingConfig(conf);
-			staticCell(row, "[" + conf + "]", devices.length);
-			staticCell(row, cinfo[conf].hashCount, devices.length);
-			var mem = staticCell(row, Math.ceil(totalMU(cinfo[conf].resources) / 1024.0) + " KiB", devices.length);
-			var report = makeMemoryReport(conf, cinfo[conf].resources);
-			server.config[conf].memReport = report;
-			server.config[conf].hashCount = cinfo[conf].hashCount;
-			mem.appendChild(document.createElement("br"));
-			mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
-			document.getElementById("miningStatus").appendChild(report);
+			var row = document.createElement("tr");
+			staticCell(row, "[" + conf + "]", cinfo[conf].length);
 			
-			for(var d = 0; d < devices.length; d++) {
-				if(d) row = document.createElement("tr");
-				var cell = document.createElement("td");
-				cell.textContent = "" + devices[d].linearIndex + ", ";
-				var devColor = this.imgFromCanvas(devices[d].visPattern);
-				compatible.modClass(devColor, "devicePattern", "add");
-				cell.appendChild(devColor);
-				row.appendChild(cell);
-				tbody.appendChild(row);
-			}
-			if(devices.length == 0) {
+			if(cinfo[conf].length == 0) {
 				var whoops = document.createElement("td");
 				whoops.colSpan = 10;
 				whoops.textContent = "Configuration is unused.";
 				row.appendChild(whoops);
 				tbody.appendChild(row);
+			}
+			else {
+				var sameHC = true; // it is assumed same hashCount <-> same resources
+				for(var devSlot = 0; devSlot < cinfo[conf].length - 1; devSlot++) {
+					sameHC &= cinfo[conf][devSlot].hashCount == cinfo[conf][devSlot + 1].hashCount;
+				}
+				if(sameHC) {
+					staticCell(row, "" + cinfo[conf][0].hashCount, cinfo[conf].length);
+					var mem = staticCell(row, Math.ceil(totalMU(cinfo[conf][0].memUsage) / 1024.0) + " KiB<br>", cinfo[conf][0].length);
+					var report = makeMemoryReport(conf, "For all devices using configuration [" + conf + ']', cinfo[conf][0].memUsage);
+					for(var cp = 0; cp < cinfo[conf].length; cp++) server.config[conf].hashCount[cp] = cinfo[conf][cp].hashCount;
+					mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
+					document.getElementById("miningStatus").appendChild(report);
+				}
+				for(var devSlot = 0; devSlot < cinfo[conf].length; devSlot++) {
+					if(!row) row = document.createElement("tr");
+					var devLinear = cinfo[conf][devSlot].device;
+					if(!sameHC) {
+						var cell = document.createElement("td");
+						cell.textContent = cinfo[conf][devSlot].hashCount;
+						row.appendChild(cell);
+						var mem = makeCell("td", Math.ceil(totalMU(cinfo[conf][devSlot].memUsage) / 1024.0) + " KiB<br>");
+						var report = makeMemoryReport(conf, "For device " + devLinear + ", using configuration [" + conf + ']', cinfo[conf][devSlot].memUsage);
+						server.config[conf].hashCount = cinfo[conf][devSlot].hashCount;
+						mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
+					}
+					var cell = document.createElement("td");
+					cell.textContent = "" + devLinear + ", ";
+					var devColor = this.imgFromCanvas(window.server.hw.linearDevice[devLinear].visPattern);
+					compatible.modClass(devColor, "devicePattern", "add");
+					cell.appendChild(devColor);
+					row.appendChild(cell);
+					tbody.appendChild(row);
+					row = null;
+				}
 			}
 		}
 		if(cinfo.length === 0) {
@@ -332,28 +391,28 @@ var presentation = {
 			for(var loop = 0; loop < values.length; loop++) total += values[loop].footprint;
 			return total;
 		}
-		function makeMemoryReport(index, reslist) {
+		function makeMemoryReport(index, subtitle, reslist) {
 			var div = document.createElement("div");
 			compatible.modClass(div, "detailsBox", "add");
 			div.style.display = "none";
 			div.style.zIndex = index * 10 + 50;
-			div.innerHTML = "<h3>Memory usage estimation</h3>Due to driver policies, this is a <em>lower bound</em>.";			
+			div.innerHTML = "<h3>Memory usage estimation</h3><strong>" + subtitle + "</strong><br>Due to driver policies, this is a <em>lower bound</em>.";			
 			var table = document.createElement("table");
 			var section = document.createElement("thead");
 			var row = document.createElement("tr");
 			row.appendChild(makeCell("th", "Address space"));
 			row.appendChild(makeCell("th", "Used as"));
-			row.appendChild(makeCell("th", "Description"));
 			row.appendChild(makeCell("th", "Bytes used"));
+			row.appendChild(makeCell("th", "Notes"));
 			section.appendChild(row);
 			table.appendChild(section);
-			section = document.createElement("tbody");			
+			section = document.createElement("tbody");
 			for(var loop = 0; loop < reslist.length; loop++) {
 				row = document.createElement("tr");
 				row.appendChild(makeCell("td", reslist[loop].space));
-				row.appendChild(makeCell("td", concat(reslist[loop].accessType)));
 				row.appendChild(makeCell("td", reslist[loop].presentation));
 				row.appendChild(makeCell("td", reslist[loop].footprint));
+				row.appendChild(makeCell("td", concat(reslist[loop].notes)));
 				section.appendChild(row);
 			}
 			table.appendChild(section);			
@@ -373,14 +432,9 @@ var presentation = {
 		}
 	},
 	
-	// To be called when first share has been found to update Avg window.
-	refreshPerfHeaders : function(obj) {
-		if(obj && obj.twindow) document.getElementById("twindow").textContent = obj.twindow;
-	},
-	
 	refreshDevicePerf : function() {
 		var niceHR;
-		var names = ["min", "max", "last", "slrAvg", "slidingAvg"];
+		var names = ["min", "max", "last", "avg"];
 		for(var loop = 0; loop < server.hw.linearDevice.length; loop++) { // if not hashrate mode, just ignore
 			var check = server.hw.linearDevice[loop];
 			if(check.configIndex === undefined) continue;
@@ -449,12 +503,15 @@ var presentation = {
 		for(var loop = 0; loop < server.hw.linearDevice.length; loop++) {
 			var target = presentation.noncesCells[loop];
 			if(target === null) continue;
-			var names = ["good", "bad", "stale"];
+			var names = [ "found", "bad", "discarded", "stale" ]; // note lastResult isn't updated here!
 			for(var all = 0; all < names.length; all++) {
 				target[names[all]].textContent = obj[names[all]][loop];
 			}
+			// dsps also needs special handling
+			target["dsps"].textContent = obj["dsps"][loop].toPrecision(3);
 			var last = obj.lastResult[loop];  // seconds since epoch
-			server.hw.linearDevice[loop].lastResultSSE = last;
+			var now = Math.floor(Date.now() / 1000.0); // the clocks could be not syncronized, we could be going in the future slightly...
+			server.hw.linearDevice[loop].lastResultSSE = last < now? last : now; // .. so just lie
 		}
 	},
 	
@@ -473,24 +530,25 @@ var presentation = {
 				
 			if(server.hw.linearDevice[loop].lastResultSSE) {
 				target.firstChild.value = Math.floor(server.hw.linearDevice[loop].lastResultSSE);
-				target.firstChild.textContent = window.presentation.support.readableHHHHMMSS(Date.now() - server.hw.linearDevice[loop].lastResultSSE * 1000);
+				var elapsed = Date.now() - Math.floor(server.hw.linearDevice[loop].lastResultSSE) * 1000;
+				target.firstChild.textContent = window.presentation.support.readableHHHHMMSS(elapsed);
 			}
 		}
 	},
 	
 	refreshPoolWorkerStats: function() {
 		var accepted = 0, rejected = 0, sent = 0;
-		for(var pi in server.remote) {
-			var pool = server.remote[pi];
-			for(var w = 0; w < pool.worker.length; w++) {
-				accepted += pool.worker[w].accepted;
-				rejected += pool.worker[w].rejected;
-				sent += pool.worker[w].sent;
-			}
+		//! \todo only pool 0 supported for now, only 1 worker
+		if(server.remote[0].shares) {
+			accepted = server.remote[0].shares.accepted;
+			rejected = server.remote[0].shares.rejected;
+			sent = server.remote[0].shares.sent;
 		}
 		if(sent === 0) return;
-		var string = "" + accepted + "/" + sent + " (rejected: ";
-		string += Math.floor(rejected / sent * 1000) / 10 + "%)";
+		var string = "" + accepted + "/" + sent;
+		if(rejected) {
+			string += " (rejected: " + Math.floor(rejected / sent * 1000) / 10 + "%)";
+		}
 		document.getElementById("poolNonceStats").textContent = string;
 	},
 	
