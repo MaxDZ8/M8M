@@ -10,7 +10,7 @@
 #include <gdiplus.h>
 #include <windowsx.h>
 #include "../NotifyIconStructs.h"
-#include "../ScopedFuncCall.h"
+#include "../AREN/ScopedFuncCall.h"
 #include <mutex>
 #include <thread>
 #include <string>

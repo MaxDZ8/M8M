@@ -249,7 +249,8 @@ void FillInitialBuffer(global uchar *target, size_t extraBytes, local uint *patt
 	wait_group_events(1, &copied);
 	// Now let's reset the various nonce values. It's just easier to do that using standard writes.
 	// In theory I should do that even for remaining and extrabytes, but I don't.
-	const uchar gidByte = get_global_id(1) >> (8 * get_local_id(0));
+	const uint nonce = (uint)(get_global_id(1));
+	const uchar gidByte = nonce >> (8 * get_local_id(0));
 	target += (get_global_id(1) - get_global_offset(1)) * total;
 	for(uint out = 0; out < fullBlocks; out++) {
 		const uint off = blockLen * 4 * out + (blockLen - 1) * 4;
@@ -380,20 +381,35 @@ kernel void lastKDF_4way(volatile global uint *found, global uint *dispatchData,
 	output_to_test += outLen * slot;
 	uint remaining = KDF_SIZE - buffStart;
 	uint valid = min(remaining, outLen);
-	for(uint set = 0; set < valid; set++) {
+	for(uint set = get_local_id(0); set < valid; set += get_local_size(0)) {
 		output_to_test[set] = buff_b[set + buffStart] ^ buff_a[set];
 	}
-	for(uint set = valid; set < outLen; set++) {
+	for(uint set = valid + get_local_id(0); set < outLen; set += get_local_size(0)) {
 		uint srci = set - valid;
 		output_to_test[set] = buff_b[srci] ^ buff_a[srci + remaining];
 	}
 	barrier(CLK_GLOBAL_MEM_FENCE);
 	if(get_local_id(0) == 0) {
 		global uint *finalHash = (global uint*)output_to_test;
-		const uint target = dispatchData[1];
-		if(finalHash[7] < target) {
+        const ulong magic = upsample(finalHash[7], finalHash[6]);
+        const ulong target =  upsample(dispatchData[1], dispatchData[2]); // watch out for endianess!
+		lds[get_local_id(1)] = magic < target;
+        if(magic < target) {
 			uint storage = atomic_inc(found);
-			found[storage + 1] = as_uint(as_uchar4(get_global_id(1)).wzyx);
+			uint nonce = (uint)(get_global_id(1));
+			found[1 + storage * (outLen / 4 + 1)] = as_uint(as_uchar4(nonce).wzyx);
+			lds[get_local_size(1) + get_local_id(1)] = storage;
 		}
+	}
+	barrier(CLK_LOCAL_MEM_FENCE);
+	uint candidate = 0;
+	for(uint slot = 0; slot < get_local_size(1); slot++) candidate = slot == get_local_id(1)? lds[slot] : candidate;
+	if(candidate) { // taken from echo8W but not very efficient, would be much better to pack writes, but that rarely happens anyway!
+	    found++;
+        candidate = lds[get_local_size(1) + get_local_id(1)]; // very **likely** broadcast
+		found += candidate * 9;
+        found++; // this one is the nonce, already stored
+		global uchar *hashOut = (global uchar*)(found);
+		for(uint set = get_local_id(0); set < outLen; set += get_local_size(0)) hashOut[set] = output_to_test[set];
 	}
 }

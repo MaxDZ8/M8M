@@ -10,21 +10,28 @@ has been put in (the better HTON metod). */
 
 
 template<typename scalar>
+scalar SWAP_BYTES(scalar value) {
+	aubyte *head = reinterpret_cast<aubyte*>(&value);
+	aubyte *tail = head + sizeof(value) - 1;
+	while(head < tail) {
+		std::swap(*tail, *head);
+		tail--;
+		head++;
+	}
+	return value;
+}
+
+template<typename scalar>
 scalar HTON(const scalar v) {
 #if defined(_M_AMD64) || defined _M_IX86
-	scalar ret;
-	__int8 *dst = reinterpret_cast<__int8*>(&ret);
-	const __int8 *src = reinterpret_cast<const __int8*>(&v) + sizeof(v) - 1;
-	for(size_t cp = 0; cp < sizeof(scalar); cp++) {
-		*dst = *src;
-		dst++;
-		src--;
-	}
-	return ret;
+	return SWAP_BYTES(v);
 #else
 #error HTON requires some attention!
 #endif
 }
+
+template<typename scalar>
+scalar HTOBE(const scalar v) { return HTON(v); }
 
 
 template<typename scalar>
@@ -45,6 +52,17 @@ scalar LETOH(const scalar v) {
 #error LETOH requires some attention!
 #endif
 }
+
+
+template<typename scalar>
+scalar BETOH(const scalar v) {
+#if defined(_M_AMD64) || defined _M_IX86
+	return SWAP_BYTES(v);
+#else
+#error LETOH requires some attention!
+#endif
+}
+
 
 //namespace sharedUtils {
 

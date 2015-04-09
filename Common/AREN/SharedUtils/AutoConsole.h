@@ -15,7 +15,7 @@
 #endif
 
 #include <iostream>
-#include "../../ScopedFuncCall.h"
+#include "../../AREN/ScopedFuncCall.h"
 
 namespace sharedUtils {
 namespace system {

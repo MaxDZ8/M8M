@@ -5,7 +5,7 @@
 #pragma once
 //#include "../../AREN-base/arenDataTypes.h"
 #include "../../AREN/arenDataTypes.h"
-#include "../../ScopedFuncCall.h"
+#include "../../AREN/ScopedFuncCall.h"
 
 #ifdef _WIN32
 #include <Windows.h> // GetCommandLine and CommandLineToArgvW

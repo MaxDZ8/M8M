@@ -4,8 +4,8 @@
  */
 #pragma once
 #include "../AbstractWorkSource.h"
-#include "../../Common/Settings.h"
-#include "../../Common/ScopedFuncCall.h"
+#include "../../Common/PoolInfo.h"
+#include "../../Common/AREN/ScopedFuncCall.h"
 #include "../../Common/Stratum/parsing.h"
 #include "../../Common/BTC/Funcs.h"
 #include "../Network.h"

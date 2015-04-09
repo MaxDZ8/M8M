@@ -6,7 +6,7 @@
 
 
 #include "AREN/ArenDataTypes.h"
-#include "ScopedFuncCall.h"
+#include "AREN/ScopedFuncCall.h"
 #include <string>
 #include <memory>
 #include <thread>

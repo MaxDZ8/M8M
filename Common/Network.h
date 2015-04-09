@@ -5,7 +5,7 @@
 #pragma once
 #include "AREN/ArenDataTypes.h"
 #include <vector>
-#include "ScopedFuncCall.h"
+#include "AREN/ScopedFuncCall.h"
 #include <memory>
 #include <map>
 #include <set>
