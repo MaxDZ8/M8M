@@ -97,13 +97,6 @@ void CopyFlippingBytesTOLE(aubyte *dst, const aubyte *src) {
 #endif
 }
 
-
-/*! Build the "target string", a more accurate representation of the real 256-bit difficulty.
-In the beginning this was a LTC miner and had an hardcoded trueDiffOne multiplier of 64*1024, as LTC has.
-Now this is no more the case and the trueDiffOne multiplier must be passed from outer decisions. It does not really affect computation but
-it's part of the stratum state as it's a function of coin being mined. */
-std::array<aulong, 4> MakeTargetBits(adouble diff, adouble diffOneMul);
-
 //! This is more important than other magic numbers regarding difficulty as it's used to determine share/nonce difficulty value.
 static const adouble TRUE_DIFF_ONE = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 
@@ -113,8 +106,3 @@ adouble LEToDouble(const std::array<aulong, 4> &target);
 
 
 }
-
-
-/*! A slightly modified / simplified form of target calculation, premiered with NeoScrypt.
-It is, at its core, more or less the same thing: dividing by power-of-two so it keeps being precise on progressive divisions. */
-std::array<aulong, 4> MakeTargetBits_NeoScrypt(adouble diff, adouble diffOneMul);

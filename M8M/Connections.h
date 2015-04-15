@@ -17,15 +17,17 @@ separated in terms of responsabilities and management as it's really meant to on
 readability benefits. */
 class Connections {
 public:
-	//! \note When this is called nobody owns ownership of the work unit, which is ready to generate header but not hashed yet!
-	typedef std::function<void(AbstractWorkSource &pool, stratum::AbstractWorkUnit*)> DispatchCallback;
+	typedef std::function<void(AbstractWorkSource &pool, std::unique_ptr<stratum::AbstractWorkFactory> &newWork)> DispatchCallback;
+	typedef std::function<void(AbstractWorkSource &pool, stratum::WorkDiff &diff)> DiffChangeCallback;
 	DispatchCallback dispatchFunc;
+    DiffChangeCallback diffChangeFunc;
 
     typedef std::function<void(const AbstractWorkSource &pool)> ActivityCallback;
     ActivityCallback onPoolCommand; //!< if provided, call this every time a certain pool receives something terminated with newline, (maybe not a command in protocol sense)
 
 	Connections(Network &factory) : network(factory), addedPoolCount(0) {
-        dispatchFunc = [](AbstractWorkSource &pool, stratum::AbstractWorkUnit*) { }; // better to nop this rather than checking
+        dispatchFunc = [](AbstractWorkSource &, std::unique_ptr<stratum::AbstractWorkFactory>&) { }; // better to nop this rather than checking
+        diffChangeFunc = [](AbstractWorkSource &, stratum::WorkDiff &) { };
     }
 	~Connections() {
 		for(asizei loop = 0; loop < routes.size(); loop++) {
@@ -65,18 +67,10 @@ public:
 			if(!canRead && !canWrite) continue; // socket was not managed by me but that's fine.
 			if(canRead || canWrite) {
 				AbstractWorkSource &pool(*routes[loop].pool);
-				auto happens = pool.Refresh(canRead, canWrite);
-				switch(happens) {
-				case AbstractWorkSource::e_nop:
-				case AbstractWorkSource::e_gotRemoteInput:
-					break;
-				case AbstractWorkSource::e_newWork: dispatchFunc(pool, pool.GenWorkUnit()); break;
-				default:
-					cout<<"Unrecognized pool event: "<<happens;
-				}
-                if(happens != AbstractWorkSource::e_nop && canRead) { // maybe this should happen at every byte received instead of every command?
-                    if(onPoolCommand) onPoolCommand(pool);
-                }
+				auto happens(pool.Refresh(canRead, canWrite)); //!< \todo this was originally called at command completion... the fact bytes are sent does not mean the pool is right. Unsure which alternative is better
+                if(happens.bytesReceived && onPoolCommand) onPoolCommand(pool);
+                if(happens.diffChanged) diffChangeFunc(pool, pool.GetCurrentDiff());
+                if(happens.newWork) dispatchFunc(pool, std::unique_ptr<stratum::AbstractWorkFactory>(pool.GenWork()));
 			}
 		}
 	}

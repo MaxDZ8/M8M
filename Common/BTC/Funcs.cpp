@@ -49,44 +49,6 @@ void FlipBytesIFBE(aubyte *begin, aubyte *end) {
 }
 
 
-
-// Build the "target string"... it's a representation of difficulty, somehow
-std::array<aulong, 4> MakeTargetBits(adouble diff, adouble diffOneMul) {
-	std::array<aulong, 4> target;
-	/*
-	Ok, there's this constant, "truediffone" which is specified as a 256-bit value
-	0x00000000FFFF0000000000000000000000000000000000000000000000000000
-	              |------------------- 52 zeros --------------------|
-	So it's basically aushort(0xFFFF) << (52 * 4)
-	Or: 65535 * ... 2^208?
-	Legacy miners have those values set up, so they can go use double-float division to effectively
-	expand the bit representation and select the bits they care. By using multiple passes, they pull
-	out successive ranges of reductions. They use the following constants:
-	truediffone = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
-	bits192     = 0x0000000000000001000000000000000000000000000000000000000000000000
-	bits128     = 0x0000000000000000000000000000000100000000000000000000000000000000
-	bits64      = 0x0000000000000000000000000000000000000000000000010000000000000000
-	Because all those integers have a reduced range, they can be accurately represented by a double.
-	See diffCalc.html for a large-integer testing framework. */
-	const adouble BITS_192 = 6277101735386680763835789423207666416102355444464034512896.0;
-	const adouble BITS_128 = 340282366920938463463374607431768211456.0;
-	const adouble BITS_64 = 18446744073709551616.0;
-
-	if(diff == 0.0) diff = 1.0;
-	adouble big = (diffOneMul * TRUE_DIFF_ONE) / diff;
-	aulong toString;
-	const adouble k[4] = { BITS_192, BITS_128, BITS_64, 1 };
-	for(asizei loop = 0; loop < 4; loop++) {
-		adouble partial = big / k[loop];
-		toString = aulong(partial);
-		target[4 - loop - 1] = HTOLE(toString);
-		partial = toString * k[loop];
-		big -= partial;
-	}	
-	return target;
-}
-
-
 adouble LEToDouble(const std::array<aulong, 4> &target) {
 	const adouble TRUE_DIFF_ONE = 26959535291011309493156476344723991336010898738574164086137773096960.0;
 	const adouble BITS_192 = 6277101735386680763835789423207666416102355444464034512896.0;
@@ -103,24 +65,4 @@ adouble LEToDouble(const std::array<aulong, 4> &target) {
 }
 
 
-}
-
-
-std::array<aulong, 4> MakeTargetBits_NeoScrypt(adouble diff, adouble diffOneMul) {
-	diff /=	double(1ull << 16);
-	auint div = 6;
-	while(div <= 6 && diff > 1.0) {
-		diff /= double(1ull << 32);
-		div--;
-	}
-	const aulong slice = aulong(double(0xFFFF0000) * diffOneMul / diff);
-	std::array<aulong, 4> ret;
-	bool allSet = slice == 0 && div == 6;
-	memset(ret.data(), allSet? 0xFF : 0x00, sizeof(ret));
-	if(!allSet) {
-		auint *dwords = reinterpret_cast<auint*>(ret.data());
-		dwords[div] = auint(slice);
-		dwords[div + 1] = auint(slice >> 32);
-	}
-	return ret;
 }

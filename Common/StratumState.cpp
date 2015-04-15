@@ -39,8 +39,8 @@ void StratumState::PushResponse(const string &serverid, const string &pairs) {
 }
 
 
-StratumState::StratumState(const char *presentation, const PoolInfo::DiffMultipliers &muls, PoolInfo::MerkleMode mm)
-	: nextRequestID(1), difficulty(16.0), nameVer(presentation), merkleOffset(0), diffMul(muls), merkleMode(mm), errorCount(0), diffMode(PoolInfo::dm_btc) {
+StratumState::StratumState(const char *presentation, const PoolInfo::DiffMultipliers &muls)
+	: nextRequestID(1), difficulty(16.0), nameVer(presentation), diffMul(muls), errorCount(0), diffMode(PoolInfo::dm_btc) {
 	dataTimestamp = 0;
 	size_t used = PushMethod("mining.subscribe", KeyValue("params", "[]", false));
 	ScopedFuncCall pop([this]() { this->pending.pop(); });
@@ -49,39 +49,21 @@ StratumState::StratumState(const char *presentation, const PoolInfo::DiffMultipl
 }
 
 
-stratum::AbstractWorkUnit* StratumState::GenWorkUnit() const {
-	// First step is to generate the coin base, which is a function of the nonce and the block.
-	const auint nonce2 = 0; // not really used anymore. We always generate starting from (0,0) now.
-	if(sizeof(nonce2) != subscription.extraNonceTwoSZ)  throw std::exception("nonce2 size mismatch");
-	if(difficulty <= 0.0) throw std::exception("I need to check out this to work with diff 0");
-	
-	// The difficulty parameter here should always be non-zero. In some other cases instead it will be 0, 
-	// in that case, produce the difficulty value by the work target string. We check it above anyway but worth a note.
-	const adouble target = difficulty * diffMul.stratum;
-	std::array<aulong, 4> targetBits(diffMode == PoolInfo::dm_btc? btc::MakeTargetBits(target, diffMul.one) : MakeTargetBits_NeoScrypt(target, diffMul.one));
-	stratum::WUJobInfo wuJob(subscription.extraNonceOne, block.job);
-	stratum::WUDifficulty wuDiff(target, targetBits);
-	std::unique_ptr<stratum::AbstractWorkUnit> retwu;
-	switch(merkleMode) {
-	case PoolInfo::mm_SHA256D: retwu.reset(new stratum::DoubleSHA2WorkUnit(wuJob, block.ntime, wuDiff, blankHeader)); break;
-	case PoolInfo::mm_singleSHA256: retwu.reset(new stratum::SingleSHA2WorkUnit(wuJob, block.ntime, wuDiff, blankHeader)); break;
-	default:
-		throw std::exception("Code out of sync. Unknown merkle mode.");
-	}
-	const asizei takes = block.coinBaseOne.size() + subscription.extraNonceOne.size() + subscription.extraNonceTwoSZ + block.coinBaseTwo.size();
-	retwu->coinbase.binary.resize(takes);
-	asizei off = 0;
-	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, block.coinBaseOne.data(), block.coinBaseOne.size());						off += block.coinBaseOne.size();
-	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, subscription.extraNonceOne.data(), subscription.extraNonceOne.size());	off += subscription.extraNonceOne.size();
-	retwu->coinbase.nonceTwoOff = off;
-	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, &nonce2, sizeof(nonce2));												off += sizeof(nonce2);
-	memcpy_s(retwu->coinbase.binary.data() + off, takes - off, block.coinBaseTwo.data(), block.coinBaseTwo.size());
-
-	retwu->coinbase.merkles.resize(block.merkles.size());
-	for(asizei cp = 0; cp < block.merkles.size(); cp++) retwu->coinbase.merkles[cp] = block.merkles[cp];
-	retwu->coinbase.merkleOff = merkleOffset;
-	retwu->restart = block.clear;
-	return retwu.release();
+stratum::WorkDiff StratumState::GetCurrentDiff() const {
+    stratum::WorkDiff result;
+    if(difficulty > 0.0) {
+        result.shareDiff = difficulty * diffMul.stratum;
+        switch(diffMode) {
+        case::PoolInfo::dm_btc:
+            result.target = MakeTargetBits_BTC(result.shareDiff, diffMul.one);
+            break;
+        case::PoolInfo::dm_neoScrypt: 
+            result.target = MakeTargetBits_NeoScrypt(result.shareDiff, diffMul.one);
+            break;
+        default: throw std::exception("Impossible, forgot to update code for target bits generation maybe!");
+        }
+    }
+    return result;
 }
 
 
@@ -187,32 +169,7 @@ void StratumState::Response(asizei id, const stratum::MiningSubmitResponse &msg)
 
 
 void StratumState::Notify(const stratum::MiningNotify &msg) {
-	/* Given stratum data, block header can be generated locally.
-	, = concatenate
-	header = blockVer,prevHash,BLANK_MERKLE,ntime,nbits,BLANK_NONCE,WORK_PADDING
-	Legacy miners do that in hex while I do it in binary, so the sizes are going to be cut in half.
-	I also use fixed size for the previous hash (appears guaranteed by BTC protocol), ntime and nbits
-	(not sure about those) so work is quite easier.
-	BLANK_MERKLE is a sequence of 32 int8(0).
-	BLANK_NONCE is int32(0)
-	With padding, total size is currently going to be (68+12)+48=128 */
-	const std::string PADDING_HEX("000000800000000000000000000000000000000000000000000000000000000000000000000000000000000080020000");
-	std::array<unsigned __int8, 48> workPadding;
-	stratum::parsing::AbstractParser::DecodeHEX(workPadding, PADDING_HEX);
-	const auint clearNonce = 0;
-	const size_t sz = sizeof(msg.blockVer) + sizeof(msg.prevHash) + 32 +
-		              sizeof(msg.ntime) + sizeof(msg.nbits) + sizeof(clearNonce) + 
-					  sizeof(workPadding);
-	std::array<aubyte, 128> newHeader;
-	if(sz != newHeader.size() || newHeader.size() != blankHeader.size()) throw std::exception("Incoherent source, block header size != 128B");
-	DestinationStream dst(newHeader.data(), sizeof(newHeader));
-	dst<<msg.blockVer<<msg.prevHash;
-	merkleOffset = 4 + msg.prevHash.size();
-	for(size_t loop = 0; loop < 32; loop++) dst<<aubyte(0);
-	dst<<msg.ntime<<msg.nbits<<clearNonce<<workPadding;
-
 	block = msg;
-	blankHeader = newHeader;
 	dataTimestamp = time(NULL);
 }
 
@@ -223,4 +180,60 @@ void StratumState::RequestReplyReceived(asizei id, bool error) {
 		ScopedFuncCall inc([this]() { this->errorCount++; });
 		if(std::string(Response(id)) == "mining.submit") Response(id, stratum::MiningSubmitResponse(false));
 	}
+}
+
+
+std::array<aulong, 4> StratumState::MakeTargetBits_BTC(adouble diff, adouble diffOneMul) {
+	std::array<aulong, 4> target;
+	/*
+	Ok, there's this constant, "truediffone" which is specified as a 256-bit value
+	0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	              |------------------- 52 zeros --------------------|
+	So it's basically aushort(0xFFFF) << (52 * 4)
+	Or: 65535 * ... 2^208?
+	Legacy miners have those values set up, so they can go use double-float division to effectively
+	expand the bit representation and select the bits they care. By using multiple passes, they pull
+	out successive ranges of reductions. They use the following constants:
+	truediffone = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	bits192     = 0x0000000000000001000000000000000000000000000000000000000000000000
+	bits128     = 0x0000000000000000000000000000000100000000000000000000000000000000
+	bits64      = 0x0000000000000000000000000000000000000000000000010000000000000000
+	Because all those integers have a reduced range, they can be accurately represented by a double.
+	See diffCalc.html for a large-integer testing framework. */
+	const adouble BITS_192 = 6277101735386680763835789423207666416102355444464034512896.0;
+	const adouble BITS_128 = 340282366920938463463374607431768211456.0;
+	const adouble BITS_64 = 18446744073709551616.0;
+
+	if(diff == 0.0) diff = 1.0;
+	adouble big = (diffOneMul * btc::TRUE_DIFF_ONE) / diff;
+	aulong toString;
+	const adouble k[4] = { BITS_192, BITS_128, BITS_64, 1 };
+	for(asizei loop = 0; loop < 4; loop++) {
+		adouble partial = big / k[loop];
+		toString = aulong(partial);
+		target[4 - loop - 1] = HTOLE(toString);
+		partial = toString * k[loop];
+		big -= partial;
+	}	
+	return target;
+}
+
+
+std::array<aulong, 4> StratumState::MakeTargetBits_NeoScrypt(adouble diff, adouble diffOneMul) {
+	diff /=	double(1ull << 16);
+	auint div = 6;
+	while(div <= 6 && diff > 1.0) {
+		diff /= double(1ull << 32);
+		div--;
+	}
+	const aulong slice = aulong(double(0xFFFF0000) * diffOneMul / diff);
+	std::array<aulong, 4> ret;
+	bool allSet = slice == 0 && div == 6;
+	memset(ret.data(), allSet? 0xFF : 0x00, sizeof(ret));
+	if(!allSet) {
+		auint *dwords = reinterpret_cast<auint*>(ret.data());
+		dwords[div] = auint(slice);
+		dwords[div + 1] = auint(slice >> 32);
+	}
+	return ret;
 }

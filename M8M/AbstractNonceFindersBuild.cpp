@@ -39,17 +39,32 @@ std::vector<std::string> AbstractNonceFindersBuild::Init(const std::string &load
 }
 
 
-bool AbstractNonceFindersBuild::RefreshBlockData(const NonceOriginIdentifier &from, std::unique_ptr<stratum::AbstractWorkUnit> &wu) {
+bool AbstractNonceFindersBuild::SetDifficulty(const AbstractWorkSource &from, const stratum::WorkDiff &diff) {
     std::unique_lock<std::mutex> lock(guard);
     for(auto &el : owners) {
-        if(el.owner == from.owner) {
-            el.wu = std::move(wu);
-            el.updated = true;
+        if(el.owner == &from) {
+            el.workDiff = diff;
+            el.updated.diff = true;
             return true;
         }
     }
     return false;
 }
+
+
+bool AbstractNonceFindersBuild::SetWorkFactory(const AbstractWorkSource &from, std::unique_ptr<stratum::AbstractWorkFactory> &factory) {
+    std::unique_lock<std::mutex> lock(guard);
+    for(auto &el : owners) {
+        if(el.owner == &from) {
+            if(el.factory && factory->restart == false) factory->Continuing(*el.factory);
+            el.factory = std::move(factory);
+            el.updated.work = true;
+            return true;
+        }
+    }
+    return false;
+}
+
 
 bool AbstractNonceFindersBuild::ResultsFound(NonceOriginIdentifier &src, VerifiedNonces &nonces) {
     std::unique_lock<std::mutex> lock(guard);
@@ -79,10 +94,10 @@ AbstractNonceFindersBuild::NonceValidation AbstractNonceFindersBuild::Feed(StopW
     std::unique_lock<std::mutex> lock(guard);
     //! For the time being, just pull work from the first pool having work.
     asizei something = 0;
-    while(!owners[something].wu) something++;
+    while(!owners[something].factory) something++;
 
     // this always finds something as always called AFTER GottaWork.
-    auto valinfo(Dispatch(dst, *owners[something].wu, owners[something].owner));
+    auto valinfo(Dispatch(dst, owners[something].workDiff, *owners[something].factory, owners[something].owner));
     dst.algo.Restart();
     asizei slot;
     for(slot = 0; slot < algo.size(); slot++) {
@@ -96,18 +111,23 @@ AbstractNonceFindersBuild::NonceValidation AbstractNonceFindersBuild::Feed(StopW
 void AbstractNonceFindersBuild::UpdateDispatchers(std::vector<NonceValidation> &flying) {
     std::unique_lock<std::mutex> lock(guard);
     for(asizei loop = 0; loop < algo.size(); loop++) {
-        if(mangling[loop] == nullptr) continue;
-        if(mangling[loop]->updated == false) continue;
-        if(mangling[loop]->wu.get() == nullptr) {
-            // In theory I should stop the algorithm somehow but in practice this should never happen so
-            throw "Attempting to map an empty WU to a dispatcher. Something has gone awry.";
+        auto *el = mangling[loop];
+        if(el == nullptr) continue;
+        if(el->updated.work) {
+            if(!el->factory) {
+                // In theory I should stop the algorithm somehow but in practice this should never happen so
+                throw "Attempting to map an empty WU to a dispatcher. Something has gone awry.";
+            };
+            flying.reserve(flying.size() + 1);
+            auto valinfo(Dispatch(*algo[loop], el->workDiff, *el->factory, el->owner));
+            flying.push_back(valinfo);
+            el->updated.work = false;
         }
-        flying.reserve(flying.size() + 1);
-        auto valinfo(Dispatch(*algo[loop], *mangling[loop]->wu, mangling[loop]->owner));
-        if(mangling[loop]->wu->restart) algo[loop]->algo.Restart();
-        flying.push_back(valinfo);
+        else if(el->updated.diff) { // do this after work, as Dispatch already takes care of re-setting it.
+            algo[loop]->TargetBits(el->workDiff.target[3]);
+            el->updated.diff = false;
+        }
     }
-    for(auto &el : owners) el.updated = false;
 }
 
 
@@ -115,7 +135,7 @@ bool AbstractNonceFindersBuild::IsCurrent(const NonceOriginIdentifier &what) con
     std::unique_lock<std::mutex> lock(guard);
     for(const auto &test : owners) {
         if(test.owner == what.owner) {
-            if(test.wu) return test.wu->job == what.job;
+            if(test.factory) return test.factory->job == what.job;
             return false; // Impossible, if here.
         }
     }
@@ -125,7 +145,7 @@ bool AbstractNonceFindersBuild::IsCurrent(const NonceOriginIdentifier &what) con
 bool AbstractNonceFindersBuild::GottaWork() const {
     std::unique_lock<std::mutex> lock(guard);
     asizei count = 0;
-    for(auto &el : owners) if(el.wu) count++;
+    for(auto &el : owners) if(el.factory) count++;
     return count != 0;
 }
 
@@ -142,20 +162,17 @@ void AbstractNonceFindersBuild::AbnormalTerminationSignal(const char *msg) {
 }
 
 
-AbstractNonceFindersBuild::NonceValidation AbstractNonceFindersBuild::Dispatch(StopWaitDispatcher &target, stratum::AbstractWorkUnit &wu, const void *owner) {
-    wu.MakeNoncedHeader(target.algo.BigEndian() == false); // ugly copypasta from Feed
-    adouble netDiff = .0;
-    if(wu.nonce2 == 0) netDiff = wu.ExtractNetworkDiff(target.algo.BigEndian() == false, target.algo.GetDifficultyNumerator());
-    netDiff = wu.networkDiff;
-    wu.nonce2++;
+AbstractNonceFindersBuild::NonceValidation AbstractNonceFindersBuild::Dispatch(StopWaitDispatcher &target, const stratum::WorkDiff &diff, stratum::AbstractWorkFactory &factory, const void *owner) {
+    auto work(factory.MakeNoncedHeader(target.algo.BigEndian() == false, target.algo.GetDifficultyNumerator()));
+    adouble netDiff = factory.GetNetworkDiff();
 
     std::array<aubyte, 80> header;
-    for(asizei cp = 0; cp < header.size(); cp++) header[cp] = wu.header[cp];
+    for(asizei cp = 0; cp < header.size(); cp++) header[cp] = work.header[cp];
+    target.algo.Restart();
     target.BlockHeader(header);
 
-    const aubyte *blob = reinterpret_cast<const aubyte*>(wu.target.data());
-	const aulong targetBits = *reinterpret_cast<const aulong*>(blob + 24);
-    target.TargetBits(targetBits);
+    target.TargetBits(diff.target[3]);
+    //! \todo this function should take care of new work only and leave targetbits independant
 
-    return { NonceOriginIdentifier(owner, wu.job), netDiff, wu.shareDiff, wu.nonce2 - 1, header };
+    return { NonceOriginIdentifier(owner, work.job), netDiff, diff.shareDiff, work.nonce2, header };
 }

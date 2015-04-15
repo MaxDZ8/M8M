@@ -469,11 +469,12 @@ int main(int argc, char **argv) {
 			        notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
                 }
 		    });
-		    remote.dispatchFunc = [&miner](AbstractWorkSource &pool, stratum::AbstractWorkUnit *wu) {
-			    std::unique_ptr<stratum::AbstractWorkUnit> own(wu);
-                NonceOriginIdentifier who(&pool, own->job);
-			    if(miner) miner->RefreshBlockData(who, own);
-                //! It is fine for the miner to not be there. Still connect so the pool can signal me as non-working.
+		    remote.dispatchFunc = [&miner](AbstractWorkSource &pool, std::unique_ptr<stratum::AbstractWorkFactory> &newWork) {
+			    if(miner) miner->SetWorkFactory(pool, newWork);
+                // It is fine for the miner to not be there. Still connect so the pool can signal me as non-working.
+		    };
+            remote.diffChangeFunc = [&miner](AbstractWorkSource &pool, stratum::WorkDiff &diff) {
+			    if(miner) miner->SetDifficulty(pool, diff);
 		    };
             for(asizei index = 0; index < remote.GetNumServers(); index++) {
                 remote.GetServer(index).shareResponseCallback = [index, &sentShares, &stats](const AbstractWorkSource &me, asizei shareID, StratumShareResponse stat) {

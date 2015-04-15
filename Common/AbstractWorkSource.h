@@ -3,13 +3,13 @@
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
 #pragma once
-#include "../Common/Stratum/AbstractWorkUnit.h"
 #include "../Common/StratumState.h"
 #include <memory>
 #include <map>
 #include <time.h>
 #include <rapidjson/document.h>
 #include "../Common/AREN/ArenDataTypes.h"
+#include "Stratum/Work.h"
 
 
 using std::string;
@@ -23,13 +23,15 @@ class AbstractWorkSource {
 public:
 	const std::string algo;
 	const std::string name;
-	enum Event {
-		e_nop,
-		e_gotRemoteInput,
-		e_newWork
-	};
+    const PoolInfo::MerkleMode merkleMode;
 	
 	std::function<void(const AbstractWorkSource &me, asizei id, StratumShareResponse shareStatus)> shareResponseCallback;
+
+    struct Events {
+        bool diffChanged = false;
+        bool newWork = false;
+        asizei bytesReceived = 0;
+    };
 
 	/*! Stratum pools are based on message passing. Every time we can, we must mangle input from the server,
 	process it to produce output and act accordingly. The input task is the act of listening to the remote server
@@ -38,8 +40,9 @@ public:
 	are then dispatched to Mangle calls. This call processes the input and runs the Mangle calls.
 	\param canRead true if the network layer detected bytes to be received without blocking.
 	\param canWrite true if the network layer can dispatch bytes to be sent without blocking.
-	\note Because Send and Receive are supposed to be nonblocking anyway parameters are somewhat redundant.*/
-	virtual Event Refresh(bool canRead, bool canWrite);
+	\note Because Send and Receive are supposed to be nonblocking anyway parameters are somewhat redundant.
+    \return .first is true if difficulty has been updated, .second is true if block data is updated. */
+	Events Refresh(bool canRead, bool canWrite);
 
     /*! Returns a non-zero ntime value if the job is considered "current". If not, the job is considered "stale" and you might
     consider dropping the shares, or perhaps not. In practice, unless the outer code keeps some ntime around (for example by rolling)
@@ -52,7 +55,8 @@ public:
 		return stratum.SendWork(job, ntime, nonce2, nonce);
 	}
 
-	stratum::AbstractWorkUnit* GenWorkUnit() { return stratum.GenWorkUnit(); }
+	stratum::AbstractWorkFactory* GenWork() const;
+    stratum::WorkDiff GetCurrentDiff() const { return stratum.GetCurrentDiff(); }
 
 	//! Apparently stratum supports unsubscribing, but I cannot found the documentation right now.
 	virtual void Shutdown() { }
@@ -120,4 +124,20 @@ private:
 	} recvBuffer;
 	// Iterating on nonces is fully miner's responsability now. We only tell it if it can go on or not.
 	//auint nonce2;
+
+    class BuildingWorkFactory : public stratum::AbstractWorkFactory {
+    public:
+        BuildingWorkFactory(bool restartWork, auint networkTime, const CBHashFunc cbmode, const std::string &poolJob)
+            : AbstractWorkFactory(restartWork, networkTime, cbmode, poolJob) { }
+        void SetBlankHeader(const std::array<aubyte, 128> &blank) { blankHeader = blank; }
+        void SetCoinbase(std::vector<aubyte> &binary, asizei n2off) {
+            coinbase = std::move(binary);
+            nonceTwoOff = n2off;
+        }
+        void SetMerkles(const std::vector<btc::MerkleRoot> &merkles, asizei offset) {
+            merkleOff = offset;
+            this->merkles.resize(merkles.size());
+            for(asizei cp = 0; cp < merkles.size(); cp++) this->merkles[cp] = merkles[cp].hash;
+        }
+    };
 };

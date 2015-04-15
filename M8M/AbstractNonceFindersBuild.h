@@ -42,7 +42,9 @@ public:
     //! Initiate async processing on another thread.
     virtual void Start() = 0;
 
-    bool RefreshBlockData(const NonceOriginIdentifier &from, std::unique_ptr<stratum::AbstractWorkUnit> &wu);
+    bool SetDifficulty(const AbstractWorkSource &from, const stratum::WorkDiff &diff);
+    bool SetWorkFactory(const AbstractWorkSource &from, std::unique_ptr<stratum::AbstractWorkFactory> &factory);
+
     bool ResultsFound(NonceOriginIdentifier &src, VerifiedNonces &nonces);
     Status TestStatus();
 
@@ -99,22 +101,28 @@ protected:
     struct CurrentWork {
         const void *owner;
         PoolInfo::DiffMultipliers diffMul;
-        std::unique_ptr<stratum::AbstractWorkUnit> wu;
-        bool updated = false; //!< set to true if the wu parameter has been changed by RefreshBlockData().
+        stratum::WorkDiff workDiff;
+        std::unique_ptr<stratum::AbstractWorkFactory> factory;
+        struct {
+            bool work = false;
+            bool diff = false;
+        } updated;
         CurrentWork(PoolInfo::DiffMultipliers multipliers) : diffMul(multipliers) { }
         CurrentWork(const CurrentWork &nope) = delete;
         //CurrentWork(CurrentWork &&origin) = default; // not supported in VC2013
         CurrentWork(CurrentWork &&origin) {
             owner = origin.owner;
             diffMul = origin.diffMul;
-            wu.reset(wu.release());
+            workDiff = origin.workDiff;
+            factory.reset(origin.factory.release());
+            updated = origin.updated;
         }
     };
     std::vector<CurrentWork> owners;
 
     //! Note this is not protected as it's really meant to be touched before the other thread is spawned or after it has been shut down and joined.
     std::vector< std::unique_ptr<StopWaitDispatcher> > algo;
-    std::vector<const CurrentWork*> mangling;
+    std::vector<CurrentWork*> mangling;
 
     mutable std::mutex guard;
     Status status = s_created;
@@ -127,5 +135,5 @@ private:
     // The thread does not belong here! It is created in derived class to ensure it's destroyed at the right time.
     //std::unique_ptr<std::thread> pumper;
 
-    static NonceValidation Dispatch(StopWaitDispatcher &target, stratum::AbstractWorkUnit &wu, const void *owner);
+    static NonceValidation Dispatch(StopWaitDispatcher &target, const stratum::WorkDiff &diff, stratum::AbstractWorkFactory &factory, const void *owner);
 };
