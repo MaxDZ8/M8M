@@ -15,7 +15,7 @@ struct MiniServers {
 #if defined (_DEBUG)
         const wchar_t *pathToWebApps = L".." DIR_SEPARATOR L"web" DIR_SEPARATOR;
 #else
-        const std::wstring pathToWebApps = "";
+        const std::wstring pathToWebApps = L"";
 #endif
 	    monitor.connectClicked = [pathToWebApps]() { 
             const std::wstring webMonitorPath(pathToWebApps + std::wstring(L"monitor_localhost.html"));

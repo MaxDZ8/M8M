@@ -274,26 +274,22 @@ asizei WindowsNetwork::SleepOn(std::vector<SocketInterface*> &read, std::vector<
 		// if here, connection completed, move it to estabilished connections, but only if an active socket
 		// is really found - we might have been awakened due to timeout or another socket!
 		// We must also take care of the failing possibilities.
-		asizei failed = 0;
 		for(asizei loop = 0; loop < pending->second->candidates.size(); loop++) {
-			if(pending->second->candidates[loop] == INVALID_SOCKET) failed++;
-			else if(FD_ISSET(pending->second->candidates[loop], &failures)) {
+			if(FD_ISSET(pending->second->candidates[loop], &failures)) {
 				closesocket(pending->second->candidates[loop]);
-				pending->second->candidates[loop] = INVALID_SOCKET;
-				failed++;
+                auto entry(pending->second->candidates.begin() + loop);
+				pending->second->candidates.erase(entry);
+                loop--;
 			}
 		}
-		if(failed) {
-			if(failed == pending->second->candidates.size()) { // will never finish connecting
-				el->second->failed = true;
-				delete pending->second;
-				connecting.erase(pending);
-			}
+		if(pending->second->candidates.empty()) { // will never finish connecting
+			delete pending->second;
+            connecting.erase(pending);
+            el->second->failed = true;
 			return true;
 		}
 
 		for(asizei loop = 0; loop < pending->second->candidates.size(); loop++) {
-			if(pending->second->candidates[loop] == INVALID_SOCKET) continue;
 			if(FD_ISSET(pending->second->candidates[loop], &search)) {
 				el->second->socket = pending->second->candidates[loop];
 				delete pending->second;
