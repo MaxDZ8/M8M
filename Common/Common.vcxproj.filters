@@ -8,7 +8,6 @@
     <ClInclude Include="NotifyIcon.h" />
     <ClInclude Include="NotifyIconEventCollector.h" />
     <ClInclude Include="NotifyIconStructs.h" />
-    <ClInclude Include="ScopedFuncCall.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="StratumState.h" />
     <ClInclude Include="hashing.h" />
@@ -26,12 +25,6 @@
     </ClInclude>
     <ClInclude Include="WebSocket\HandShaker.h">
       <Filter>WebSocket</Filter>
-    </ClInclude>
-    <ClInclude Include="Stratum\AbstractWorkUnit.h">
-      <Filter>Stratum</Filter>
-    </ClInclude>
-    <ClInclude Include="Stratum\BTCLikeWorkUnit.h">
-      <Filter>Stratum</Filter>
     </ClInclude>
     <ClInclude Include="Stratum\messages.h">
       <Filter>Stratum</Filter>
@@ -60,6 +53,16 @@
     <ClInclude Include="AREN\SharedUtils\AutoConsole.h">
       <Filter>AREN\SharedUtils</Filter>
     </ClInclude>
+    <ClInclude Include="AREN\ScopedFuncCall.h">
+      <Filter>AREN</Filter>
+    </ClInclude>
+    <ClInclude Include="AREN\SharedUtils\AutoCommandLine.h">
+      <Filter>AREN\SharedUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="Stratum\Work.h">
+      <Filter>Stratum</Filter>
+    </ClInclude>
+    <ClInclude Include="PoolInfo.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="aes.cpp" />

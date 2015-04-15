@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="BlockVerifierInterface.h" />
+    <ClInclude Include="bv\Fresh.h">
+      <Filter>bv</Filter>
+    </ClInclude>
+    <ClInclude Include="bv\MyriadGroestl.h">
+      <Filter>bv</Filter>
+    </ClInclude>
+    <ClInclude Include="bv\Neoscrypt.h">
+      <Filter>bv</Filter>
+    </ClInclude>
+    <ClInclude Include="bv\Qubit.h">
+      <Filter>bv</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="bv">
+      <UniqueIdentifier>{237346f0-b83c-429a-9bb5-f54dda1e831e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="bv\Neoscrypt.cpp">
+      <Filter>bv</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

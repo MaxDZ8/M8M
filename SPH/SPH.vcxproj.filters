@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="echo.c" />
+    <ClCompile Include="groestl.c" />
+    <ClCompile Include="luffa.c" />
+    <ClCompile Include="sha2.c" />
+    <ClCompile Include="shavite.c" />
+    <ClCompile Include="simd.c" />
+    <ClCompile Include="blake.c" />
+    <ClCompile Include="cubehash.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="sph_echo.h" />
+    <ClInclude Include="sph_groestl.h" />
+    <ClInclude Include="sph_luffa.h" />
+    <ClInclude Include="sph_sha2.h" />
+    <ClInclude Include="sph_shavite.h" />
+    <ClInclude Include="sph_simd.h" />
+    <ClInclude Include="sph_types.h" />
+    <ClInclude Include="sph_blake.h" />
+    <ClInclude Include="sph_cubehash.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="SPH_LICENSE.txt" />
+  </ItemGroup>
+</Project>

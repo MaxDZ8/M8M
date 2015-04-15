@@ -257,6 +257,18 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>OpenCL.lib;Ws2_32.lib;Gdiplus.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>mkdir $(SolutionDir)deploy
+mkdir $(SolutionDir)deploy\M8M
+copy $(TargetPath) $(SolutionDir)deploy\M8M\
+mkdir $(SolutionDir)deploy\M8M\kernels
+xcopy $(ProjectDir)kernels\*.* $(SolutionDir)deploy\M8M\kernels
+xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist $(SolutionDir)deploy rd /S /Q $(SolutionDir)deploy
+</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Console|Win32'">
     <ClCompile>
@@ -297,29 +309,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="AbstractWSServer.cpp" />
-    <ClCompile Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.cpp" />
-    <ClCompile Include="AlgoFactories\Implementations\GRSMYRMonolithicOpenCL12.cpp" />
-    <ClCompile Include="AlgoFactories\Implementations\NeoScryptOpenCL12.cpp" />
-    <ClCompile Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.cpp" />
-    <ClCompile Include="M8M.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="AbstractAlgoImplementation.h" />
-    <ClInclude Include="AbstractMiner.h" />
-    <ClInclude Include="AbstractThreadedMiner.h" />
+    <ClInclude Include="AbstractAlgorithm.h" />
+    <ClInclude Include="AbstractNonceFindersBuild.h" />
+    <ClInclude Include="AbstractSpecialValuesProvider.h" />
     <ClInclude Include="AbstractWSServer.h" />
-    <ClInclude Include="AlgoFactories\AbstractCLAlgoImplementation.h" />
-    <ClInclude Include="AlgoFactories\FreshCL12.h" />
-    <ClInclude Include="AlgoFactories\grsmyrCL12.h" />
-    <ClInclude Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.h" />
-    <ClInclude Include="AlgoFactories\Implementations\grsmyrMonolithicOpenCL12.h" />
-    <ClInclude Include="AlgoFactories\Implementations\NeoScryptMultistepOpenCL12.h" />
-    <ClInclude Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.h" />
-    <ClInclude Include="AlgoFactories\NeoScryptCL12.h" />
-    <ClInclude Include="AlgoFactories\QubitCL12.h" />
-    <ClInclude Include="AlgoFamily.h" />
-    <ClInclude Include="AlgoImplementationInterface.h" />
+    <ClInclude Include="AlgoImplementations\FreshWarmCL12.h" />
+    <ClInclude Include="AlgoImplementations\MYRGRSMonolithicCL12.h" />
+    <ClInclude Include="AlgoImplementations\NeoscryptSmoothCL12.h" />
+    <ClInclude Include="AlgoImplementations\QubitFiveStepsCL12.h" />
+    <ClInclude Include="AlgoMiner.h" />
+    <ClInclude Include="clAlgoFactories.h" />
+    <ClInclude Include="CLEventGuardian.h" />
+    <ClInclude Include="cmdHubs.h" />
     <ClInclude Include="commands\AbstractCommand.h" />
     <ClInclude Include="commands\AbstractStreamingCommand.h" />
     <ClInclude Include="commands\Admin\ConfigFileCMD.h" />
@@ -344,17 +345,30 @@
     <ClInclude Include="commands\VersionCMD.h" />
     <ClInclude Include="Connections.h" />
     <ClInclude Include="IconCompositer.h" />
+    <ClInclude Include="KnownConstantsProvider.h" />
     <ClInclude Include="KnownHardware.h" />
     <ClInclude Include="M8MIcon.h" />
-    <ClInclude Include="MinerInterface.h" />
+    <ClInclude Include="mainHelpers.h" />
+    <ClInclude Include="MiningPerformanceWatcher.h" />
+    <ClInclude Include="NonceFindersInterface.h" />
+    <ClInclude Include="NonceStructs.h" />
     <ClInclude Include="OpenCL12Wrapper.h" />
+    <ClInclude Include="ProcessingNodesFactory.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="TimedValueStream.h" />
+    <ClInclude Include="StartParams.h" />
+    <ClInclude Include="StopWaitDispatcher.h" />
+    <ClInclude Include="ThreadedNonceFinders.h" />
     <ClInclude Include="WebMonitorTracker.h" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BlockVerifiers\BlockVerifiers.vcxproj">
+      <Project>{df8648a0-11a2-47b0-922f-b354532b55c5}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\Common\Common.vcxproj">
       <Project>{fb7e3ab9-a157-4f2b-b3fe-11e3643dc873}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\SPH\SPH.vcxproj">
+      <Project>{aef3c653-69d6-45d9-b3e9-d23596458d83}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -362,6 +376,13 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\linkIcon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AbstractAlgorithm.cpp" />
+    <ClCompile Include="AbstractNonceFindersBuild.cpp" />
+    <ClCompile Include="AbstractWSServer.cpp" />
+    <ClCompile Include="M8M.cpp" />
+    <ClCompile Include="ProcessingNodesFactory.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

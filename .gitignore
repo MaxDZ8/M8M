@@ -11,3 +11,5 @@ x64/Debug/*.*
 x64/Release/*.*
 M8M/Resource.aps
 SPH/x64/*
+BlockVerifiers/x64/
+M8M.opensdf

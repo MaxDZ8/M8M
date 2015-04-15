@@ -22,7 +22,9 @@
     <ClInclude Include="AbstractWorkSource.h" />
     <ClInclude Include="aes.h" />
     <ClInclude Include="AREN\ArenDataTypes.h" />
+    <ClInclude Include="AREN\ScopedFuncCall.h" />
     <ClInclude Include="AREN\SerializationBuffers.h" />
+    <ClInclude Include="AREN\SharedUtils\AutoCommandLine.h" />
     <ClInclude Include="AREN\SharedUtils\AutoConsole.h" />
     <ClInclude Include="AREN\SharedUtils\OSUniqueChecker.h" />
     <ClInclude Include="BTC\Funcs.h" />
@@ -33,14 +35,13 @@
     <ClInclude Include="NotifyIcon.h" />
     <ClInclude Include="NotifyIconEventCollector.h" />
     <ClInclude Include="NotifyIconStructs.h" />
-    <ClInclude Include="ScopedFuncCall.h" />
+    <ClInclude Include="PoolInfo.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="SourcePolicies\FirstPoolWorkSource.h" />
     <ClInclude Include="StratumState.h" />
-    <ClInclude Include="Stratum\AbstractWorkUnit.h" />
-    <ClInclude Include="Stratum\BTCLikeWorkUnit.h" />
     <ClInclude Include="Stratum\messages.h" />
     <ClInclude Include="Stratum\parsing.h" />
+    <ClInclude Include="Stratum\Work.h" />
     <ClInclude Include="WebSocket\Connection.h" />
     <ClInclude Include="WebSocket\ControlFramer.h" />
     <ClInclude Include="WebSocket\Framer.h" />

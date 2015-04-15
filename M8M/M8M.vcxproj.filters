@@ -19,52 +19,17 @@
     <Filter Include="Header Files\Commands\Monitor">
       <UniqueIdentifier>{9027c23b-f23d-4e55-8f9b-1b8253c2cb3c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\AlgoFactories">
-      <UniqueIdentifier>{10749c18-2b41-4e69-8643-1b363bcac4cc}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\AlgoFactories\Implementations">
-      <UniqueIdentifier>{834defda-5e60-45ee-a60b-676b02ffdc02}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\AlgoFactories">
-      <UniqueIdentifier>{2b59cc02-982c-424f-95b9-b90bd9e8add4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\AlgoFactories\Implementations">
-      <UniqueIdentifier>{4fdf6dd8-3e51-49b2-86cd-47bd392d2c9f}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\Commands\Admin">
       <UniqueIdentifier>{ab6eedc8-228a-43be-8f57-cc6efab01003}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\AlgoImplementations">
+      <UniqueIdentifier>{10749c18-2b41-4e69-8643-1b363bcac4cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Commands">
+      <UniqueIdentifier>{d3269760-4ec7-4553-98f3-15f5b2e710b6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="M8M.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.cpp">
-      <Filter>Source Files\AlgoFactories\Implementations</Filter>
-    </ClCompile>
-    <ClCompile Include="AbstractWSServer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="AlgoFactories\Implementations\GRSMYRMonolithicOpenCL12.cpp">
-      <Filter>Source Files\AlgoFactories\Implementations</Filter>
-    </ClCompile>
-    <ClCompile Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.cpp">
-      <Filter>Source Files\AlgoFactories\Implementations</Filter>
-    </ClCompile>
-    <ClCompile Include="AlgoFactories\Implementations\NeoScryptOpenCL12.cpp">
-      <Filter>Source Files\AlgoFactories\Implementations</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="AbstractThreadedMiner.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFamily.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoImplementationInterface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Connections.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -74,22 +39,10 @@
     <ClInclude Include="M8MIcon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MinerInterface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="OpenCL12Wrapper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TimedValueStream.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="WebMonitorTracker.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractAlgoImplementation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractMiner.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="commands\AbstractCommand.h">
@@ -143,15 +96,6 @@
     <ClInclude Include="commands\Monitor\SystemInfoCMD.h">
       <Filter>Header Files\Commands\Monitor</Filter>
     </ClInclude>
-    <ClInclude Include="AlgoFactories\AbstractCLAlgoImplementation.h">
-      <Filter>Header Files\AlgoFactories</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFactories\QubitCL12.h">
-      <Filter>Header Files\AlgoFactories</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFactories\Implementations\QubitMultistepOpenCL12.h">
-      <Filter>Header Files\AlgoFactories\Implementations</Filter>
-    </ClInclude>
     <ClInclude Include="AbstractWSServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -173,25 +117,67 @@
     <ClInclude Include="commands\Admin\ConfigFileCMD.h">
       <Filter>Header Files\Commands\Admin</Filter>
     </ClInclude>
-    <ClInclude Include="AlgoFactories\FreshCL12.h">
-      <Filter>Header Files\AlgoFactories</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFactories\grsmyrCL12.h">
-      <Filter>Header Files\AlgoFactories</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFactories\Implementations\FreshMultistepOpenCL12.h">
-      <Filter>Header Files\AlgoFactories\Implementations</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFactories\Implementations\grsmyrMonolithicOpenCL12.h">
-      <Filter>Header Files\AlgoFactories\Implementations</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFactories\NeoScryptCL12.h">
-      <Filter>Header Files\AlgoFactories</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoFactories\Implementations\NeoScryptMultistepOpenCL12.h">
-      <Filter>Header Files\AlgoFactories\Implementations</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoImplementations\FreshWarmCL12.h">
+      <Filter>Header Files\AlgoImplementations</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoImplementations\MYRGRSMonolithicCL12.h">
+      <Filter>Header Files\AlgoImplementations</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoImplementations\NeoscryptSmoothCL12.h">
+      <Filter>Header Files\AlgoImplementations</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoImplementations\QubitFiveStepsCL12.h">
+      <Filter>Header Files\AlgoImplementations</Filter>
+    </ClInclude>
+    <ClInclude Include="KnownConstantsProvider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mainHelpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MiningPerformanceWatcher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NonceFindersInterface.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NonceStructs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessingNodesFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StartParams.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StopWaitDispatcher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadedNonceFinders.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractAlgorithm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractNonceFindersBuild.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractSpecialValuesProvider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoMiner.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="clAlgoFactories.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CLEventGuardian.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cmdHubs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -204,5 +190,22 @@
     <Image Include="..\linkIcon.ico">
       <Filter>Resource Files</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AbstractAlgorithm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractNonceFindersBuild.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractWSServer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="M8M.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessingNodesFactory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
