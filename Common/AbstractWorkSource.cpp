@@ -4,7 +4,6 @@
  */
 #include "AbstractWorkSource.h"
 
-#define STRATUM_DUMPTRAFFIC 1
 
 #if STRATUM_DUMPTRAFFIC
 #include <fstream>
