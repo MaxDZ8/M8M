@@ -51,8 +51,9 @@ public:
 	aulong errorCount;
 
 	const PoolInfo::DiffMultipliers diffMul;
-	PoolInfo::DiffMode diffMode;
-	StratumState(const char *presentation, const PoolInfo::DiffMultipliers &diffMul);
+	const PoolInfo::DiffMode diffMode;
+
+	StratumState(const char *presentation, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> &diff);
 	const string& GetSessionID() const { return subscription.sessionID; }
 
 	/*! The outer code should maintain a copy of this value. This to understand when the

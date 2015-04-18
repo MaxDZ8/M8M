@@ -21,7 +21,12 @@ Legacy miners work by considering pool availability, distribute effort (time)
 across pools or distribute results (shares). */
 class AbstractWorkSource {
 public:
-	const std::string algo;
+    struct AlgoInfo {
+        std::string name;
+        bool bigEndian;
+        aulong diffNumerator;
+    };
+    const AlgoInfo algo;
 	const std::string name;
     const PoolInfo::MerkleMode merkleMode;
 	
@@ -78,7 +83,7 @@ protected:
 	/*! Used to enumerate workers to register to this remote server.
 	Return nullptr as first element to terminate enumeration. */
 	typedef std::vector< std::pair<const char*, const char*> > Credentials;
-	AbstractWorkSource(const char *presentation, const char *name, const char *algo, const PoolInfo::DiffMultipliers &diffMul, PoolInfo::MerkleMode mm, const Credentials &v);
+	AbstractWorkSource(const char *presentation, const char *name, const AlgoInfo &algo, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm, const Credentials &v);
 
 	virtual void MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error) = 0;
 
@@ -129,7 +134,10 @@ private:
     public:
         BuildingWorkFactory(bool restartWork, auint networkTime, const CBHashFunc cbmode, const std::string &poolJob)
             : AbstractWorkFactory(restartWork, networkTime, cbmode, poolJob) { }
-        void SetBlankHeader(const std::array<aubyte, 128> &blank) { blankHeader = blank; }
+        void SetBlankHeader(const std::array<aubyte, 128> &blank, bool littleEndianAlgo, adouble algoDiffNumerator) {
+            blankHeader = blank;
+            ExtractNetworkDiff(littleEndianAlgo, algoDiffNumerator);
+        }
         void SetCoinbase(std::vector<aubyte> &binary, asizei n2off) {
             coinbase = std::move(binary);
             nonceTwoOff = n2off;
@@ -139,5 +147,30 @@ private:
             this->merkles.resize(merkles.size());
             for(asizei cp = 0; cp < merkles.size(); cp++) this->merkles[cp] = merkles[cp].hash;
         }
+        adouble GetNetworkDiff() const { return networkDiff; }
+
+    private:
+        adouble networkDiff;
+	    void ExtractNetworkDiff(bool littleEndianAlgo, aulong algoDiffNumerator) {
+		    // This looks like share difficulty calculation... but not quite.
+		    aulong diff;
+		    double numerator;
+		    const auint *src = reinterpret_cast<const auint*>(blankHeader.data() + 72);
+		    if(littleEndianAlgo) {
+			    aulong blob = BETOH(*src) & 0xFFFFFF00;
+			    blob <<= 8;
+			    blob = 
+			    diff = SWAP_BYTES(blob);
+			    numerator = static_cast<double>(algoDiffNumerator);
+		    }
+		    else {
+			    aubyte pow = blankHeader[72];
+			    aint powDiff = (8 * (0x1d - 3)) - (8 * (pow - 3)); // don't ask.
+			    diff = BETOH(*src) & 0x0000000000FFFFFF;
+			    numerator = static_cast<double>(algoDiffNumerator << powDiff);
+		    }
+		    if(diff == 0) diff = 1;
+		    networkDiff = numerator / double(diff);
+	    }
     };
 };

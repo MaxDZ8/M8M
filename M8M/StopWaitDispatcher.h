@@ -92,7 +92,11 @@ public:
 
 
     MinedNonces GetResults() {
-        const asizei count = *nonces;
+        asizei count = *nonces;
+        if(count > maxResults) {
+            //! \todo Resize buffer for next time! This isn't very likely anyway as more results --> higher diff --> less results
+            count = maxResults;
+        }
         MinedNonces ret(dispatchedHeader);
         ret.hashes.reserve(count * algo.uintsPerHash);
         ret.nonces.reserve(count);
@@ -137,6 +141,7 @@ private:
     std::array<aubyte, 80> dispatchedHeader; //!< block dispatched to last RunAlgorithm
     std::array<aubyte, 80> blockHeader; //!< block to dispatch at NEXT RunAlgorithm!
     aulong targetBits;
+    asizei maxResults = 0;
 
     void PrepareIOBuffers(cl_context context, asizei hashCount){
         cl_int error;
@@ -150,6 +155,7 @@ private:
         byteCount = hashCount / (16 * 1024);
         //! \todo pull the whole hash down so I can check mismatches
         if(byteCount < 32) byteCount = 32;
+        maxResults = byteCount;
         byteCount *= sizeof(cl_uint) * (1 + algo.uintsPerHash);
         byteCount += 4; // initial candidate count
         nonceBufferSize = byteCount;

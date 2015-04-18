@@ -92,11 +92,9 @@ public:
 				for(auint i = 0; i < 4; i++) raw[shuffle + 3 - i] = load[i];
 			}
 		}
-        if(nonce2 == 1) ExtractNetworkDiff(result.header, littleEndianAlgo, algoDiffNumerator);
         return result;
 	}
-    double GetNetworkDiff() const { return networkDiff; }
-
+    virtual double GetNetworkDiff() const = 0;
 
 protected:
     auint nonce2 = 0;
@@ -107,31 +105,6 @@ protected:
     asizei merkleOff;
     std::array<aubyte, 128> blankHeader;
     std::vector<std::array<aubyte, 32>> merkles;
-private:
-    double networkDiff;
-    
-	double ExtractNetworkDiff(const std::array<aubyte, 128> &header, bool littleEndianAlgo, aulong algoDiffNumerator) {
-		// This looks like share difficulty calculation... but not quite.
-		aulong diff;
-		double numerator;
-		const auint *src = reinterpret_cast<const auint*>(header.data() + 72);
-		if(littleEndianAlgo) {
-			aulong blob = BETOH(*src) & 0xFFFFFF00;
-			blob <<= 8;
-			blob = 
-			diff = SWAP_BYTES(blob);
-			numerator = static_cast<double>(algoDiffNumerator);
-		}
-		else {
-			aubyte pow = header[72];
-			aint powDiff = (8 * (0x1d - 3)) - (8 * (pow - 3)); // don't ask.
-			diff = BETOH(*src) & 0x0000000000FFFFFF;
-			numerator = static_cast<double>(algoDiffNumerator << powDiff);
-		}
-		if(diff == 0) diff = 1;
-		networkDiff = numerator / double(diff);
-		return networkDiff;
-	}
 };
 
 

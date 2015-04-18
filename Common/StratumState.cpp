@@ -39,8 +39,8 @@ void StratumState::PushResponse(const string &serverid, const string &pairs) {
 }
 
 
-StratumState::StratumState(const char *presentation, const PoolInfo::DiffMultipliers &muls)
-	: nextRequestID(1), difficulty(16.0), nameVer(presentation), diffMul(muls), errorCount(0), diffMode(PoolInfo::dm_btc) {
+StratumState::StratumState(const char *presentation, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> &diffDesc)
+	: nextRequestID(1), difficulty(.0), nameVer(presentation), diffMul(diffDesc.second), diffMode(diffDesc.first), errorCount(0) {
 	dataTimestamp = 0;
 	size_t used = PushMethod("mining.subscribe", KeyValue("params", "[]", false));
 	ScopedFuncCall pop([this]() { this->pending.pop(); });
@@ -226,7 +226,7 @@ std::array<aulong, 4> StratumState::MakeTargetBits_NeoScrypt(adouble diff, adoub
 		diff /= double(1ull << 32);
 		div--;
 	}
-	const aulong slice = aulong(double(0xFFFF0000) * diffOneMul / diff);
+	const aulong slice = aulong(double(0xFFFF0000) / diff);
 	std::array<aulong, 4> ret;
 	bool allSet = slice == 0 && div == 6;
 	memset(ret.data(), allSet? 0xFF : 0x00, sizeof(ret));

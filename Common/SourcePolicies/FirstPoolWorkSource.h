@@ -17,7 +17,7 @@ using std::string;
 class FirstPoolWorkSource : public AbstractWorkSource {
 public:
 	const PoolInfo &fetching;
-	FirstPoolWorkSource(const char *clientPresentation, const PoolInfo &init, NetworkInterface::ConnectedSocketInterface &pipe);
+	FirstPoolWorkSource(const char *clientPresentation, const AlgoInfo &algoParams, const PoolInfo &init, NetworkInterface::ConnectedSocketInterface &pipe);
 	~FirstPoolWorkSource();
 
 	typedef std::function<void(asizei index, int errorCode, const std::string &message)> ErrorFunc;

@@ -448,7 +448,13 @@ int main(int argc, char **argv) {
             std::unique_ptr<MinerSupport> importantMinerStructs;
             std::unique_ptr<NonceFindersInterface> miner;
             if(configuration) {
-                for(const auto &pool : configuration->pools) remote.AddPool(*pool);
+                auto algoInfos(ProcessingNodesFactory::GetAlgoInformations());
+                for(const auto &pool : configuration->pools) {
+                    auto algo = std::find_if(algoInfos.cbegin(), algoInfos.cend(), [&pool](const ProcessingNodesFactory::AlgoInfo &test) {
+                        return !_stricmp(test.name.c_str(), pool->algo.c_str());
+                    });
+                    if(algo != algoInfos.cend()) remote.AddPool(*pool, algo->bigEndian, algo->diffNumerator);
+                }
             }
             TrackedValues stats(remote, prgmInitialized.count());
 		    if(remote.GetNumPoolsAdded() == 0) {

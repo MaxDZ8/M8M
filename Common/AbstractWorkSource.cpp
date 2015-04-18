@@ -187,7 +187,7 @@ stratum::AbstractWorkFactory* AbstractWorkSource::GenWork() const {
 	dst<<work.blockVer<<work.prevHash;
 	for(size_t loop = 0; loop < 32; loop++) dst<<aubyte(0);
 	dst<<work.ntime<<work.nbits<<clearNonce<<workPadding;
-    ret->SetBlankHeader(newHeader);
+    ret->SetBlankHeader(newHeader, !algo.bigEndian, algo.diffNumerator);
     return ret.release();
 }
 
@@ -207,8 +207,8 @@ void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, Stratu
 }
 
 
-AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poolName, const char *algorithm, const PoolInfo::DiffMultipliers &diffMul, PoolInfo::MerkleMode mm, const Credentials &v)
-	: stratum(presentation, diffMul), algo(algorithm), name(poolName), merkleMode(mm) {
+AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poolName, const AlgoInfo &algorithm, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm, const Credentials &v)
+	: stratum(presentation, diffDesc), algo(algorithm), name(poolName), merkleMode(mm) {
 	for(asizei loop = 0; loop < v.size(); loop++) stratum.Authorize(v[loop].first, v[loop].second);
 	stratum.shareResponseCallback = [this](asizei index, StratumShareResponse status) {
 		// if(ok) stats.shares.accepted++;

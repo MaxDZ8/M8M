@@ -26,7 +26,7 @@ public:
             const auto url(connInfo.PeerHost() + ':' + connInfo.PeerPort());
             add.AddMember("name", StringRef(pool.name.c_str()), build.GetAllocator());
 		    add.AddMember("url", Value(url.c_str(), SizeType(url.length()), build.GetAllocator()), build.GetAllocator());
-            add.AddMember("algo", StringRef(pool.algo.c_str()), build.GetAllocator());
+            add.AddMember("algo", StringRef(pool.algo.name.c_str()), build.GetAllocator());
             add.AddMember("protocol", "stratum", build.GetAllocator());
             add.AddMember("diffMul", jsonify(pool.GetDiffMultipliers(), build.GetAllocator()), build.GetAllocator());
 

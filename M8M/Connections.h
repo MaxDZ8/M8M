@@ -90,7 +90,7 @@ public:
 	asizei GetNumServers() const { return routes.size(); }
 	AbstractWorkSource& GetServer(asizei pool) const { return *routes[pool].pool; }
 
-	void AddPool(const PoolInfo &conf) {
+	void AddPool(const PoolInfo &conf, bool bigEndian, aulong diffNumerator) {
 		routes.push_back(Remote());
 		ScopedFuncCall autopop([this]() { routes.pop_back(); });
 
@@ -98,7 +98,8 @@ public:
 		const char *port = conf.explicitPort.length()? conf.explicitPort.c_str() : conf.service.c_str();
 		Network::ConnectedSocketInterface *conn = &network.BeginConnection(host, port);
 		ScopedFuncCall clearConn([this, conn] { network.CloseConnection(*conn); });
-		unique_ptr<FirstPoolWorkSource> stratum(new FirstPoolWorkSource("M8M/DEVEL", conf, *conn));
+        AbstractWorkSource::AlgoInfo params { conf.algo, bigEndian, diffNumerator };
+		unique_ptr<FirstPoolWorkSource> stratum(new FirstPoolWorkSource("M8M/DEVEL", params, conf, *conn));
 		stratum->errorCallback = [](asizei i, int errorCode, const std::string &message) {
 			cout<<"Stratum message ["<<std::to_string(i)<<"] generated error response by server (code "
 				<<std::dec<<errorCode<<"=0x"<<std::hex<<errorCode<<std::dec<<"), server says: \""<<message<<"\""<<endl;

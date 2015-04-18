@@ -61,7 +61,7 @@ ProcessingNodesFactory::DriverSelection ProcessingNodesFactory::NewDriver(const 
 
 
 bool ProcessingNodesFactory::AddPool(const AbstractWorkSource &pool) { 
-    if(_stricmp(pool.algo.c_str(), algoName.c_str()) == 0) {
+    if(_stricmp(pool.algo.name.c_str(), algoName.c_str()) == 0) {
         build->RegisterWorkProvider(pool);
         return true;
     }
@@ -172,6 +172,22 @@ void ProcessingNodesFactory::DescribeConfigs(commands::monitor::ConfigInfoCMD::C
         if(slot == linearIndex.cend()) throw std::exception("Could not reconstruct device->linearIndex, this should be impossible!");
         result.informative[slot->second] = std::move(algoDescriptions[i]);
     }
+}
+
+
+std::vector<ProcessingNodesFactory::AlgoInfo> ProcessingNodesFactory::GetAlgoInformations() {
+    algoImplementations::QubitFiveStepsCL12 qubit(0, 0, 0);
+    algoImplementations::NeoscryptSmoothCL12 neoscrypt(0, 0, 0);
+    algoImplementations::MYRGRSMonolithicCL12 myrgrs(0, 0, 0);
+    algoImplementations::FreshWarmCL12 fresh(0, 0, 0);
+    // all implementations of an algo are the same. Here's another place where "families" would be handy.
+
+    std::vector<AlgoInfo> ret;
+    ret.push_back(AlgoInfo { "qubit", qubit.BigEndian(), qubit.GetDifficultyNumerator() });
+    ret.push_back(AlgoInfo { "grsmyr", myrgrs.BigEndian(), myrgrs.GetDifficultyNumerator() });
+    ret.push_back(AlgoInfo { "neoScrypt", neoscrypt.BigEndian(), neoscrypt.GetDifficultyNumerator() });
+    ret.push_back(AlgoInfo { "fresh", fresh.BigEndian(), fresh.GetDifficultyNumerator()});
+    return ret;
 }
 
 

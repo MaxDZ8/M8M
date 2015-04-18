@@ -94,6 +94,16 @@ public:
     //! Note this is truly valid only if Finished returned a valid object. Otherwise, the results might be slightly inconsistent but hopefully still helpful.
     void DescribeConfigs(commands::monitor::ConfigInfoCMD::ConfigDesc &result, asizei totalDeviceCount, const std::vector< std::unique_ptr<AbstractAlgorithm> > &algos);
 
+    struct AlgoInfo {
+        string name;
+        bool bigEndian;
+        aulong diffNumerator;
+    };
+
+    //! This is a bit ugly. Ok, it is very ugly. The bottom line is that pools right now require algorithm information to be built as they need to build the
+    //! work factory to produce headers to hash... so we need to pull out this accordingly. Quite ugly!
+    static std::vector<AlgoInfo> GetAlgoInformations();
+
 private:
     enum Driver {
         d_null,
