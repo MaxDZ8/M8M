@@ -92,15 +92,15 @@ struct CFGLoadInfo {
 };
 
 struct TrackedAdminValues : public commands::admin::ConfigFileCMD::ConfigInfoProviderInterface {
-    CFGLoadInfo loadInfo;
-
-    commands::admin::RawConfig loadedConfig;
+    const CFGLoadInfo &loadInfo;
+    const commands::admin::RawConfig &loadedConfig;
 
     asizei reloadRequested;
     bool willReloadListening;
     bool customConfDir;
 
-    TrackedAdminValues() : reloadRequested(0), willReloadListening(false) { }
+    TrackedAdminValues(const CFGLoadInfo &load, const commands::admin::RawConfig &raw)
+        : loadInfo(load), loadedConfig(raw), reloadRequested(0), willReloadListening(false) { }
 
     std::wstring Filename() const { return loadInfo.configFile; }
     bool CustomConfDir() const { return customConfDir; }

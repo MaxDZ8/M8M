@@ -68,13 +68,46 @@ window.onload = function() {
 			}
 		});
 		
-		window.request_system(minerMonitor, function(pdesc) {
+		minerMonitor.requestSimple("systemInfo", function(pdesc) {
 			presentation.appendDevicePlatforms(pdesc);
 			window.minerMonitor.requestSimple("algo", function(reply) {
 				presentation.updateMiningElements(reply);
 				window.minerMonitor.requestSimple("pools", function(reply) {
-					var poolinfo = reply[0];
-					presentation.updatePoolElements(poolinfo);
+					var authWarning = document.getElementById("poolAuthWarning");
+					
+					if(!document.getElementById("poolName")) { // first time, generate
+						var div = document.createElement("div");
+						compatible.modClass(div, "detailsBox", "add");
+						div.style.display = "none";
+						div.style.zIndex = 11;
+						var string = "<h3>Pool details</h3>";
+						string += "<strong>Name:</strong> <span id='poolName'></span><br>";
+						string += "<strong>URL:</strong> <span id='poolURL'></span><br>";
+						string += "<strong>Login:</strong> <span id='user'></span><br>";
+						string += "<strong>Authentication status:</strong> <span id='authStatus'></span><br>";
+						div.innerHTML = string;
+						document.getElementById("miningStatus").appendChild(div);
+						var shbutton = presentation.support.makeDetailShowHideButton(div, "Close");
+						compatible.setEventCallback(document.getElementById("poolDetails"), "click", function(click) {
+							presentation.support.showHideBTNFunc(this, div, click);
+						});
+						div.appendChild(shbutton);
+						presentation.support.makeMovable(div);
+					}
+		
+					if(reply.length) presentation.updatePoolElements(reply[0]);
+					else {
+						var purl = document.getElementById("poolURL");
+						var user = document.getElementById("user");
+						var authWarning = document.getElementById("poolAuthWarning");
+						var poolName = document.getElementById("poolName");
+						var authStatus = document.getElementById("authStatus");
+						purl.textContent = poolName.textContent = "!! not connected !!";
+						user.innerHTML = authStatus.innerHTML = "!! not connected !!";
+						document.getElementById("pool").textContent = "";
+						authWarning.innerHTML = "<strong>!! not connected !!</strong>";
+						compatible.modClass([authWarning, user, authStatus, poolName, purl], "hugeError", "add");
+					}
 					
 					/*! \todo This will have to be moved a day so updatePoolElements will work on stored state instead! */
 					server.remote = reply;

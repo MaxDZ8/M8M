@@ -68,15 +68,15 @@ var presentation = {
 		function describeDevice(yourLine, device) {
 			var typology = device.type + (device.arch? ', ' + '<strong>' + device.arch + '</strong>' : '');
 			var chipDetail = '<em>' + device.chip.replace("(tm)", "\u2122") + '</em>'; // + ' (0x' + device.vendorID.toString(16) + ')';
-			var chipPower = device.clusters + ' cores @ ' + device.nclock + ' Mhz';
+			var chipPower = device.clusters + ' cores @ ' + device.coreClock + ' Mhz';
 			addCell(typology + '<br>' + chipDetail + '<br>' + chipPower);
 			
-			var global = "RAM: " + Math.floor(device.memory / 1024 / 1024) + " MiB";
-			var cache = "Cache: " + Math.floor(device.cache / 1024) + " KiB";
+			var global = "RAM: " + Math.floor(device.globalMemBytes / 1024 / 1024) + " MiB";
+			var cache = "Cache: " + Math.floor(device.globalMemCacheBytes / 1024) + " KiB";
 			var lds = "";
 			if(device.lds == 0 || (device.ldsType && device.ldsType == "none")) {}
 			else {
-				lds += "Local: " + Math.floor(device.lds / 1024) + " KiB";
+				lds += "Local: " + Math.floor(device.ldsBytes / 1024) + " KiB";
 				if(device.ldsType == "global") lds += "(emu)";
 			}
 			addCell(global + '<br>' + cache + '<br>' + lds);
@@ -146,55 +146,19 @@ var presentation = {
 
 
 	updatePoolElements: function(object) {
-		var pool = document.getElementById("pool");
 		var poolName = document.getElementById("poolName");
-		var purl = document.getElementById("poolURL");
-		var user = document.getElementById("user");
 		var authStatus = document.getElementById("authStatus");
 		var authWarning = document.getElementById("poolAuthWarning");
 		
-		if(!poolName) { // first time, generate
-			var div = document.createElement("div");
-			compatible.modClass(div, "detailsBox", "add");
-			div.style.display = "none";
-			div.style.zIndex = 11;
-			var string = "<h3>Pool details</h3>";
-			string += "<strong>Name:</strong> <span id='poolName'></span><br>";
-			string += "<strong>URL:</strong> <span id='poolURL'></span><br>";
-			string += "<strong>Login:</strong> <span id='user'></span><br>";
-			string += "<strong>Authentication status:</strong> <span id='authStatus'></span><br>";
-			div.innerHTML = string;
-			document.getElementById("miningStatus").appendChild(div);
-			var shbutton = presentation.support.makeDetailShowHideButton(div, "Close");
-			compatible.setEventCallback(document.getElementById("poolDetails"), "click", function(click) {
-				presentation.support.showHideBTNFunc(this, div, click);
-			});
-			div.appendChild(shbutton);
-			presentation.support.makeMovable(div);
-			poolName = document.getElementById("poolName");
-			purl = document.getElementById("poolURL");
-			user = document.getElementById("user");
-			authStatus = document.getElementById("authStatus");
-		}
-		
-		if(object.name === undefined) { // not connected to any pool!
-			purl.textContent = poolName.textContent = "!! not connected !!";
-			user.innerHTML = authStatus.innerHTML = "!! not connected !!";
-			pool.textContent = "";
-			authWarning.innerHTML = "<strong>!! not connected !!</strong>";
-			compatible.modClass([authWarning, user, authStatus, poolName, purl], "hugeError", "add");
-			return;
-		}
-		
-		pool.textContent = poolName.textContent = object.name;
-		purl.textContent = object.url;
+		document.getElementById("pool").textContent = poolName.textContent = object.name;
+		document.getElementById("poolURL").textContent = object.url;
 		if(object.users.length !== 1) {
 			var errormsg = "Multiple workers, not yet supported by client.";
 			alert(errormsg);
 			throw errormsg;
 		}
 		var refresh = false;
-		user.textContent = object.users[0].login;
+		document.getElementById("user").textContent = object.users[0].login;
 		switch(object.users[0].authorized) {
 		case false: 
 			authStatus.innerHTML = "<strong>failed</strong>";
@@ -312,6 +276,16 @@ var presentation = {
 	
 	updateConfigInfo: function(cinfo) {
 		var tbody = document.getElementById("configInfo");
+		if(cinfo === null || cinfo.length === 0) {   // happens when not mining due to load file error
+			var row = document.createElement("tr");
+			var td = document.createElement("td");
+			td.innerHTML = "!! no algorithm running !!";
+			td.colSpan = 14; // I should really find a way to make this shit automatic...
+			compatible.modClass(td, "hugeError", "add");
+			row.appendChild(td);
+			tbody.appendChild(row);
+		    return;
+		}
 		while(tbody.childNodes.lastChild) tbody.childNodes.removeChild(tbody.childNodes.lastChild);
 		for(var conf = 0; conf < cinfo.length; conf++) {
 			server.config[conf] = {};
@@ -362,15 +336,6 @@ var presentation = {
 					row = null;
 				}
 			}
-		}
-		if(cinfo.length === 0) {
-			var row = document.createElement("tr");
-			var td = document.createElement("td");
-			td.innerHTML = "!! no algorithm running !!";
-			td.colSpan = 13; // I should really find a way to make this shit automatic...
-			compatible.modClass(td, "hugeError", "add");
-			row.appendChild(td);
-			tbody.appendChild(row);
 		}
 		
 		function makeCell(tag, html) {
@@ -539,6 +504,7 @@ var presentation = {
 	refreshPoolWorkerStats: function() {
 		var accepted = 0, rejected = 0, sent = 0;
 		//! \todo only pool 0 supported for now, only 1 worker
+		if(!server.remote || !server.remote.length) return; // happens when not hashing due to config load error
 		if(server.remote[0].shares) {
 			accepted = server.remote[0].shares.accepted;
 			rejected = server.remote[0].shares.rejected;
@@ -579,9 +545,11 @@ var presentation = {
 				where.textContent = window.presentation.support.readableHHHHMMSS(now - when * 1000);
 			}
 			when = window.server.startTime && window.server.startTime.hashing;
-			if(when) {
-				var where = document.getElementById("hashElapsed");
-				where.textContent = window.presentation.support.readableHHHHMMSS(now - when * 1000);
+			var where = document.getElementById("hashElapsed");
+			if(when) where.textContent = window.presentation.support.readableHHHHMMSS(now - when * 1000);
+			else {
+				compatible.modClass(where, "hugeError", "add");
+				where.textContent = "!! not hashing !!";
 			}
 		}, 1000);
 	},

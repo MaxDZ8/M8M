@@ -76,13 +76,18 @@ Settings* LoadSettings(commands::admin::RawConfig &loadAttempt, CFGLoadInfo &loa
     }
 	const std::wstring ori(loadInfo.configFile);
 	asizei attempt = loadInfo.specified? 1 : 0;
-	while(attempt < 2 && LoadConfigJSON(loadAttempt.good, failure, loadInfo.configFile)) {
+	while(attempt < 2) {
+        if(!LoadConfigJSON(loadAttempt.good, failure, loadInfo.configFile)) {
+            configuration.reset();
+            break;
+        }
 		if(loadAttempt.good.IsObject() == false) {
 			loadAttempt.good.SetNull();
 			loadAttempt.errCode = failure.errCode;
 			loadAttempt.errOff = failure.errOff;
 			loadAttempt.errDesc = std::move(failure.errDesc);
 			loadAttempt.raw = failure.raw.get();
+            configuration.reset();
 			break;
 		}
 		else {
@@ -431,13 +436,13 @@ int main(int argc, char **argv) {
         
 		    notify.AddMenuItem(L"Open user app folder", [&dataDirBase]() { OpenFileExplorer(dataDirBase.c_str()); });
 		    notify.AddMenuSeparator();
-		    notify.ShowMessage(L"Getting ready!\nLeave me some seconds to warm up...");
 		    web.admin.SetMessages(L"Enable web administration", L"Connect to web administration", L"Disable web admin");
 		    notify.AddMenuSeparator();
 		    web.monitor.SetMessages(L"Enable web monitor", L"Connect to web monitor", L"Disable web monitor");
 		    notify.AddMenuSeparator();
 		    notify.AddMenuSeparator();
 		    notify.AddMenuItem(L"Exit ASAP", [&run]() { run = false; });
+		    if(configuration) notify.ShowMessage(L"Getting ready!\nLeave me some seconds to warm up..."); // otherwise we have errors already!
 		    notify.BuildMenu();
 		    notify.Tick();
 
@@ -525,7 +530,7 @@ int main(int argc, char **argv) {
             performanceMetrics.SetNumDevices(numDevices);
             stats.performance = &performanceMetrics;
             stats.deviceShares.resize(numDevices);
-            {
+            if(configuration) {
                 rapidjson::Value::ConstMemberIterator selecting = configuration->implParams.FindMember(configuration->algo.c_str());
                 if(selecting == configuration->implParams.MemberEnd()) throw "No settings found for algorithm \"" + configuration->algo + '"';
                 const rapidjson::Value &container(selecting->value);
@@ -546,14 +551,14 @@ int main(int argc, char **argv) {
                     performanceMetrics.Completed(gpuindex, found, elapsed);
                 }); // The miner really started a bit before this returns... anyway
                 helper.DescribeConfigs(configInfoCMDReply, numDevices, importantMinerStructs->algo);
+		        stats.minerStart = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
             }
-		    stats.minerStart = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
             
-            TrackedAdminValues admin;
+            TrackedAdminValues admin(load, attempt);
             admin.customConfDir = confDirRedirected;
             
             WebCommands parsers;
-            {
+            if(importantMinerStructs) {
                 AlgoIdentifier algoID;
                 aulong versionHash = 0;
                 if(importantMinerStructs->algo.size()) {
@@ -574,9 +579,16 @@ int main(int argc, char **argv) {
                     }
                 }
                 RegisterMonitorCommands(parsers, web.monitor, api, remote, stats, std::make_pair(algoID, versionHash), devConfMap, importantMinerStructs->devConfReasons, configInfoCMDReply);
-		        RegisterMonitorCommands(parsers, web.admin, api, remote, stats, std::make_pair(algoID, versionHash), devConfMap, importantMinerStructs->devConfReasons, configInfoCMDReply);
-		        RegisterAdminCommands(parsers, web.admin, admin);
             }
+            else {
+                std::vector<auint> devConfMap(numDevices);
+                for(auto &el : devConfMap) el = auint(-1);
+                std::vector< std::vector<MinerSupport::ConfReasons> > devConfReasons; //!< \todo: perhaps this could be "no config loaded", but it's not a per-device reject reason.
+                RegisterMonitorCommands(parsers, web.monitor, api, remote, stats, std::make_pair(AlgoIdentifier(), 0), devConfMap, devConfReasons, configInfoCMDReply);
+		        RegisterMonitorCommands(parsers, web.admin, api, remote, stats, std::make_pair(AlgoIdentifier(), 0), devConfMap, devConfReasons, configInfoCMDReply);
+            }
+		    RegisterAdminCommands(parsers, web.admin, admin);
+
             remote.onPoolCommand = [&stats](const AbstractWorkSource &pool) {
                 for(auto &update : stats.poolShares) {
                     if(update.src == &pool) {

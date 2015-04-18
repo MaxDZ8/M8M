@@ -56,7 +56,8 @@ function MinerMonitor(hostname, port, resource, callbacks) {
 			return;
 		}
 		var object = JSON.parse(message.data);
-		if(object.pushing !== undefined) {
+		// starting from protocol v1.1 replies can be null, so I must check it first
+		if(object && object.pushing !== undefined) {
 			var len = self.streaming === undefined? 0 : self.streaming.length;
 			for(var test = 0; test < len; test++) {
 				var match = self.streaming[test];
@@ -95,19 +96,3 @@ MinerMonitor.prototype = {
 		this.request(object, callback, true);
 	}
 };
-
-	
-function request_system(minerMonitor, onreply) {
-	minerMonitor.request({ command: "systemInfo" }, mangle);
-	function mangle(object, pingTime) {
-		if(object.platforms === undefined || object.platforms.length === undefined) alert("Invalid platform reply from server!>>" + JSON.stringify(object));
-		var sp = [];
-		for(var i = 0; i < object.platforms.length; i++) { // those objects look like CLPlatformDescs, but they really are not!
-			var add = new CLPlatformDesc(i);
-			add.fromMemory(object.platforms[i]);
-			sp.push(add); // now it is the same thing so my functions are supposed to be there and nothing will go wrong.
-		}
-		object.platforms = sp;
-		onreply(object, pingTime);
-	}
-}
