@@ -64,7 +64,7 @@ var presentation = {
 		
 		/*!
 		\param yourLine A <tr> element to push <td>
-		\param device CLDeviceDesc object. */
+		\param device An object describing the device (originally CLDeviceDesc, but that type is no more). */
 		function describeDevice(yourLine, device) {
 			var typology = device.type + (device.arch? ', ' + '<strong>' + device.arch + '</strong>' : '');
 			var chipDetail = '<em>' + device.chip.replace("(tm)", "\u2122") + '</em>'; // + ' (0x' + device.vendorID.toString(16) + ')';
