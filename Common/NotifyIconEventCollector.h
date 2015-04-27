@@ -13,6 +13,7 @@
 #include <mutex>
 #include <vector>
 #include "NotifyIconStructs.h"
+#include "AbstractNotifyIcon.h"
 
 
 /*! Implements an interface to manage a small control in OS notification area whose only task is to spawn
@@ -20,7 +21,7 @@ occasional messages and a popup menu on request.
 M8M real UI is supposed to be web based and those commands basically enable/disable web control.
 It does much more than collecting events in fact as it also takes care of estabilishing thread communication. */
 template<typename AsyncUI>
-class NotifyIconEventCollector {
+class NotifyIconEventCollector : public AbstractNotifyIcon {
 public:
 	NotifyIconEventCollector() {
 		lazyui.reset(new std::thread(os.GetUIManglingThreadFunc(sharedState, mutex)));
@@ -100,8 +101,7 @@ public:
 		}
 		os.WakeupSignal();
 	}
-	template<class Function>
-	auint AddMenuItem(const wchar_t *msg, Function &&onClick, bool enabled = true) {
+	auint AddMenuItem(const wchar_t *msg, std::function<void()> onClick, bool enabled = true) {
 		if(!msg || !wcslen(msg)) throw std::exception("Menu items must always have some text.");
 		MenuItem add;
 		add.callback = onClick;
@@ -110,7 +110,7 @@ public:
 		building.back().enabled = enabled;
 		return auint(building.size() - 1);
 	}
-	bool GetMenuItemStatus(asizei i) {
+	bool GetMenuItemStatus(auint i) {
 		std::unique_lock<std::mutex> lock(mutex);
 		return sharedState.commands[i].enabled;
 	}
@@ -120,11 +120,6 @@ public:
 			sharedState.commandChanges.push_back(MenuItemEvent(i, enable? MenuItemEvent::esc_enabled : MenuItemEvent::esc_disabled));
 		}
 		os.WakeupSignal();
-	}
-	bool ToggleMenuItemStatus(asizei i) {
-		bool status = GetMenuItemStatus(i);
-		SetMenuItemStatus(i, !status);
-		return !status;
 	}
 	asizei AddMenuSeparator() {
 		building.push_back(MenuItem(mit_separator));

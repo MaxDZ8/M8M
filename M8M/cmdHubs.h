@@ -85,7 +85,7 @@ struct TrackedValues : MiningPerformanceWatcherInterface, commands::monitor::Dev
 #include "commands/Admin/GetRawConfigCMD.h"
 
 struct CFGLoadInfo {
-    std::wstring configFile, configDir;
+    std::wstring configFile;
     bool specified, redirected, valid;
 
     explicit CFGLoadInfo() : specified(false), redirected(false), valid(false) { }
@@ -97,13 +97,11 @@ struct TrackedAdminValues : public commands::admin::ConfigFileCMD::ConfigInfoPro
 
     asizei reloadRequested;
     bool willReloadListening;
-    bool customConfDir;
 
     TrackedAdminValues(const CFGLoadInfo &load, const commands::admin::RawConfig &raw)
         : loadInfo(load), loadedConfig(raw), reloadRequested(0), willReloadListening(false) { }
 
     std::wstring Filename() const { return loadInfo.configFile; }
-    bool CustomConfDir() const { return customConfDir; }
     bool Explicit() const { return loadInfo.specified; }
     bool Redirected() const { return loadInfo.redirected; }
     bool Valid() const { return loadInfo.valid; }
@@ -174,7 +172,7 @@ void RegisterAdminCommands(WebCommands &persist, WebAdminTracker &mon, TrackedAd
     SimpleCommand<ConfigFileCMD>(persist, mon, tracking);
     SimpleCommand<GetRawConfigCMD>(persist, mon, tracking.loadedConfig);
     {
-        std::unique_ptr<SaveRawConfigCMD> build(new SaveRawConfigCMD(tracking.loadInfo.configDir.c_str(), tracking.loadInfo.configFile.c_str()));
+        std::unique_ptr<SaveRawConfigCMD> build(new SaveRawConfigCMD(tracking.loadInfo.configFile.c_str()));
         mon.RegisterCommand(*build);
         persist.push_back(std::move(build));
     }

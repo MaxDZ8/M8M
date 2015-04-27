@@ -12,7 +12,6 @@ class ConfigFileCMD : public AbstractCommand {
 public:
 	struct ConfigInfoProviderInterface {
 		virtual std::wstring Filename() const = 0;
-        virtual bool CustomConfDir() const = 0;
 		virtual bool Explicit() const = 0;
 		virtual bool Redirected() const = 0;
 		virtual bool Valid() const = 0;
@@ -37,7 +36,6 @@ public:
 		}
 		build.AddMember("filename", Value(target.GetString(), rapidjson::SizeType(target.GetSize()), build.GetAllocator()), build.GetAllocator());
 		build.AddMember("explicit", Value(config.Explicit()), build.GetAllocator());
-		build.AddMember("customConfDir", Value(config.CustomConfDir()), build.GetAllocator());
 		build.AddMember("redirected", config.Redirected(), build.GetAllocator());
 		build.AddMember("valid", config.Valid(), build.GetAllocator());
 		return nullptr;

@@ -37,9 +37,14 @@ public:
 	I assume this is for debug or really really really important output of some stuff. Output I can understand, but input... just say NO.
 	What happens if you don't enable input? std::cin will return 0xc for all read octects under windows instantaneously... so you get all sort of silly stuff
 	and defeat the purpose. */
-	AutoConsole() : prevOut(nullptr), prevErr(nullptr), prevIn(nullptr) {
+	explicit AutoConsole() : prevOut(nullptr), prevErr(nullptr), prevIn(nullptr) {
 		if(!AllocConsole()) throw "Failed to access console!";
 	}
+    //! Specify 0xffffffff for parent process.
+    AutoConsole(auint owner) {
+        if(owner == auint(~0)) owner = ATTACH_PARENT_PROCESS;
+        if(!AttachConsole(owner)) throw "Failed to attach console!";
+    }
 	~AutoConsole() { 
 		if(prevIn) std::cin.rdbuf(prevIn);
 		if(prevErr) std::cerr.rdbuf(prevErr);

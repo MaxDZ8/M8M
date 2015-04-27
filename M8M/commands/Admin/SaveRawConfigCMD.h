@@ -14,15 +14,13 @@ namespace admin {
 
 class SaveRawConfigCMD : public AbstractCommand {
 public:
-	const std::wstring confDir;
 	const std::wstring filename;
-	SaveRawConfigCMD(const wchar_t *cfgDir, const wchar_t *currentFile) : confDir(cfgDir), filename(currentFile), AbstractCommand("saveRawConfig") { }
+	SaveRawConfigCMD(const wchar_t *currentFile) : filename(currentFile), AbstractCommand("saveRawConfig") { }
 
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		using namespace rapidjson;
 		Value::ConstMemberIterator params = input.FindMember("params");
 		if(params == input.MemberEnd() || params->value.IsObject() == false) throw std::exception("Missing .params object.");
-		sharedUtils::system::AutoGoDir<true> cfgDir(confDir.c_str(), true);
 		std::wstring target;
 		Value::ConstMemberIterator dst = params->value.FindMember("destination");
 		if(dst == input.MemberEnd() || dst->value.IsString() == false) target = filename;

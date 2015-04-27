@@ -9,6 +9,7 @@
 #include <string>
 #include <array>
 
+
 /*! An IconCompositer takes a set of icons (expressed as 4D aubyte arrays) identified by name.
 All icons must have the same size and a "compositing rectangle". For the time being the compositing rectangle
 must be the same across all icons.
@@ -21,13 +22,50 @@ So it could be all RGBA or all ARGB, it doesn't care. All values are assumed to 
 
 It's a nice little stupid helper struct for the time being, only aubyte is going to work.
 */
-template<asizei WIDTH, asizei HEIGHT>
-class IconCompositer {
+class AbstractIconCompositer {
 public:
+    const asizei width;
+    const asizei height;
 	const aushort alphaIndex;
-	explicit IconCompositer(aushort alphaChannelIndex = 3)
-		: alphaIndex(alphaChannelIndex), hsx(0), hsy(0), hsWidth(0), hsHeight(0), activeIcon(0), activeState(0) { }
-	std::pair<asizei, asizei> GetIconDimensions() const { return std::make_pair(WIDTH, HEIGHT); }
+	AbstractIconCompositer(asizei w, asizei h, aushort alphaChannelIndex = 3)
+		: width(w), height(h), alphaIndex(alphaChannelIndex) { }
+    virtual ~AbstractIconCompositer() { }
+
+	virtual void AddIcon(const char *name, const aubyte *values) = 0;
+	virtual void SetCurrentIcon(const char *name) = 0;
+	virtual void AddState(const char *name, const aubyte *pixel) = 0;
+	virtual void SetCurrentState(const char *name) = 0;
+    virtual void SetIconHotspot(asizei x, asizei y, asizei w, asizei h) = 0; // or "composition rectangle"
+	virtual void GetCompositedIcon(aubyte *buffer) const = 0;
+	void GetCompositedIcon(std::vector<aubyte> &ico) const {
+        ico.resize(width * height * 4);
+		GetCompositedIcon(ico.data());
+	}
+};
+
+
+/*! The DummyIconCompositer does nothing.
+It's used when M8M is run with the --invisible parameter. I still have handle it by pointer but at least I can assume it points to something
+so I avoid doing ugly ifs.
+The only debatable behavior in this case is GetCompositedIcon, which currently returns black transparent icon.
+It isn't a problem as when this is used there will be no icon either. */
+class DummyIconCompositer : public AbstractIconCompositer {
+public:
+    DummyIconCompositer(asizei width, asizei height, aushort alphaChannelIndex = 3) : AbstractIconCompositer(width, height, alphaChannelIndex) { }
+
+    void AddIcon(const char *name, const aubyte *values) { }
+    void SetCurrentIcon(const char *name) { }
+    void AddState(const char *name, const aubyte *pixel) { }
+    void SetCurrentState(const char *name) { }
+    void SetIconHotspot(asizei x, asizei y, asizei w, asizei h) { }
+    void GetCompositedIcon(aubyte *buffer) const { memset(buffer, 0, 4 * width * height); }
+};
+
+
+/*! Real deal. Keep some data around. */
+class IconCompositer : public AbstractIconCompositer {
+public:
+    IconCompositer(asizei width, asizei height, aushort alphaChannelIndex = 3) : AbstractIconCompositer(width, height, alphaChannelIndex) { }
 	void AddIcon(const char *name, const aubyte *values) { icons.push_back(Icon(name, values)); }
 	void SetCurrentIcon(const char *name) {
 		for(asizei loop = 0; loop < icons.size(); loop++) {
@@ -57,8 +95,8 @@ public:
 	void GetCompositedIcon(aubyte *buffer) const {
 		const asingle scale = 1.0f / 255.0f;
 		asizei off = 0;
-		for(asizei row = 0; row < HEIGHT; row++) {
-			for(asizei col = 0; col < WIDTH; col++) { // copy to buffer and premultiply
+		for(asizei row = 0; row < height; row++) {
+			for(asizei col = 0; col < width; col++) { // copy to buffer and premultiply
 				aubyte *dst = buffer + off;
 				const aubyte *src = icons[activeIcon].pixels + off;
 				off += 4;
@@ -77,7 +115,7 @@ public:
 		}
 		// "over" with premultiply is src*1+dst*(1-src_a)
 		// "behind" with premultiply is src*(1-dst_a)+dst*1
-		off = (hsy * WIDTH + hsx) * 4;
+		off = (hsy * width + hsx) * 4;
 		for(asizei row = 0; row < hsHeight; row++) {
 			for(asizei col = 0; col < hsWidth; col++) {
 				const asingle dstAlpha = buffer[off + col * 4 + alphaIndex] * scale;
@@ -87,11 +125,8 @@ public:
 					buffer[off + col * 4 + c] = aubyte(mult * 255.0f);
 				}
 			}
-			off += WIDTH * 4;
+			off += width * 4;
 		}
-	}
-	void GetCompositedIcon(std::array<aubyte, WIDTH * HEIGHT * 4> &ico) const {
-		GetCompositedIcon(ico.data());
 	}
 
 private:
@@ -114,4 +149,3 @@ private:
 	std::vector<Icon> icons;
 	std::vector<StateDecoration> states;
 };
-

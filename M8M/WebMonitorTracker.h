@@ -11,7 +11,7 @@
 class WebTrackerOnOffConn : public AbstractWSServer {
 public:
 	std::function<void()> connectClicked;
-	WebTrackerOnOffConn(NotifyIcon &icon, NetworkInterface &netAPI, aushort port, const char *resourceURI, const char *wsProtocol)
+	WebTrackerOnOffConn(AbstractNotifyIcon &icon, NetworkInterface &netAPI, aushort port, const char *resourceURI, const char *wsProtocol)
 		: AbstractWSServer(netAPI, port, resourceURI, wsProtocol), menu(icon) {
 		miON = miOFF = miCONN = 0;
 	}
@@ -22,7 +22,7 @@ public:
 	}
 
 private:
-	NotifyIcon &menu;
+	AbstractNotifyIcon &menu;
 	auint miON, miOFF, miCONN;
 
 	void EnableWeb() {
@@ -58,7 +58,7 @@ private:
 
 class WebMonitorTracker : public WebTrackerOnOffConn {
 public:
-	WebMonitorTracker(NotifyIcon &icon, NetworkInterface &netAPI)
+	WebMonitorTracker(AbstractNotifyIcon &icon, NetworkInterface &netAPI)
 		: WebTrackerOnOffConn(icon, netAPI, 31000, "monitor", "M8M-monitor") {
 	}
 };
@@ -66,7 +66,7 @@ public:
 
 class WebAdminTracker : public WebTrackerOnOffConn {
 public:
-	WebAdminTracker(NotifyIcon &icon, NetworkInterface &netAPI)
+	WebAdminTracker(AbstractNotifyIcon &icon, NetworkInterface &netAPI)
 		: WebTrackerOnOffConn(icon, netAPI, 31001, "admin", "M8M-admin") {
 	}
 };

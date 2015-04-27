@@ -18,7 +18,6 @@ conflicts to pad gather phase. */
 #include <iomanip>
 #include "M8MIcon.h"
 #include "../Common/AREN/SharedUtils/AutoConsole.h"
-#include "../Common/AREN/SharedUtils/AutoCommandLine.h"
 #include "cmdHubs.h"
 #include "StartParams.h"
 #include "mainHelpers.h"
@@ -64,8 +63,6 @@ Windows allows to sleep on sockets and thread signals but I'm not sure other OSs
 
 Settings* LoadSettings(commands::admin::RawConfig &loadAttempt, CFGLoadInfo &loadInfo) {
     unique_ptr<Settings> configuration(std::make_unique<Settings>());
-    sharedUtils::system::AutoGoDir<true> cfgDir(loadInfo.configDir.c_str(), true);
-    if(!cfgDir.Changed()) throw std::wstring(L"Could not go to configuration directory \"") + loadInfo.configDir + L'"';
 
 	using namespace rapidjson;
 	CFGLoadErrInfo failure;
@@ -113,15 +110,15 @@ Settings* LoadSettings(commands::admin::RawConfig &loadAttempt, CFGLoadInfo &loa
 
 //! This silly object is really meant to just provide a way to build a message pump without resolving to a function having a 6+ parameters.
 struct MinerMessagePump {
-    NotifyIcon &notify;
-    IconCompositer<16, 16> &iconBitmaps;
+    AbstractNotifyIcon &notify;
+    AbstractIconCompositer &iconBitmaps;
     Network &network;
     Connections &remote;
     TrackedValues &stats;
 
     NonceFindersInterface *miner = nullptr;
 
-    MinerMessagePump(NotifyIcon &icon, IconCompositer<16, 16> &rasters, Network &net, Connections &servers, TrackedValues &track)
+    MinerMessagePump(AbstractNotifyIcon &icon, AbstractIconCompositer &rasters, Network &net, Connections &servers, TrackedValues &track)
         : notify(icon), iconBitmaps(rasters), network(net), remote(servers), stats(track) { }
 
     bool Pump(const std::function<void(auint ms)> &sleepFunc, bool &run, MiniServers &web, aulong &firstNonce, std::map<ShareIdentifier, ShareFeedbackData> &sentShares, TrackedAdminValues &admin) {
@@ -156,7 +153,7 @@ struct MinerMessagePump {
 				if(toRead.size()) sinceActivity += POLL_PERIOD_MS;
 				if(sinceActivity >= TIMEOUT_MS && deadServersSignaled == false) {
                     notify.ShowMessage(L"No activity from servers in 120 seconds.");
-			        std::array<aubyte, M8M_ICON_SIZE * M8M_ICON_SIZE * 4> ico;
+                    std::vector<aubyte> ico;
 			        iconBitmaps.SetCurrentState(STATE_ERROR);
 			        iconBitmaps.GetCompositedIcon(ico);
 			        notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
@@ -203,7 +200,7 @@ private:
         const auto state = miner->TestStatus();
         if(minerState == state) return;
 
-	    std::array<aubyte, M8M_ICON_SIZE * M8M_ICON_SIZE * 4> ico;
+	    std::vector<aubyte> ico;
         switch(state) {
         case NonceFindersInterface::s_initialized:
         case NonceFindersInterface::s_unresponsive: {
@@ -306,56 +303,94 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE unusedLegacyW16, PWSTR cmdLine
 int main(int argc, char **argv) {
 #endif
 
-    StartParams cmdParams;
-
-	/* M8M is super spiffy and so minimalistic I often forgot it's already running.
-	Running multiple instances might make sense in the future (for example to mine different algos on different cards)
-	but it's not supported for the time being. Having multiple M8M instances doing the same thing will only cause driver work and GPU I$ to work extra hard. */
-    OSUniqueChecker onlyOne;
-    if(cmdParams.secondaryInstance == false) {
-	    if(onlyOne.CanStart(L"M8M_unique_instance_systemwide_mutex") == false) {
-		    const wchar_t *msg = L"It seems you forgot M8M is already running. Check out your notification area!\n"
-				                    L"Running multiple instances is not a good idea in general and it's not currently supported.\n"
-								    L"This program will now close.";
-		    const wchar_t *title = L"Already running!";
-    #if defined(_WIN32)
-		    MessageBox(NULL, msg, title, MB_ICONINFORMATION | MB_SYSTEMMODAL | MB_SETFOREGROUND);
-    #else
-    #error Whoops! Tell the user to not do that!
-    #endif
-		    return 0;
-	    }
-    }
-
+    StartParams cmdParams(cmdLine);
     std::unique_ptr<sharedUtils::system::AutoConsole<false>> handyOutputForDebugging;
-#if defined(_WIN32) && (defined(_DEBUG) || defined(RELEASE_WITH_CONSOLE))
-    cmdParams.allocConsole = true;
+    std::wstring configFile;
+    bool configSpecified = false;
+    bool invisible = false;
+    bool fail = false;
+    std::unique_ptr<AbstractIconCompositer> iconBitmaps;
+    auto fatal = [&fail](const wchar_t *msg) {
+        MessageBox(NULL, msg, L"Fatal error!", MB_ICONERROR | MB_SYSTEMMODAL | MB_SETFOREGROUND);
+        fail = true;
+    };
+    auto fatalAscii = [&fatal](const char *msg) {
+        std::vector<wchar_t> unicode(strlen(msg) + 1); // not converted correctly, I could/should use rapidjson here but is it worth?
+        for(asizei cp = 0; msg[cp]; cp++) unicode[cp] = msg[cp];
+        unicode[strlen(msg)] = 0;
+        fatal(unicode.data());
+    };
+
+    try { // mangling parameters
+        std::vector<wchar_t> value;
+        if(cmdParams.ConsumeParam(value, L"alreadyRunning")) {
+            if(value.size()) {
+                const wchar_t *title = L"--alreadyRunning";
+                const wchar_t *msg = L"Looks like you've specified a value for a parameter which is not supposed to take any."
+                                     L"\nExecution will continue but clean up your command line please.";
+                MessageBox(NULL, msg, title, MB_OK | MB_ICONWARNING);
+            }
+        }
+        else {
+	        /* M8M is super spiffy and so minimalistic I often forgot it's already running.
+	        Running multiple instances might make sense in the future (for example to mine different algos on different cards)
+	        but it's not supported for the time being. Having multiple M8M instances doing the same thing will only cause driver work and GPU I$ to work extra hard. */
+            OSUniqueChecker onlyOne;
+	        if(onlyOne.CanStart(L"M8M_unique_instance_systemwide_mutex") == false) {
+		        const wchar_t *msg = L"It seems you forgot M8M is already running. Check out your notification area!\n"
+				                        L"Running multiple instances is not a good idea in general and it's not currently supported.\n"
+								        L"This program will now close.";
+		        const wchar_t *title = L"Already running!";
+            #if defined(_WIN32)
+		        MessageBox(NULL, msg, title, MB_ICONINFORMATION | MB_SYSTEMMODAL | MB_SETFOREGROUND);
+            #else
+            #error Whoops! Tell the user to not do that!
+            #endif
+		        return 0;
+            }
+        }
+        if(cmdParams.ConsumeParam(value, L"console")) {
+            if(_wcsicmp(L"new", value.data()) == 0) handyOutputForDebugging = std::make_unique<sharedUtils::system::AutoConsole<false>>();
+#if defined(_WIN32)
+            else if(_wcsicmp(L"parent", value.data()) == 0) handyOutputForDebugging = std::make_unique<sharedUtils::system::AutoConsole<false>>(auint(~0));
 #endif
-    if(cmdParams.allocConsole) {
-	    handyOutputForDebugging = std::make_unique<sharedUtils::system::AutoConsole<false>>();
-	    handyOutputForDebugging->Enable();
+            else {
+                auto number(_wtoll(value.data()));
+                if(number < 0 || number > auint(~0)) throw std::exception("Invalid value for parameter --console");
+                handyOutputForDebugging = std::make_unique<sharedUtils::system::AutoConsole<false>>(auint(number));
+            }
+	        handyOutputForDebugging->Enable();
+        }
+        if(cmdParams.ConsumeParam(value, L"config")) {
+            configFile = value.data();
+            configSpecified = true;
+        }
+        else configFile = L"init.json";
+        if(cmdParams.ConsumeParam(value, L"invisible")) {
+            if(value.size()) {
+                const wchar_t *title = L"--invisible";
+                const wchar_t *msg = L"Looks like you've specified a value for a parameter which is not supposed to take any."
+                                     L"\nExecution will continue but clean up your command line please.";
+                MessageBox(NULL, msg, title, MB_OK | MB_ICONWARNING);
+            }
+            invisible = true;
+            iconBitmaps.reset(new DummyIconCompositer(M8M_ICON_SIZE, M8M_ICON_SIZE));
+        }
+        else iconBitmaps.reset(new IconCompositer(M8M_ICON_SIZE, M8M_ICON_SIZE));
+
+        if(cmdParams.FullyConsumed() == false) {
+            const wchar_t *title = L"Dirty command line";
+            const wchar_t *msg = L"Command line parameters couldn't consume everything you wrote."
+                                 L"\nExecution will continue but clean up your command line please.";
+            MessageBox(NULL, msg, title, MB_OK | MB_ICONWARNING);
+        }
     }
-	
-
-    std::wstring dataDirBase;
-	#if defined(_WIN32)
-		PWSTR lappData = nullptr;
-		HRESULT got = SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &lappData);
-		if(got != S_OK) {
-			MessageBox(NULL, L"Could not locate %LOCALAPPDATA% directory.\nThis is a fatal error.", L"Directory error!", MB_ICONERROR | MB_SYSTEMMODAL | MB_SETFOREGROUND);
-			return 0;
-		}
-		ScopedFuncCall clear([lappData]() { CoTaskMemFree(lappData); });
-		dataDirBase = lappData;
-		dataDirBase += DIR_SEPARATOR  L"M8M" DIR_SEPARATOR;
-	#else
-	#error change to some working/settings directory for some OS
-	#endif
-
-    const bool confDirRedirected = cmdParams.cfgDir.empty() == false;
-	if(cmdParams.cfgDir.empty()) {
-        cmdParams.cfgDir = dataDirBase + L"conf";
-	}
+    catch(const char *msg) { fatalAscii(msg); }
+    catch(const std::wstring msg) { fatal(msg.c_str()); }
+    catch(const std::string msg) { fatalAscii(msg.c_str()); }
+    catch(const std::exception msg) { fatalAscii(msg.what()); }
+    catch(...) { fatalAscii("An unknown error was detected while parsing command line parameters.\nThis is very wrong, program will now exit."); }
+    if(fail) return -1;
 
 	std::function<void(auint sleepms)> sleepFunc = [](auint ms) {
 #if defined _WIN32
@@ -365,50 +400,38 @@ int main(int argc, char **argv) {
 #endif
     };
 
-	const aubyte white[4] =  { 255, 255, 255, 255 };
+    const aubyte white[4] =  { 255, 255, 255, 255 };
 	const aubyte green[4] =  {   0, 255,   0, 255 };
 	const aubyte yellow[4] = {   0, 255, 255, 255 };
 	const aubyte blue[4] =   { 255,   0,   0, 255 };
 	const aubyte red[4] =    {   0,   0, 255, 255 };
-	IconCompositer<16, 16> iconBitmaps;
 	try {
-		iconBitmaps.AddIcon(STATE_ICON_NORMAL, M8M_ICON_16X16_NORMAL);
-		iconBitmaps.AddIcon(STATE_ICON_LISTENING, M8M_ICON_16X16_LISTENING);
-		iconBitmaps.AddIcon(STATE_ICON_CLIENT_CONNECTED, M8M_ICON_16X16_CLIENT_CONNECTED);
-		iconBitmaps.AddState(STATE_OK, white);
-		iconBitmaps.AddState(STATE_INIT, green);
-		iconBitmaps.AddState(STATE_WARN, yellow);
-		iconBitmaps.AddState(STATE_ERROR, red);
-		iconBitmaps.AddState(STATE_COOLDOWN, blue);
-		iconBitmaps.SetIconHotspot(8, 7, 14 - 8, 13 - 7); // I just looked at the rasters. Don't ask!
+		iconBitmaps->AddIcon(STATE_ICON_NORMAL, M8M_ICON_16X16_NORMAL);
+		iconBitmaps->AddIcon(STATE_ICON_LISTENING, M8M_ICON_16X16_LISTENING);
+		iconBitmaps->AddIcon(STATE_ICON_CLIENT_CONNECTED, M8M_ICON_16X16_CLIENT_CONNECTED);
+		iconBitmaps->AddState(STATE_OK, white);
+		iconBitmaps->AddState(STATE_INIT, green);
+		iconBitmaps->AddState(STATE_WARN, yellow);
+		iconBitmaps->AddState(STATE_ERROR, red);
+		iconBitmaps->AddState(STATE_COOLDOWN, blue);
+		iconBitmaps->SetIconHotspot(8, 7, 14 - 8, 13 - 7); // I just looked at the rasters. Don't ask!
 	} catch(std::exception) {
 		MessageBox(NULL, L"Error building the icons.", L"Fatal error!", MB_ICONERROR | MB_SYSTEMMODAL | MB_SETFOREGROUND);
 		return 0;
 	}
-
-    auto fatal = [](const wchar_t *msg) {
-		MessageBox(NULL, msg, L"Fatal error!", MB_ICONERROR | MB_SYSTEMMODAL | MB_SETFOREGROUND);
-		return 0;
-    };
-    auto fatalAscii = [&fatal](const char *msg) {
-        std::vector<wchar_t> unicode(strlen(msg) + 1); // not converted correctly, I could/should use rapidjson here but is it worth?
-        for(asizei cp = 0; msg[cp]; cp++) unicode[cp] = msg[cp];
-        unicode[strlen(msg)] = 0;
-        fatal(unicode.data());
-    };
     const auto prgmInitialized = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch());
 	bool run = true;
     bool nap = false;
     try {
 	    while(run) {
-		    iconBitmaps.SetCurrentIcon(STATE_ICON_NORMAL);
-		    iconBitmaps.SetCurrentState(STATE_INIT);
+		    iconBitmaps->SetCurrentIcon(STATE_ICON_NORMAL);
+		    iconBitmaps->SetCurrentState(STATE_INIT);
             unique_ptr<Settings> configuration;
             commands::admin::RawConfig attempt;
             CFGLoadInfo load;
             {
-                load.configDir = cmdParams.cfgDir;
-                load.configFile = cmdParams.cfgFile;
+                load.configFile = configFile;
+                load.specified = configSpecified;
                 try {
                     configuration.reset(LoadSettings(attempt, load));
                 }
@@ -418,33 +441,33 @@ int main(int argc, char **argv) {
                 catch(const std::exception) {}
             }
             if(nap) sleepFunc(500); // reinforce the idea I'm getting rebooted!
-            NotifyIcon notify;
-		    {
-			    std::array<aubyte, M8M_ICON_SIZE * M8M_ICON_SIZE * 4> ico;
-			    if(!configuration) {
-				    iconBitmaps.SetCurrentState(STATE_ERROR);
-				    notify.ShowMessage(L"ERROR: no configuration loaded.");
-			    }
-			    iconBitmaps.GetCompositedIcon(ico);
-			    notify.SetCaption(M8M_ICON_CAPTION);
-			    notify.SetIcon(ico.data(), 16, 16);
-		    }
+            std::unique_ptr<AbstractNotifyIcon> notify;
+            if(invisible) notify.reset(new DummyNotifyIcon());
+            else notify.reset(new NotifyIcon());
+			std::vector<aubyte> ico;
+			if(!configuration) {
+				iconBitmaps->SetCurrentState(STATE_ERROR);
+				notify->ShowMessage(L"ERROR: no configuration loaded.");
+			}
+			iconBitmaps->GetCompositedIcon(ico);
+            notify->SetCaption(M8M_ICON_CAPTION);
+			notify->SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
             // No matter if stuff is right or not, open the mini-servers so we can inspect state remotely.
 		    Network network;
-            MiniServers web(notify, network); // hopefully those won't fail! Should I catch those? No way to be nice with this problem anyway!
-            web.Init(notify, iconBitmaps);
-        
-		    notify.AddMenuItem(L"Open user app folder", [&dataDirBase]() { OpenFileExplorer(dataDirBase.c_str()); });
-		    notify.AddMenuSeparator();
+            MiniServers web(*notify, network); // hopefully those won't fail! Should I catch those? No way to be nice with this problem anyway!
+            web.Init(*notify, *iconBitmaps);
+
+            notify->AddMenuItem(L"Open app folder", []() { OpenFileExplorer(L""); });
+		    notify->AddMenuSeparator();
 		    web.admin.SetMessages(L"Enable web administration", L"Connect to web administration", L"Disable web admin");
-		    notify.AddMenuSeparator();
+		    notify->AddMenuSeparator();
 		    web.monitor.SetMessages(L"Enable web monitor", L"Connect to web monitor", L"Disable web monitor");
-		    notify.AddMenuSeparator();
-		    notify.AddMenuSeparator();
-		    notify.AddMenuItem(L"Exit ASAP", [&run]() { run = false; });
-		    if(configuration) notify.ShowMessage(L"Getting ready!\nLeave me some seconds to warm up..."); // otherwise we have errors already!
-		    notify.BuildMenu();
-		    notify.Tick();
+		    notify->AddMenuSeparator();
+		    notify->AddMenuSeparator();
+		    notify->AddMenuItem(L"Exit ASAP", [&run]() { run = false; });
+		    if(configuration && notify) notify->ShowMessage(L"Getting ready!\nLeave me some seconds to warm up..."); // otherwise we have errors already!
+		    notify->BuildMenu();
+		    notify->Tick();
 
             // Let's start with the serious stuff. First we need a place where we'll store sent shares waiting for the servers to signal accept/reject.
             std::map<ShareIdentifier, ShareFeedbackData> sentShares;
@@ -464,20 +487,20 @@ int main(int argc, char **argv) {
             TrackedValues stats(remote, prgmInitialized.count());
 		    if(remote.GetNumPoolsAdded() == 0) {
 			    if(configuration) { // otherwise, keep the bad config message
-                    notify.ShowMessage(L"No remote servers.");
-			        std::array<aubyte, M8M_ICON_SIZE * M8M_ICON_SIZE * 4> ico;
-			        iconBitmaps.SetCurrentState(STATE_ERROR);
-			        iconBitmaps.GetCompositedIcon(ico);
-			        notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
+                    notify->ShowMessage(L"No remote servers.");
+			        if(iconBitmaps) {
+                        iconBitmaps->SetCurrentState(STATE_ERROR);
+			            iconBitmaps->GetCompositedIcon(ico);
+                    }
+			        notify->SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
                 }
 		    }
-            remote.SetNoAuthorizedWorkerCallback([&configuration, &remote, &notify, &iconBitmaps]() {
+            remote.SetNoAuthorizedWorkerCallback([&configuration, &remote, &notify, &iconBitmaps, &ico]() {
                 if(configuration && remote.GetNumPoolsAdded()) {
-                    notify.ShowMessage(L"No workers logged to server!");
-			        std::array<aubyte, M8M_ICON_SIZE * M8M_ICON_SIZE * 4> ico;
-			        iconBitmaps.SetCurrentState(STATE_ERROR);
-			        iconBitmaps.GetCompositedIcon(ico);
-			        notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
+                    notify->ShowMessage(L"No workers logged to server!");
+			        iconBitmaps->SetCurrentState(STATE_ERROR);
+			        iconBitmaps->GetCompositedIcon(ico);
+			        notify->SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
                 }
 		    });
 		    remote.dispatchFunc = [&miner](AbstractWorkSource &pool, std::unique_ptr<stratum::AbstractWorkFactory> &newWork) {
@@ -555,7 +578,6 @@ int main(int argc, char **argv) {
             }
             
             TrackedAdminValues admin(load, attempt);
-            admin.customConfDir = confDirRedirected;
             
             WebCommands parsers;
             if(importantMinerStructs) {
@@ -598,7 +620,7 @@ int main(int argc, char **argv) {
                 }
             };
 
-            MinerMessagePump everything(notify, iconBitmaps, network, remote, stats);
+            MinerMessagePump everything(*notify, *iconBitmaps, network, remote, stats);
             everything.miner = miner.get();
             run = everything.Pump(sleepFunc, run, web, stats.firstNonce, sentShares, admin);
             nap = true;

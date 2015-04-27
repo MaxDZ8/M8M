@@ -10,8 +10,8 @@ struct MiniServers {
     WebMonitorTracker monitor;
     WebAdminTracker admin;
 
-    MiniServers(NotifyIcon &notify, Network &network) : monitor(notify, network), admin(notify, network) { }
-    void Init(NotifyIcon &notify, IconCompositer<16, 16> &iconBitmaps) {
+    MiniServers(AbstractNotifyIcon &notify, Network &network) : monitor(notify, network), admin(notify, network) { }
+    void Init(AbstractNotifyIcon &notify, AbstractIconCompositer &iconBitmaps) {
 #if defined (_DEBUG)
         const wchar_t *pathToWebApps = L".." DIR_SEPARATOR L"web" DIR_SEPARATOR;
 #else
@@ -50,7 +50,7 @@ struct MiniServers {
 			if(listening) listeningPorts++;
 			else listeningPorts--;
 			if(listeningPorts == 0 || (listeningPorts == 1 && listening)) {
-				std::array<aubyte, M8M_ICON_SIZE * M8M_ICON_SIZE * 4> ico;
+				std::vector<aubyte> ico;
 				iconBitmaps.SetCurrentIcon(listening? STATE_ICON_LISTENING : STATE_ICON_NORMAL);
 				iconBitmaps.GetCompositedIcon(ico);
 				notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);

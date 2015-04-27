@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AbstractNotifyIcon.h" />
     <ClInclude Include="AbstractWorkSource.h" />
     <ClInclude Include="aes.h" />
     <ClInclude Include="AREN\ArenDataTypes.h" />
