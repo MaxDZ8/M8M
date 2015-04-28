@@ -522,7 +522,7 @@ int main(int argc, char **argv) {
                             if(stat == StratumShareResponse::ssr_rejected) entry.rejected++;
                             else if(stat == StratumShareResponse::ssr_accepted) {
                                 entry.accepted++;
-                                entry.acceptedDiff += match->second.shareDiff;
+                                entry.acceptedDiff += match->second.targetDiff;
                             }
                             entry.lastSubmitReply = std::chrono::system_clock::now();
                             if(first) entry.first = entry.lastSubmitReply;

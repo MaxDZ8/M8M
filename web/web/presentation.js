@@ -67,7 +67,10 @@ var presentation = {
 		\param device An object describing the device (originally CLDeviceDesc, but that type is no more). */
 		function describeDevice(yourLine, device) {
 			var typology = device.type + (device.arch? ', ' + '<strong>' + device.arch + '</strong>' : '');
-			var chipDetail = '<em>' + device.chip.replace("(tm)", "\u2122") + '</em>'; // + ' (0x' + device.vendorID.toString(16) + ')';
+			var chipName = device.chip.replace("(tm)", "\u2122").replace("(TM)", "\u2122");
+			chipName = chipName.replace("(r)", "\u00ae").replace("(R)", "\u00ae");
+			chipName = chipName.replace("(c)", "\u00a9").replace("(C)", "\u00a9");
+			var chipDetail = '<em>' + chipName + '</em>'; // + ' (0x' + device.vendorID.toString(16) + ')';
 			var chipPower = device.clusters + ' cores @ ' + device.coreClock + ' Mhz';
 			addCell(typology + '<br>' + chipDetail + '<br>' + chipPower);
 			

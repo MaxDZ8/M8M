@@ -10,7 +10,7 @@ namespace commands {
 
 class VersionCMD : public AbstractCommand {
 	PushInterface* Parse(rapidjson::Document &reply, const rapidjson::Value &input) {
-		reply.SetString("v1.1");
+        reply.SetUint(3);
 		return nullptr;
 	}
 public:

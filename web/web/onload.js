@@ -48,27 +48,44 @@ window.onload = function() {
 	var serverHost = "localhost";
 	var serverPort = 31000;
 	callbacks.close = function() { alert("socket close"); };
-	callbacks.success = function() {
-		document.body.removeChild(document.getElementById("initializing"));
-		// todo: populate information from server first? 
-		document.body.appendChild(window.keepUntilConnect);
-		delete window.keepUntilConnect;
-		
-		document.getElementById("totalHashrate").textContent = "... H/s";
-		
-		compatible.setEventCallback(document.getElementById("perfMode"), "change", function(ev) {
-			var how = this.selectedOptions[0].id;
-			if(how === "perfMode-HR") presentation.perfMode = "hashrate";
-			else presentation.perfMode = "itime";
-			var niceHR = presentation.refreshDevicePerf();			
-			var header = document.getElementById("perfMeasureHeader");
-			if(how === "perfMode-IT") header.textContent = "Scan time [ms]";
-			else {
-				header.textContent = "Hashrate [" + niceHR.prefix + "H/s]";
+	callbacks.success = function() { // ok, websocket communication is up... but is the correct application version?
+		minerMonitor.requestSimple("version", function(gotVer) {
+			var wanted = 3;
+			if(gotVer !== wanted) {
+				failure("Version mismatch. Got " + gotVer + " but must be " + wanted);
+				window.minerMonitor.socket.close();
+				delete window.minerMonitor;
 			}
-		});
+			else {
+				callbacks.pingTimeFunc = function(time) { presentation.showReplyTime(time); };	
+	
+				document.body.removeChild(document.getElementById("initializing"));
+				// todo: populate information from server first? 
+				document.body.appendChild(window.keepUntilConnect);
+				delete window.keepUntilConnect;
+				
+				document.getElementById("server").textContent = serverHost + ":" + serverPort;
+				window.minerMonitor.requestSimple("uptime", uptimeCallback);
+				document.getElementById("totalHashrate").textContent = "... H/s";
+				
+				compatible.setEventCallback(document.getElementById("perfMode"), "change", function(ev) {
+					var how = this.selectedOptions[0].id;
+					if(how === "perfMode-HR") presentation.perfMode = "hashrate";
+					else presentation.perfMode = "itime";
+					var niceHR = presentation.refreshDevicePerf();			
+					var header = document.getElementById("perfMeasureHeader");
+					if(how === "perfMode-IT") header.textContent = "Scan time [ms]";
+					else {
+						header.textContent = "Hashrate [" + niceHR.prefix + "H/s]";
+					}
+				});
+				
+				window.minerMonitor.requestSimple("systemInfo", mangleSysInfo);
+			}
+		});		
 		
-		minerMonitor.requestSimple("systemInfo", function(pdesc) {
+		
+		function mangleSysInfo(pdesc) {
 			presentation.appendDevicePlatforms(pdesc);
 			window.minerMonitor.requestSimple("algo", function(reply) {
 				presentation.updateMiningElements(reply);
@@ -138,11 +155,8 @@ window.onload = function() {
 					});
 				});
 			});
-		});
-		document.getElementById("server").textContent = serverHost + ":" + serverPort;
-		window.minerMonitor.requestSimple("uptime", uptimeCallback);
+		};
 	};
-	callbacks.pingTimeFunc = function(time) { presentation.showReplyTime(time); };
 	window.minerMonitor = new MinerMonitor(serverHost, serverPort, "monitor", callbacks);
 	
 	function fillConfigTable() {
