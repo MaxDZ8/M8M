@@ -131,8 +131,7 @@ function newConfigSaveAndReboot() {
 					pools: [],
 					driver: "OCL",
 					algo: window.wizConfig.algo,
-					impl: preferredImplementation[window.wizConfig.algo],
-					checkNonces: false,
+					impl: preferredImplementation[window.wizConfig.algo]
 					implParams: algoFamilies
 				}
 			}

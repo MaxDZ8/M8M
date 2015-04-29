@@ -120,9 +120,6 @@ struct Settings {
 	std::vector< unique_ptr<PoolInfo> > pools;
 	std::string driver, algo, impl;
 	rapidjson::Document implParams;
-	bool checkNonces; //!< if this is false, the miner thread will not re-hash nonces and blindly consider them valid
-
-	Settings() : checkNonces(true) { }
 };
 /*!< This structure contains every possible setting, in a way or the other.
 On creation, it sets itself to default values - this does not means it'll
@@ -253,8 +250,6 @@ static Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson
 		if(driver != root.MemberEnd() && driver->value.IsString()) ret->driver = mkString(driver->value);
 		if(algo != root.MemberEnd() && algo->value.IsString()) ret->algo = mkString(algo->value);
 		if(impl != root.MemberEnd() && impl->value.IsString()) ret->impl = mkString(impl->value);
-		Value::ConstMemberIterator checkNonces = root.FindMember("checkNonces");
-		if(checkNonces != root.MemberEnd() && checkNonces->value.IsBool()) ret->checkNonces = checkNonces->value.GetBool();
 	}
 	Value::ConstMemberIterator implParams = root.FindMember("implParams");
 	if(implParams != root.MemberEnd()) ret->implParams.CopyFrom(implParams->value, ret->implParams.GetAllocator());

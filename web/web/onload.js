@@ -160,11 +160,7 @@ window.onload = function() {
 	window.minerMonitor = new MinerMonitor(serverHost, serverPort, "monitor", callbacks);
 	
 	function fillConfigTable() {
-		var cmd = {
-			command: "configInfo",
-			params: ["hashCount", "memUsage"]
-		};
-		window.minerMonitor.request(cmd, function(cinfo, ptime) {
+		window.minerMonitor.requestSimple("configInfo", function(cinfo) {
 			presentation.updateConfigInfo(cinfo);
 			var active = 0;
 			var measurementNames = ["min", "last", "avg", "max"];

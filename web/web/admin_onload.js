@@ -278,8 +278,7 @@ function modConfigSaveAndReboot() {
 				pools: [],
 				driver: "OCL",
 				algo: algo,
-				impl: preferredImplementation[algo],
-				checkNonces: false,
+				impl: preferredImplementation[algo]
 				implParams: algoFamilies
 			}
 		}
