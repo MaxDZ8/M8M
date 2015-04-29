@@ -96,45 +96,48 @@ std::unique_ptr<MinerSupport> ProcessingNodesFactory::SelectSettings(OpenCL12Wra
     auto validConfig = [](const std::vector<std::string> &badStuff) { return badStuff.empty(); };
     if(std::count_if(invalidReasons.cbegin(), invalidReasons.cend(), validConfig) == 0) return result;
 
+    // For first, allocate the various device-independant reasons for config rejects and other per-config device independant info.
     configDesc.resize(configurations.size());
-    result->niceDevices.resize(everyDevice.platforms.size());
-    std::vector<std::pair<bool, cl_device_id>> linearDevices;
-    for(auto &p : everyDevice.platforms) {
-        for(auto &d : p.devices) linearDevices.push_back(std::make_pair(false, d.clid));
+    for(asizei conf = 0; conf < configurations.size(); conf++) {
+        configDesc[conf].specified = configurations[conf]; // rapidjson move enabled
+        if(invalidReasons[conf].size()) configDesc[conf].rejectReasons = std::move(invalidReasons[conf]);
     }
-    auto matchLinear = [&linearDevices](cl_device_id dev) {
-        return std::find_if(linearDevices.begin(), linearDevices.end(), [&dev](const std::pair<bool, cl_device_id> &entry) { return dev == entry.second; });
-    };
-    result->devConfReasons.resize(linearDevices.size());
 
+    result->niceDevices.resize(everyDevice.platforms.size());
+    auint linearDevice = 0;
+    for(auto &p : everyDevice.platforms) linearDevice += auint(p.devices.size());
+    result->devConfReasons.resize(linearDevice);
+
+    std::vector<asizei> configured; // device linear index to config index, if -1 --> unused.
+    linearDevice = 0;
     asizei platIndex = 0;
     for(asizei platIndex = 0; platIndex < everyDevice.platforms.size(); platIndex++) {
         const auto &plat(everyDevice.platforms[platIndex]);
         std::vector<cl_device_id> nice;
-        std::vector<asizei> usedConfig;
-        for(asizei cfg = 0; cfg < configurations.size(); cfg++) {
-            configDesc[cfg].specified = configurations[cfg];
-            if(invalidReasons[cfg].size()) configDesc[cfg].rejectReasons = std::move(invalidReasons[cfg]);
-            else {
-                factory->Parse(*configurations[cfg]); // already tested, set config
-                for(auto &dev : plat.devices) {
-                    auto match(matchLinear(dev.clid));
-                    if(match->first) continue;
-                    match->first = true;
-                    auto badDev(factory->Eligible(plat.clid, dev.clid));
-                    if(badDev.empty()) {
-                        nice.push_back(dev.clid);
-                        usedConfig.push_back(cfg);
-                        auint li = auint(matchLinear(dev.clid) - linearDevices.cbegin());
-                        configDesc[cfg].devices.push_back(li);
-                        linearIndex.insert(std::make_pair(dev.clid, li));
-                    }
-                    else {
-                        auto &errSlot(result->devConfReasons[matchLinear(dev.clid) - linearDevices.cbegin()]);
-                        errSlot.push_back(MinerSupport::ConfReasons());
-                        errSlot.back().configIndex = cfg;
-                        errSlot.back().bad = std::move(badDev);
-                    }
+        std::vector<auint> niceLinear;
+        for(asizei devIndex = 0; devIndex < plat.devices.size(); devIndex++, linearDevice++) {
+            const auto &dev(plat.devices[devIndex]);
+            configured.push_back(asizei(-1));
+            for(asizei conf = 0; conf < configDesc.size(); conf++) {
+                auto &cdesc(configDesc[conf]);
+                if(cdesc.rejectReasons.size()) continue;
+                factory->Parse(*configurations[conf]); // already tested, set config
+                auto badDev(factory->Eligible(plat.clid, dev.clid));
+                if(badDev.empty()) {
+                    configured.back() = conf;
+                    cdesc.devices.push_back(linearDevice);
+                    nice.push_back(dev.clid);
+                    niceLinear.push_back(linearDevice);
+                    /* Also build the linearIndex map.
+                    When devices are replicated (REPLICATE_CLDEVICE_LINEARINDEX is defined) it will contain duplicates so be careful,
+                    this array is shortcircuited anyway when device replication is enabled. */
+                    if(linearIndex.find(dev.clid) == linearIndex.cend()) linearIndex.insert(std::make_pair(dev.clid, linearDevice));
+                }
+                else {
+                    auto &errSlot(result->devConfReasons[linearDevice]);
+                    errSlot.push_back(MinerSupport::ConfReasons());
+                    errSlot.back().configIndex = conf;
+                    errSlot.back().bad = std::move(badDev);
                 }
             }
         }
@@ -142,10 +145,9 @@ std::unique_ptr<MinerSupport> ProcessingNodesFactory::SelectSettings(OpenCL12Wra
             result->niceDevices[platIndex].ctx = MakeContext(plat.clid, nice, result->niceDevices.data() + platIndex, errorFunc);
             result->niceDevices[platIndex].devices.resize(nice.size());
             for(asizei cp = 0; cp < nice.size(); cp++) {
-                result->niceDevices[platIndex].devices[cp] = { matchLinear(nice[cp]) - linearDevices.cbegin(), nice[cp], usedConfig[cp] };
+                result->niceDevices[platIndex].devices[cp] = { niceLinear[cp], nice[cp], configured[niceLinear[cp]] };
             }
         }
-        platIndex++;
     }
     return result;
 }
@@ -156,6 +158,9 @@ void ProcessingNodesFactory::BuildAlgos(std::vector< std::unique_ptr<AbstractAlg
     for(auto &dev : group.devices) {
         factory->Parse(*configurations[dev.configIndex]);
         algos.push_back(std::move(factory->New(group.ctx, dev.clid)));
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+        algos.back()->linearDeviceIndex = dev.linearIndex;
+#endif
         std::unique_ptr<StopWaitDispatcher> disp(std::make_unique<StopWaitDispatcher>(*algos.back()));
         build->AddDispatcher(disp);
     }
@@ -168,8 +173,13 @@ void ProcessingNodesFactory::DescribeConfigs(commands::monitor::ConfigInfoCMD::C
     result.configs = std::move(configDesc);
     result.informative.resize(devCount);
     for(asizei i = 0; i < algos.size(); i++) {
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+        auto meh(std::make_pair(0, algos[i]->linearDeviceIndex));
+        auto slot(&meh);
+#else
         auto slot = linearIndex.find(algos[i]->device);
         if(slot == linearIndex.cend()) throw std::exception("Could not reconstruct device->linearIndex, this should be impossible!");
+#endif
         result.informative[slot->second] = std::move(algoDescriptions[i]);
     }
 }

@@ -76,6 +76,9 @@ public:
     const AlgoIdentifier identifier;
     const cl_context context;
     const cl_device_id device;
+#if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support non-unique cl_device_id values
+    cl_uint linearDeviceIndex = auint(-1);
+#endif
     const asizei hashCount;
     const asizei uintsPerHash; /*!< Mining algorithms should use the following format for the result buffer (buffer of uints):
         [0] amount of candidate nonces found, let's call it candCount.

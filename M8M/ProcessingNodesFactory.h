@@ -30,7 +30,7 @@ struct MinerSupport {
     struct CooperatingDevices {
         cl_context ctx = 0; //!< one context from one platform including all eligible devices for at least one setting
         struct Device {
-            asizei linearIndex;
+            auint linearIndex;
             cl_device_id clid;
             asizei configIndex;
         };

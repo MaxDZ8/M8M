@@ -123,7 +123,12 @@ private:
             case AlgoEvent::results: {
                 TickStatus();
                 auto produced(dispatcher.GetResults()); // we know header already!
+#if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support device replication which adds non-unique cl_device_id, preventing map to work
+                auto quirky(std::make_pair(dispatcher.algo.device, dispatcher.algo.linearDeviceIndex));
+                auto match(&quirky);
+#else
                 auto match(linearDevice.find(dispatcher.algo.device));
+#endif
                 auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - started);
                 if(completed < 16) completed++;
                 else if(onIterationCompleted) onIterationCompleted(match->second, produced.nonces.size() != 0, elapsed);
@@ -131,8 +136,12 @@ private:
                 auto matchPred = [&produced](const NonceValidation &test) { return test.header == produced.from; };
                 auto dispatch(*std::find_if(flying.cbegin(), flying.cend(), matchPred));
                 auto verified(CheckResults(dispatcher.algo.uintsPerHash, produced, dispatch)); // note with stop-n-wait dispatchers there is only one possible match so a set will suffice
+#if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support device replication which adds non-unique cl_device_id, preventing map to work
+                verified.device = dispatcher.algo.linearDeviceIndex;
+#else
                 if(match == linearDevice.cend()) verified.device = asizei(-1);
                 else verified.device = match->second;
+#endif
                 verified.nonce2 = dispatch.nonce2;
                 if(verified.Total()) Found(dispatch.generator, verified);
             } break;
