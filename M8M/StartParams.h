@@ -51,11 +51,11 @@ struct StartParams {
             }
         }
         if(!found) return false;
+        bool blank = false;
         if(cmdLine[loop] == '=') loop++;
-        else if(cmdLine[loop] <= 32 && cmdLine[loop]) while(cmdLine[loop] && cmdLine[loop] <= 32) loop++;
+        else if(cmdLine[loop] <= 32 && cmdLine[loop]) while(cmdLine[loop] && cmdLine[loop] <= 32) { loop++;    blank = true; }
         // Eat everything till next param.
         const asizei start(loop);
-        bool blank = false;
         while(cmdLine[loop]) {
             if(cmdLine[loop] <= 32) blank = true;
             else if(blank) {

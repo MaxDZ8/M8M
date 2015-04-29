@@ -311,7 +311,7 @@ var presentation = {
 				}
 				if(sameHC) {
 					staticCell(row, "" + cinfo[conf][0].hashCount, cinfo[conf].length);
-					var mem = staticCell(row, Math.ceil(totalMU(cinfo[conf][0].memUsage) / 1024.0) + " KiB<br>", cinfo[conf][0].length);
+					var mem = staticCell(row, Math.ceil(totalMU(cinfo[conf][0].memUsage) / 1024.0) + " KiB<br>", cinfo[conf].length);
 					var report = makeMemoryReport(conf, "For all devices using configuration [" + conf + ']', cinfo[conf][0].memUsage);
 					for(var cp = 0; cp < cinfo[conf].length; cp++) server.config[conf].hashCount[cp] = cinfo[conf][cp].hashCount;
 					mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
@@ -328,6 +328,8 @@ var presentation = {
 						var report = makeMemoryReport(conf, "For device " + devLinear + ", using configuration [" + conf + ']', cinfo[conf][devSlot].memUsage);
 						server.config[conf].hashCount = cinfo[conf][devSlot].hashCount;
 						mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
+						row.appendChild(mem);
+						document.getElementById("miningStatus").appendChild(report);
 					}
 					var cell = document.createElement("td");
 					cell.textContent = "" + devLinear + ", ";

@@ -121,12 +121,14 @@ void AbstractNonceFindersBuild::UpdateDispatchers(std::vector<NonceValidation> &
             flying.reserve(flying.size() + 1);
             auto valinfo(Dispatch(*algo[loop], el->workDiff, *el->factory, el->owner));
             flying.push_back(valinfo);
-            el->updated.work = false;
         }
         else if(el->updated.diff) { // do this after work, as Dispatch already takes care of re-setting it.
             algo[loop]->TargetBits(el->workDiff.target[3]);
-            el->updated.diff = false;
         }
+    }
+    for(auto &current : mangling) { // let's take it easy
+        if(!current) continue;
+        current->updated.diff = current->updated.work = false;
     }
 }
 
