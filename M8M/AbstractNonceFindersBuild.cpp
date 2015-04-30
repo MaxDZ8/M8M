@@ -30,6 +30,7 @@ std::vector<std::string> AbstractNonceFindersBuild::Init(const std::string &load
         }
         auto err(el->algo.Init(nullptr, el->AsValueProvider(), loadPathPrefix));
         for(auto &meh : err) ret.push_back(meh);
+        if(err.empty()) TickStatus();
     }
     if(ret.empty()) {
         badInit.Dont();
