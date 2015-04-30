@@ -125,7 +125,8 @@ struct MinerMessagePump {
 		bool firstShare = true;
 		asizei sinceActivity = 0;
 		std::vector<Network::SocketInterface*> toRead, toWrite;
-        bool deadServersSignaled = false;
+        std::wstring persistentError;
+        std::chrono::system_clock::time_point lastPopup;
 		while(run) {
 			if(admin.reloadRequested) {
 				if(web.Nobody()) break;
@@ -151,15 +152,12 @@ struct MinerMessagePump {
 				web.monitor.Refresh(dummy, dummy); // this will allow the server to shut down if necessary
 				web.admin.Refresh(dummy, dummy);
 				if(toRead.size()) sinceActivity += POLL_PERIOD_MS;
-				if(sinceActivity >= TIMEOUT_MS && deadServersSignaled == false) {
-                    notify.ShowMessage(L"No activity from servers in 120 seconds.");
+				if(sinceActivity >= TIMEOUT_MS && web.Nobody()) {
+                    persistentError = L"No network activity in " + std::to_wstring(TIMEOUT_MS / 1000) + L" seconds.";
                     std::vector<aubyte> ico;
 			        iconBitmaps.SetCurrentState(STATE_ERROR);
 			        iconBitmaps.GetCompositedIcon(ico);
 			        notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
-                    
-					throw std::exception("No activity from connections in 120 seconds. Fatal network fail? I give up");
-                    deadServersSignaled = true;
 				}
 			}
 			else {
@@ -168,6 +166,15 @@ struct MinerMessagePump {
 				web.monitor.Refresh(toRead, toWrite);
 				web.admin.Refresh(toRead, toWrite);
 			}
+            if(persistentError.size()) {
+                using namespace std::chrono;
+                auto now(system_clock::now());
+                auto sinceLast = duration_cast<std::chrono::seconds>(now - lastPopup);
+                if(sinceLast > seconds(5 * 60)) {
+                    notify.ShowMessage(persistentError.c_str());
+                    lastPopup = system_clock::now();
+                }
+            }
             WatchDog(miner);
             
 			std::string errorDesc;
