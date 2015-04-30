@@ -292,8 +292,9 @@ var presentation = {
 		while(tbody.childNodes.lastChild) tbody.childNodes.removeChild(tbody.childNodes.lastChild);
 		for(var conf = 0; conf < cinfo.length; conf++) {
 			server.config[conf] = {};
-			server.config[conf].hashCount = [];
-			
+			server.config[conf].hashCount = {}; /* keys here are devices linear index. This is really a sparse array.
+			    Note: each work queue originated from a certain device using a certain configuration produces exactly the same thing
+				so specific work queue is not relevant here. */
 			var row = document.createElement("tr");
 			staticCell(row, "[" + conf + "]", cinfo[conf].length);
 			
@@ -313,7 +314,10 @@ var presentation = {
 					staticCell(row, "" + cinfo[conf][0].hashCount, cinfo[conf].length);
 					var mem = staticCell(row, Math.ceil(totalMU(cinfo[conf][0].memUsage) / 1024.0) + " KiB<br>", cinfo[conf].length);
 					var report = makeMemoryReport(conf, "For all devices using configuration [" + conf + ']', cinfo[conf][0].memUsage);
-					for(var cp = 0; cp < cinfo[conf].length; cp++) server.config[conf].hashCount[cp] = cinfo[conf][cp].hashCount;
+					for(var cp = 0; cp < cinfo[conf].length; cp++) {
+						var linearDevice = cinfo[conf][cp].device;
+						server.config[conf].hashCount[linearDevice] = cinfo[conf][cp].hashCount;
+					}
 					mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
 					document.getElementById("miningStatus").appendChild(report);
 				}
@@ -326,7 +330,8 @@ var presentation = {
 						row.appendChild(cell);
 						var mem = makeCell("td", Math.ceil(totalMU(cinfo[conf][devSlot].memUsage) / 1024.0) + " KiB<br>");
 						var report = makeMemoryReport(conf, "For device " + devLinear + ", using configuration [" + conf + ']', cinfo[conf][devSlot].memUsage);
-						server.config[conf].hashCount = cinfo[conf][devSlot].hashCount;
+						var linearDevice = cinfo[conf][devSlot].device;
+						server.config[conf].hashCount[linearDevice] = cinfo[conf][devSlot].hashCount;
 						mem.appendChild(presentation.support.makeDetailShowHideButton(report, "Details"));
 						row.appendChild(mem);
 						document.getElementById("miningStatus").appendChild(report);
@@ -415,9 +420,8 @@ var presentation = {
 				var candidate = check.lastPerf[names[scan]];
 				slowest = Math.max(slowest, candidate || 0);
 			}
-			var config = server.config[check.configIndex];
 			var fit;
-			if(slowest) fit = presentation.niceHashrate(1000 / slowest * config.hashCount);
+			if(slowest) fit = presentation.niceHashrate(1000 / slowest * server.config[check.configIndex].hashCount[loop]);
 			else continue; // this device does not contribute to choosing a divisor
 			if(!niceHR || fit.divisor < niceHR.divisor) niceHR = fit;
 		}
@@ -427,7 +431,7 @@ var presentation = {
 			var device = server.hw.linearDevice[d];
 			var cells = this.hashTimeCells[device.linearIndex];
 			if(!cells) continue; // not built so not used!
-			var hashCount = server.config[device.configIndex].hashCount;
+			var hc = server.config[device.configIndex].hashCount[d];
 			for(var loop = 0; loop < names.length; loop++) {
 				var t = device.lastPerf? device.lastPerf[names[loop]] : undefined;
 				var dst = cells[names[loop]];
@@ -436,11 +440,11 @@ var presentation = {
 					continue;
 				}
 				var ips = 1000 / t;
-				if(names[loop] === "last") totalHR += hashCount * ips;
+				if(names[loop] === "avg") totalHR += hc * ips;
 				if(this.perfMode === "itime") dst.textContent = t;
 				else {
 					if(loop < 2) dst = cells[names[(loop + 1) % 2]]; // min and max must be swapped
-					dst.textContent = Math.floor(hashCount * ips / niceHR.divisor);
+					dst.textContent = Math.floor(hc * ips / niceHR.divisor);
 				}
 			}
 		}
