@@ -201,7 +201,6 @@ xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
     <ClInclude Include="commands\UnsubscribeCMD.h" />
     <ClInclude Include="commands\UpgradeCMD.h" />
     <ClInclude Include="commands\VersionCMD.h" />
-    <ClInclude Include="Connections.h" />
     <ClInclude Include="IconCompositer.h" />
     <ClInclude Include="KnownConstantsProvider.h" />
     <ClInclude Include="KnownHardware.h" />
@@ -211,6 +210,7 @@ xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
     <ClInclude Include="NonceFindersInterface.h" />
     <ClInclude Include="NonceStructs.h" />
     <ClInclude Include="OpenCL12Wrapper.h" />
+    <ClInclude Include="PoolManager.h" />
     <ClInclude Include="ProcessingNodesFactory.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="StartParams.h" />
@@ -240,6 +240,7 @@ xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
     <ClCompile Include="AbstractNonceFindersBuild.cpp" />
     <ClCompile Include="AbstractWSServer.cpp" />
     <ClCompile Include="M8M.cpp" />
+    <ClCompile Include="PoolManager.cpp" />
     <ClCompile Include="ProcessingNodesFactory.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

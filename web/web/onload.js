@@ -185,6 +185,7 @@ window.onload = function() {
 				for(var loop = 0; loop < server.hw.linearDevice.length; loop++) { // same length as obj.measurements
 					var device = server.hw.linearDevice[loop];
 					if(device.configIndex === undefined) continue; // corresponding entry is null
+					if(obj.measurements[loop] === null) continue; // unused, even though it should. Can happen if pool fails to connect.
 					for(var cp = 0; cp < measurementNames.length; cp++) {
 						var newValue = obj.measurements[loop][measurementNames[cp]];
 						if(newValue !== undefined) device.lastPerf[measurementNames[cp]] = newValue;

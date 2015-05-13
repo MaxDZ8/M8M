@@ -185,18 +185,18 @@ void ProcessingNodesFactory::DescribeConfigs(commands::monitor::ConfigInfoCMD::C
 }
 
 
-std::vector<ProcessingNodesFactory::AlgoInfo> ProcessingNodesFactory::GetAlgoInformations() {
+std::vector<AbstractWorkSource::AlgoInfo> ProcessingNodesFactory::GetAlgoInformations() {
     algoImplementations::QubitFiveStepsCL12 qubit(0, 0, 0);
     algoImplementations::NeoscryptSmoothCL12 neoscrypt(0, 0, 0);
     algoImplementations::MYRGRSMonolithicCL12 myrgrs(0, 0, 0);
     algoImplementations::FreshWarmCL12 fresh(0, 0, 0);
     // all implementations of an algo are the same. Here's another place where "families" would be handy.
 
-    std::vector<AlgoInfo> ret;
-    ret.push_back(AlgoInfo { "qubit", qubit.BigEndian(), qubit.GetDifficultyNumerator() });
-    ret.push_back(AlgoInfo { "grsmyr", myrgrs.BigEndian(), myrgrs.GetDifficultyNumerator() });
-    ret.push_back(AlgoInfo { "neoScrypt", neoscrypt.BigEndian(), neoscrypt.GetDifficultyNumerator() });
-    ret.push_back(AlgoInfo { "fresh", fresh.BigEndian(), fresh.GetDifficultyNumerator()});
+    std::vector<AbstractWorkSource::AlgoInfo> ret;
+    ret.push_back(AbstractWorkSource::AlgoInfo { "qubit", qubit.BigEndian(), qubit.GetDifficultyNumerator() });
+    ret.push_back(AbstractWorkSource::AlgoInfo { "grsmyr", myrgrs.BigEndian(), myrgrs.GetDifficultyNumerator() });
+    ret.push_back(AbstractWorkSource::AlgoInfo { "neoScrypt", neoscrypt.BigEndian(), neoscrypt.GetDifficultyNumerator() });
+    ret.push_back(AbstractWorkSource::AlgoInfo { "fresh", fresh.BigEndian(), fresh.GetDifficultyNumerator()});
     return ret;
 }
 

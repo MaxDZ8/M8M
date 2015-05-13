@@ -183,6 +183,12 @@ var presentation = {
 		case "open":
 			authStatus.innerHTML = "<em>not required</em>";
 			authWarning.textContent = "";
+			break;
+		case "off":
+			// Not quite the same thing! Protocol shall be updated.
+			authStatus.innerHTML = "<em>Pool disabled or failed to connect</em>";
+			authWarning.textContent = "";
+			break;
 		}
 		return refresh;
 	},

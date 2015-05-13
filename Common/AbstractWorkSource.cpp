@@ -11,15 +11,24 @@ std::ofstream stratumDump("stratumTraffic.txt");
 #endif
 
 AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWrite) {
+    // This is public and due to TCP async connect nature, we cannot assume we're ready to go so shortcircuit if still waiting.
+    if(!stratum) return Events();
+
     // As a start, dispatch my data to the server. It is required to do this first as we need to
     // initiate connection with a mining.subscribe. Each tick, we send as many bytes as we can until
     // write buffer is exhausted.
-	const time_t PREV_WORK_STAMP(stratum.LastNotifyTimestamp());
-    if(stratum.pending.size() && canWrite) {
+	const time_t PREV_WORK_STAMP(stratum->LastNotifyTimestamp());
+    if(stratum->pending.size() && canWrite) {
         asizei count = 1;
-        while(count && stratum.pending.size()) {
-			StratumState::Blob &msg(stratum.pending.front());
-            count = Send(msg.data + msg.sent, msg.total - msg.sent);
+        while(count && stratum->pending.size()) {
+			StratumState::Blob &msg(stratum->pending.front());
+            auto sent(Send(msg.data + msg.sent, msg.total - msg.sent));
+            if(sent.first == false) {
+                Events ohno;
+                ohno.connFailed = true;
+                return ohno;
+            }
+            count = sent.second;
             msg.sent += count;
             if(msg.sent == msg.total) {
 #if STRATUM_DUMPTRAFFIC
@@ -27,25 +36,28 @@ AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWri
 				for(asizei i = 0; i < msg.total; i++) stratumDump<<msg.data[i];
 				stratumDump<<std::endl;
 #endif
-				stratum.pending.pop();
+				stratum->pending.pop();
 			}
 		}
 	}
     Events ret;
 	if(canRead == false) return ret; // sends are still considered nops, as they don't really change the hi-level state
-	asizei received = Receive(recvBuffer.NextBytes(), recvBuffer.Remaining());
-	if(!received) return ret;
-    ret.bytesReceived += received;
-
-	recvBuffer.used += received;
+    auto received(Receive(recvBuffer.NextBytes(), recvBuffer.Remaining()));
+    if(received.first == false) {
+        ret.connFailed = true;
+        return ret;
+    }
+    else if(received.second == 0) return ret;
+    ret.bytesReceived += received.second;
+	recvBuffer.used += received.second;
 	if(recvBuffer.Full()) recvBuffer.Grow();
 	
 	using namespace rapidjson;
 	Document object;
 	char *pos = recvBuffer.data.get();
 	char *lastEndl = nullptr;
-    const auto prevDiff(stratum.GetCurrentDiff());
-    const auto prevJob(stratum.GetCurrentJob());
+    const auto prevDiff(GetCurrentDiff());
+    const auto prevJob(stratum->GetCurrentJob());
 	while(pos < recvBuffer.NextBytes()) {
 		char *limit = std::find(pos, recvBuffer.NextBytes(), '\n');
 		if(limit >= recvBuffer.NextBytes()) pos = limit;
@@ -107,8 +119,8 @@ AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWri
 #endif
 	}
 	else return ret;
-    const auto nowDiff(stratum.GetCurrentDiff());
-    const auto nowJob(stratum.GetCurrentJob());
+    const auto nowDiff(GetCurrentDiff());
+    const auto nowJob(stratum->GetCurrentJob());
     auto different = [](const stratum::MiningNotify &one, const stratum::MiningNotify &two) {
         if(one.job != two.job || one.ntime != two.ntime || one.clear != two.clear) return true; // most likely
         if(one.prevHash != two.prevHash) return true; // fairly likely
@@ -144,9 +156,9 @@ stratum::AbstractWorkFactory* AbstractWorkSource::GenWork() const {
 
 	// First step is to generate the coin base, which is a function of the nonce and the block.
 	const auint nonce2 = 0; // not really used anymore. We always generate starting from (0,0) now.
-    const auto diff(stratum.GetCurrentDiff());
-    const auto work(stratum.GetCurrentJob());
-    const auto subscription(stratum.GetSubscription());
+    const auto diff(GetCurrentDiff());
+    const auto work(stratum->GetCurrentJob());
+    const auto subscription(stratum->GetSubscription());
 	if(sizeof(nonce2) != subscription.extraNonceTwoSZ)  throw std::exception("nonce2 size mismatch");
 	if(diff.shareDiff <= 0.0) throw std::exception("I need to check out this to work with diff 0");
 
@@ -192,26 +204,111 @@ stratum::AbstractWorkFactory* AbstractWorkSource::GenWork() const {
 }
 
 
-bool AbstractWorkSource::NeedsToSend() const {
-	return stratum.pending.size() != 0; // notice on construction this contains the subscription message
+stratum::WorkDiff AbstractWorkSource::GetCurrentDiff() const {
+    stratum::WorkDiff result;
+    if(stratum) {
+        auto difficulty(stratum->GetCurrentDiff());
+        if(difficulty > 0.0) {
+            result.shareDiff = difficulty * diffMul.stratum;
+            switch(diffMode) {
+            case::PoolInfo::dm_btc:
+                result.target = MakeTargetBits_BTC(result.shareDiff, diffMul.one);
+                break;
+            case::PoolInfo::dm_neoScrypt: 
+                result.target = MakeTargetBits_NeoScrypt(result.shareDiff, diffMul.one);
+                break;
+            default: throw std::exception("Impossible, forgot to update code for target bits generation maybe!");
+            }
+        }
+    }
+    return result;
 }
 
 
-PoolInfo::DiffMultipliers AbstractWorkSource::GetDiffMultipliers() const { return stratum.diffMul; }
+bool AbstractWorkSource::NeedsToSend() const {
+	return stratum && stratum->pending.size() != 0; // notice on construction this contains the subscription message
+}
 
 
 void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, StratumState::AuthStatus> > &list) const {
-	const asizei prev = list.size();
-	list.resize(prev + stratum.GetNumWorkers());
-	for(asizei loop = 0; loop < list.size(); loop++) list[loop] = stratum.GetWorkerInfo(loop);
+    if(stratum) {
+	    const asizei prev = list.size();
+	    list.resize(prev + stratum->GetNumWorkers());
+	    for(asizei loop = 0; loop < list.size(); loop++) list[loop] = stratum->GetWorkerInfo(loop);
+    }
+    else GetCredentials(list);
 }
 
 
-AbstractWorkSource::AbstractWorkSource(const char *presentation, const char *poolName, const AlgoInfo &algorithm, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm, const Credentials &v)
-	: stratum(presentation, diffDesc), algo(algorithm), name(poolName), merkleMode(mm) {
-	for(asizei loop = 0; loop < v.size(); loop++) stratum.Authorize(v[loop].first, v[loop].second);
-	stratum.shareResponseCallback = [this](asizei index, StratumShareResponse status) {
-		// if(ok) stats.shares.accepted++;
-		if(this->shareResponseCallback) this->shareResponseCallback(*this, index, status);
-	};
+AbstractWorkSource::AbstractWorkSource(const char *poolName, const AlgoInfo &algorithm, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm)
+	: diffMode(diffDesc.first), diffMul(diffDesc.second), algo(algorithm), name(poolName), merkleMode(mm) {
+}
+
+
+void AbstractWorkSource::NewStratum(const Credentials &users) {
+    stratum.reset(new StratumState);
+    SetStratumCallbacks();
+    for(const auto &auth : users) stratum->Authorize(auth.first, auth.second);
+}
+
+
+void AbstractWorkSource::ClearStratum() {
+    stratum.reset();
+    memset(recvBuffer.data.get(), 0, recvBuffer.allocated); // be extra special sure
+}
+
+
+std::array<aulong, 4> AbstractWorkSource::MakeTargetBits_BTC(adouble diff, adouble diffOneMul) {
+	std::array<aulong, 4> target;
+	/*
+	Ok, there's this constant, "truediffone" which is specified as a 256-bit value
+	0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	              |------------------- 52 zeros --------------------|
+	So it's basically aushort(0xFFFF) << (52 * 4)
+	Or: 65535 * ... 2^208?
+	Legacy miners have those values set up, so they can go use double-float division to effectively
+	expand the bit representation and select the bits they care. By using multiple passes, they pull
+	out successive ranges of reductions. They use the following constants:
+	truediffone = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+	bits192     = 0x0000000000000001000000000000000000000000000000000000000000000000
+	bits128     = 0x0000000000000000000000000000000100000000000000000000000000000000
+	bits64      = 0x0000000000000000000000000000000000000000000000010000000000000000
+	Because all those integers have a reduced range, they can be accurately represented by a double.
+	See diffCalc.html for a large-integer testing framework. */
+	const adouble BITS_192 = 6277101735386680763835789423207666416102355444464034512896.0;
+	const adouble BITS_128 = 340282366920938463463374607431768211456.0;
+	const adouble BITS_64 = 18446744073709551616.0;
+
+	if(diff == 0.0) diff = 1.0;
+	adouble big = (diffOneMul * btc::TRUE_DIFF_ONE) / diff;
+	aulong toString;
+	const adouble k[4] = { BITS_192, BITS_128, BITS_64, 1 };
+	for(asizei loop = 0; loop < 4; loop++) {
+		adouble partial = big / k[loop];
+		toString = aulong(partial);
+		target[4 - loop - 1] = HTOLE(toString);
+		partial = toString * k[loop];
+		big -= partial;
+	}	
+	return target;
+}
+
+
+std::array<aulong, 4> AbstractWorkSource::MakeTargetBits_NeoScrypt(adouble diff, adouble diffOneMul) {
+	diff /=	double(1ull << 16);
+	auint div = 6;
+	while(div <= 6 && diff > 1.0) {
+		diff /= double(1ull << 32);
+		div--;
+	}
+	const aulong slice = aulong(double(0xFFFF0000) / diff);
+	std::array<aulong, 4> ret;
+	bool allSet = slice == 0 && div == 6;
+	memset(ret.data(), allSet? 0xFF : 0x00, sizeof(ret));
+	if(!allSet) {
+		auint *dwords = reinterpret_cast<auint*>(ret.data());
+		dwords[div] = auint(slice);
+		dwords[div + 1] = auint(slice >> 32);
+	}
+	return ret;
 }

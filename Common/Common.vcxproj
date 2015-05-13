@@ -30,7 +30,6 @@
     <ClInclude Include="NotifyIconStructs.h" />
     <ClInclude Include="PoolInfo.h" />
     <ClInclude Include="Settings.h" />
-    <ClInclude Include="SourcePolicies\FirstPoolWorkSource.h" />
     <ClInclude Include="StratumState.h" />
     <ClInclude Include="Stratum\messages.h" />
     <ClInclude Include="Stratum\parsing.h" />
@@ -40,6 +39,7 @@
     <ClInclude Include="WebSocket\Framer.h" />
     <ClInclude Include="WebSocket\HandShaker.h" />
     <ClInclude Include="Windows\AsyncNotifyIconPumper.h" />
+    <ClInclude Include="WorkSource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AbstractWorkSource.cpp" />
@@ -48,12 +48,12 @@
     <ClCompile Include="BTC\Funcs.cpp" />
     <ClCompile Include="LaunchBrowser.cpp" />
     <ClCompile Include="Network.cpp" />
-    <ClCompile Include="SourcePolicies\FirstPoolWorkSource.cpp" />
     <ClCompile Include="statics.cpp" />
     <ClCompile Include="StratumState.cpp" />
     <ClCompile Include="WebSocket\Framer.cpp" />
     <ClCompile Include="WebSocket\HandShaker.cpp" />
     <ClCompile Include="Windows\AsyncNotifyIconPumper.cpp" />
+    <ClCompile Include="WorkSource.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{FB7E3AB9-A157-4F2B-B3FE-11E3643DC873}</ProjectGuid>

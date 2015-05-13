@@ -2,24 +2,32 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
-#include "FirstPoolWorkSource.h"
+#include "WorkSource.h"
 
 
-FirstPoolWorkSource::FirstPoolWorkSource(const char *presentation, const AlgoInfo &algoParams, const PoolInfo &init, NetworkInterface::ConnectedSocketInterface &tcpip)
-	: AbstractWorkSource(presentation, init.name.c_str(), algoParams, std::make_pair(init.diffMode, init.diffMul), init.merkleMode, PullCredentials(init)),
-	  fetching(init), pipe(tcpip), errorCallback(DefaultErrorCallback(false)) {
+bool WorkSource::Use(NetworkInterface::ConnectedSocketInterface *remote) {
+    if(credentials.empty()) return false;
+    pipe = remote;
+    std::vector<std::pair<const char*, const char*>> meh(credentials.size());
+    for(asizei cp = 0; cp < credentials.size(); cp++) {
+        meh[cp].first = credentials[cp].first.c_str();
+        meh[cp].second = credentials[cp].second.c_str();
+    }
+    NewStratum(meh);
+    return true;
 }
 
 
-FirstPoolWorkSource::~FirstPoolWorkSource() {
-	// Used to destroy the socket, but it's now managed by the external pool manager.
+void WorkSource::Disconnected() {
+    this->ClearStratum();
+    pipe = nullptr;
 }
 
 
-void FirstPoolWorkSource::MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error) {
-	const char *sent = stratum.Response(id);
+void WorkSource::MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error) {
+	const char *sent = stratum->Response(id);
 	if(error.IsNull() == false) {
-		ScopedFuncCall clear([this, id]() { stratum.RequestReplyReceived(id, true); });
+		ScopedFuncCall clear([this, id]() { stratum->RequestReplyReceived(id, true); });
 		std::string desc;
 		aint code;
 		if(error.IsArray()) { // MPOS pools give us an array here, first number is an error code int, second is a string.
@@ -38,10 +46,10 @@ void FirstPoolWorkSource::MangleReplyFromServer(size_t id, const rapidjson::Valu
 			else throw std::exception("Error code is not 32-bit integer, unsupported.");
 			if(jdesc.IsString()) desc.assign(jdesc.GetString(), jdesc.GetStringLength());
 		}
-		if(errorCallback) errorCallback(id, code, desc);
+		if(errorCallback) errorCallback(*this, id, code, desc);
 	}
 	else {
-		ScopedFuncCall clear([this, id]() { stratum.RequestReplyReceived(id, false); });
+		ScopedFuncCall clear([this, id]() { stratum->RequestReplyReceived(id, false); });
 		bool mangled = false;
 		using namespace stratum::parsing;
 		MangleResult(mangled, sent, id, result, MiningSubscribe());
@@ -52,7 +60,7 @@ void FirstPoolWorkSource::MangleReplyFromServer(size_t id, const rapidjson::Valu
 }
 
 
-void FirstPoolWorkSource::MangleMessageFromServer(const std::string &idstr, const char *signature, const rapidjson::Value &paramArray) {
+void WorkSource::MangleMessageFromServer(const std::string &idstr, const char *signature, const rapidjson::Value &paramArray) {
 	if(paramArray.IsArray() == false) throw std::exception("Notification or requests must have a .param array!");
 	bool mangled = false;
 	using namespace stratum::parsing;
@@ -63,15 +71,22 @@ void FirstPoolWorkSource::MangleMessageFromServer(const std::string &idstr, cons
 }
 
 
-asizei FirstPoolWorkSource::Send(const abyte *data, asizei count) {
-	asizei ret = pipe.Send(data, count);
-	if(ret == 0 && pipe.Works() == false) throw std::exception("Failed send, socket reset.");
-	return ret;
+std::pair<bool, asizei> WorkSource::Send(const abyte *data, asizei count) {
+	asizei sent = pipe->Send(data, count);
+    auto pair(std::make_pair(true, sent));
+	if(sent == 0 && pipe->Works() == false) pair.first = false;
+	return pair;
 }
 
 
-asizei FirstPoolWorkSource::Receive(abyte *storage, asizei rem) {
-	asizei received = pipe.Receive(storage, rem);
-	//if(received < 0) THROW(GetSocketError()); // impossible, now done in the receive call, which is also unsigned
-	return received;
+std::pair<bool, asizei> WorkSource::Receive(abyte *storage, asizei rem) {
+	asizei received = pipe->Receive(storage, rem);
+    auto pair(std::make_pair(true, received));
+    if(received == 0 && pipe->Works() == false) pair.first = false;
+    return pair;
+}
+
+
+void WorkSource::GetCredentials(std::vector< std::pair<const char*, StratumState::AuthStatus> > &list) const {
+    for(auto &worker : credentials) list.push_back(std::make_pair(worker.first.c_str(), StratumState::as_off));
 }

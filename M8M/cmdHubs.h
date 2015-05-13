@@ -8,7 +8,7 @@
 #include "commands/Monitor/DeviceShares.h"
 #include "commands/Monitor/PoolShares.h"
 #include "commands/Monitor/UptimeCMD.h"
-#include "Connections.h"
+#include "PoolManager.h"
 
 
 struct TrackedValues : MiningPerformanceWatcherInterface, commands::monitor::DeviceShares::ValueSourceInterface, commands::monitor::PoolShares::ValueSourceInterface,
@@ -28,15 +28,15 @@ struct TrackedValues : MiningPerformanceWatcherInterface, commands::monitor::Dev
     };
     std::vector<TimeLapseShareStats> deviceShares;
     std::vector<TimeLapsePoolStats> poolShares;
-    const Connections &servers;
+    const PoolManager &servers;
 
-    aulong prgStart;
+    aulong prgStart = 0;
     aulong minerStart;
     aulong firstNonce;
     const MiningPerformanceWatcherInterface *performance;
 
-    TrackedValues(const Connections &src, aulong progStart)
-        : servers(src), prgStart(progStart), minerStart(0), firstNonce(0), performance(nullptr) {
+    TrackedValues(const PoolManager &src)
+        : servers(src), minerStart(0), firstNonce(0), performance(nullptr) {
         poolShares.resize(servers.GetNumServers());
         for(asizei init = 0; init < poolShares.size(); init++) poolShares[init].src = &servers.GetServer(init);
     }
@@ -136,7 +136,7 @@ void SimpleCommand(WebCommands &persist, WebTrackerOnOffConn &mon, Param &param)
 
 
 template<typename MiningProcessorsProvider, typename WebSocketService>
-void RegisterMonitorCommands(WebCommands &persist, WebSocketService &mon, MiningProcessorsProvider &procs, const Connections &connections, TrackedValues &tracking, const std::pair<AlgoIdentifier, aulong> &algo, const std::vector<auint> &devConfMap, const std::vector< std::vector<MinerSupport::ConfReasons> > &rejectReasons, commands::monitor::ConfigInfoCMD::ConfigDesc &configDesc) {
+void RegisterMonitorCommands(WebCommands &persist, WebSocketService &mon, MiningProcessorsProvider &procs, const commands::monitor::PoolCMD::PoolEnumeratorInterface &connections, TrackedValues &tracking, const std::pair<AlgoIdentifier, aulong> &algo, const std::vector<auint> &devConfMap, const std::vector< std::vector<MinerSupport::ConfReasons> > &rejectReasons, commands::monitor::ConfigInfoCMD::ConfigDesc &configDesc) {
     using namespace commands::monitor;
     SimpleCommand< SystemInfoCMD<MiningProcessorsProvider> >(persist, mon, procs);
     {

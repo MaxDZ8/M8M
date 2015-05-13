@@ -9,12 +9,12 @@ namespace windows {
 
 const UINT AsyncNotifyIconPumper::WM_APP_DATA_CHANGED       = WM_APP + 0;
 const UINT AsyncNotifyIconPumper::WM_APP_NOTIFICON = WM_APP + 1;
-UINT AsyncNotifyIconPumper::totalIconsCHECK = 1;
+UINT AsyncNotifyIconPumper::totalIcons = 1;
 
 std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconThreadShare &shared, std::mutex &mutex) {
     this->shared = &shared;
     this->mutex = &mutex;
-	this->iconIndex = totalIconsCHECK++;
+	this->iconIndex = totalIcons++;
 
     return [this]() {
         using namespace Gdiplus;

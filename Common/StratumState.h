@@ -14,7 +14,6 @@
 #include "../Common/BTC/Funcs.h"
 #include <sstream>
 #include <iomanip>
-#include "PoolInfo.h"
 #include "Stratum/Work.h"
 
 using std::string;
@@ -46,14 +45,19 @@ protected:
 	}
 
 public:
+	enum AuthStatus {
+		as_pending,
+		as_accepted,
+		as_inferred,	//!< Used if the server does not reply to authorization but accepts shares. This was really a misunderstanding by my side but since it's there, I leave it.
+		as_notRequired, //!< the case for p2pool, but I just consider that an implicit as_accepted
+        as_off,         //!< connection was not even attempted as pool is not eligible so no auth status. Used by outer code and here for convenience.
+		as_failed
+	};
 	std::function<void(asizei id, StratumShareResponse shareStatus)> shareResponseCallback;
-	std::function<void()> allWorkersFailedAuthCallback;
+	std::function<void(const std::string &worker, AuthStatus)> workerAuthCallback;
 	aulong errorCount;
 
-	const PoolInfo::DiffMultipliers diffMul;
-	const PoolInfo::DiffMode diffMode;
-
-	StratumState(const char *presentation, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> &diff);
+	explicit StratumState();
 	const string& GetSessionID() const { return subscription.sessionID; }
 
 	/*! The outer code should maintain a copy of this value. This to understand when the
@@ -65,7 +69,7 @@ public:
     bool Subscribed() const { return subscription.sessionID.empty() == false; }
 
     //! \sa void Notify(const stratum::MiningSetDifficultyNotify&)
-    stratum::WorkDiff GetCurrentDiff() const;
+    double GetCurrentDiff() const { return difficulty; }
 
     //! \sa void Notify(const stratum::MiningSetDifficultyNotify&)
     stratum::MiningNotify GetCurrentJob() const { return block; }
@@ -79,6 +83,7 @@ public:
 	\param user name to use to authorize worker (server-side concept).
 	\param psw the password can be empty string. */
 	void Authorize(const char *user, const char *psw);
+	AuthStatus GetAuthenticationStatus(const char *name) const;
 
 	/*! Returns true if the given worker has attempted authorization. It might be still being authorized
 	or perhaps it might have failed registration. \sa CanSendWork */
@@ -88,15 +93,6 @@ public:
 	Otherwise, it returns 0. That is considered by the stratum manager too old and thus likely to be rejected.
 	The outer code shall drop those shares as they have no valid ntime to be produced. */
 	auint GetJobNetworkTime(const std::string &job) const { return block.job == job? block.ntime : 0; }
-
-	enum AuthStatus {
-		as_pending,
-		as_accepted,
-		as_inferred,	//!< Used if the server does not reply to authorization but accepts shares. This was really a misunderstanding by my side but since it's there, I leave it.
-		as_notRequired, //!< the case for p2pool, but I just consider that an implicit as_accepted
-		as_failed
-	};
-	AuthStatus GetAuthenticationStatus(const char *name) const;
 
     //! Returns unique number identifying the nonce sent to reconstruct info by other code on callbacks.
 	asizei SendWork(const std::string &job, auint ntime, auint nonce2, auint nonce);
@@ -172,7 +168,6 @@ private:
 	stratum::MiningSubscribeResponse subscription; //!< comes handy!
 	stratum::MiningNotify block; //!< sent by remote server and stored here
 	double difficulty;
-    std::string nameVer;
 	
 	struct Worker {
 		std::string name; //!< server side login credentials
@@ -198,19 +193,6 @@ private:
 
 	/*! Maps a mining.submit to the worker originating it so I can keep count of accepted/rejected shares. */
 	std::map<size_t, Worker*> submittedWork;
-
-
-    /*! Build the "target string", a more accurate representation of the real 256-bit difficulty.
-    In the beginning this was a LTC miner and had an hardcoded trueDiffOne multiplier of 64*1024, as LTC has.
-    Now this is no more the case and the trueDiffOne multiplier must be passed from outer decisions. It does not really affect computation but
-    it's part of the stratum state as it's a function of coin being mined.
-    \note This was originally in the BTC namespace but it seems the BTC protocol does not care about "difficulty". It is mostly a representation
-    thing and often used with stratum (for some reason) so it has been moved there, which is the only place it's used. */
-    static std::array<aulong, 4> MakeTargetBits_BTC(adouble diff, adouble diffOneMul);
-
-    /*! A slightly modified / simplified form of target calculation, premiered with NeoScrypt.
-    It is, at its core, more or less the same thing: dividing by power-of-two so it keeps being precise on progressive divisions. */
-    static std::array<aulong, 4> MakeTargetBits_NeoScrypt(adouble diff, adouble diffOneMul);
 };
 
 /*! \todo It appears obvious this object is not in the correct place

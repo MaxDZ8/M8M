@@ -12,7 +12,7 @@ conflicts to pad gather phase. */
 #include <string>
 #include <codecvt>
 #include <iostream>
-#include "Connections.h"
+#include "PoolManager.h"
 #include "ProcessingNodesFactory.h"
 #include "AlgoMiner.h"
 #include <iomanip>
@@ -34,6 +34,8 @@ conflicts to pad gather phase. */
 
 
 void _stdcall ErrorsToSTDOUT(const char *err, const void *priv, size_t privSz, void *userData) {
+    using std::cout;
+    using std::endl;
 	cout<<"ERROR reported \""<<err<<"\"";
 	if(priv && privSz) {
 		cout<<endl;
@@ -113,12 +115,12 @@ struct MinerMessagePump {
     AbstractNotifyIcon &notify;
     AbstractIconCompositer &iconBitmaps;
     Network &network;
-    Connections &remote;
+    PoolManager &remote;
     TrackedValues &stats;
 
     NonceFindersInterface *miner = nullptr;
 
-    MinerMessagePump(AbstractNotifyIcon &icon, AbstractIconCompositer &rasters, Network &net, Connections &servers, TrackedValues &track)
+    MinerMessagePump(AbstractNotifyIcon &icon, AbstractIconCompositer &rasters, Network &net, PoolManager &servers, TrackedValues &track)
         : notify(icon), iconBitmaps(rasters), network(net), remote(servers), stats(track) { }
 
     bool Pump(const std::function<void(auint ms)> &sleepFunc, bool &run, MiniServers &web, aulong &firstNonce, std::map<ShareIdentifier, ShareFeedbackData> &sentShares, TrackedAdminValues &admin) {
@@ -147,10 +149,10 @@ struct MinerMessagePump {
 				updated = network.SleepOn(toRead, toWrite, POLL_PERIOD_MS);
 			}
 			else sleepFunc(POLL_PERIOD_MS); //!< \todo perhaps I should leave this on and let this CPU gobble up resources so it can be signaled?
-			if(!updated) {
-				std::vector<Network::SocketInterface*> dummy;
-				web.monitor.Refresh(dummy, dummy); // this will allow the server to shut down if necessary
-				web.admin.Refresh(dummy, dummy);
+			remote.Refresh(toRead, toWrite); // even when !updated, might attempt to reconnect
+			web.monitor.Refresh(toRead, toWrite); // might complete shutdown
+			web.admin.Refresh(toRead, toWrite);
+            if(!updated) {
 				if(toRead.size()) sinceActivity += POLL_PERIOD_MS;
 				if(sinceActivity >= TIMEOUT_MS && web.Nobody()) {
                     persistentError = L"No network activity in " + std::to_wstring(TIMEOUT_MS / 1000) + L" seconds.";
@@ -160,12 +162,8 @@ struct MinerMessagePump {
 			        notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
 				}
 			}
-			else {
-				sinceActivity = 0;
-				remote.Refresh(toRead, toWrite);
-				web.monitor.Refresh(toRead, toWrite);
-				web.admin.Refresh(toRead, toWrite);
-			}
+			else sinceActivity = 0;
+
             if(persistentError.size()) {
                 using namespace std::chrono;
                 auto now(system_clock::now());
@@ -478,22 +476,134 @@ int main(int argc, char **argv) {
 
             // Let's start with the serious stuff. First we need a place where we'll store sent shares waiting for the servers to signal accept/reject.
             std::map<ShareIdentifier, ShareFeedbackData> sentShares;
-		    Connections remote(network);
+		    PoolManager remote(network);
             SyncMiningPerformanceWatcher performanceMetrics;
             std::unique_ptr<MinerSupport> importantMinerStructs;
             std::unique_ptr<NonceFindersInterface> miner;
-            if(configuration) {
-                auto algoInfos(ProcessingNodesFactory::GetAlgoInformations());
-                for(const auto &pool : configuration->pools) {
-                    auto algo = std::find_if(algoInfos.cbegin(), algoInfos.cend(), [&pool](const ProcessingNodesFactory::AlgoInfo &test) {
-                        return !_stricmp(test.name.c_str(), pool->algo.c_str());
-                    });
-                    if(algo != algoInfos.cend()) remote.AddPool(*pool, algo->bigEndian, algo->diffNumerator);
+            TrackedValues stats(remote);
+            remote.connStateFunc = [&miner](const AbstractWorkSource &owner, PoolManager::ConnectionEvent ce) {
+                using std::cout;
+                cout<<"Pool ";
+                if(owner.name.length()) cout<<'"'<<owner.name<<'"';
+                else cout<<"0x"<<&owner;
+                cout<<' ';
+                switch(ce) {
+                case PoolManager::ce_connecting: cout<<"connecting."; break;
+                case PoolManager::ce_ready: cout<<"connected."; break;
+                case PoolManager::ce_closing:
+                case PoolManager::ce_failed:
+                    cout<<(ce == PoolManager::ce_closing? "shutting down." : "DISCONNECTED!");
+                    miner->SetWorkFactory(owner, std::unique_ptr<stratum::AbstractWorkFactory>());
+                    break;
+                case PoolManager::ce_failedResolve:
+                    cout<<" !! Error connecting, could not resolve URL !!";
+                    break;
+                case PoolManager::ce_badSocket:
+                    cout<<" !! Error connecting, could not create new socket !!";
+                    break;
+                case PoolManager::ce_failedConnect:
+                    cout<<" !! Error connecting, could not initiate handshake !!";
+                    break;
+                case PoolManager::ce_noRoutes:
+                    cout<<" !! Error connecting, no routes !!";
+                    break;
+                default: std::cout<<"??Impossible! Code out of sync??";
                 }
-            }
-            TrackedValues stats(remote, prgmInitialized.count());
-		    if(remote.GetNumPoolsAdded() == 0) {
-			    if(configuration) { // otherwise, keep the bad config message
+                cout<<std::endl;
+            };
+		    remote.dispatchFunc = [&miner](const AbstractWorkSource &pool, std::unique_ptr<stratum::AbstractWorkFactory> &newWork) {
+			    if(miner) miner->SetWorkFactory(pool, newWork);
+                // It is fine for the miner to not be there. Still connect so the pool can signal me as non-working.
+		    };
+            remote.diffChangeFunc = [&miner](const AbstractWorkSource &pool, stratum::WorkDiff &diff) {
+			    if(miner) miner->SetDifficulty(pool, diff);
+		    };
+            remote.stratErrFunc = [](const AbstractWorkSource &owner, asizei i, int errorCode, const std::string &message) {
+                using std::cout;
+                cout<<"Pool ";
+                if(owner.name.length()) cout<<'"'<<owner.name<<'"';
+                else cout<<"0x"<<&owner;
+                cout<<" reported stratum error ["<<std::to_string(i)<<']'<<std::endl;
+                cout<<"    error code "<<std::dec<<errorCode<<"=0x"<<std::hex<<errorCode<<std::dec<<std::endl;
+                cout<<"    \""<<message<<"\""<<std::endl;
+		    };
+            remote.onPoolCommand = [&stats](const AbstractWorkSource &pool) {
+                for(auto &update : stats.poolShares) {
+                    if(update.src == &pool) {
+                        update.lastActivity = std::chrono::system_clock::now();
+                        break;
+                    }
+                }
+            };
+
+            if(configuration) {
+                remote.SetReconnectDelay(configuration->reconnDelay);
+                remote.AddPools(configuration->pools);
+                stats.poolShares.resize(configuration->pools.size());
+                for(const auto &info : ProcessingNodesFactory::GetAlgoInformations()) remote.InitPools(info);
+                
+                for(asizei index = 0; index < remote.GetNumServers(); index++) {
+                    auto &pool(remote.GetServer(index));
+                    stats.poolShares[index].src = &pool;
+                    pool.shareResponseCallback = [index, &sentShares, &stats](const AbstractWorkSource &me, asizei shareID, StratumShareResponse stat) {
+                        ShareIdentifier key { &me, index, shareID };
+                        auto match(sentShares.find(key));
+                        if(match != sentShares.cend()) {
+                            ShareFeedback(key, match->second, stat);
+                            for(auto &entry : stats.poolShares) {
+                                if(&me != entry.src) continue;
+                                bool first = entry.accepted == 0 && entry.rejected == 0;
+                                if(stat == StratumShareResponse::ssr_rejected) entry.rejected++;
+                                else if(stat == StratumShareResponse::ssr_accepted) {
+                                    entry.accepted++;
+                                    entry.acceptedDiff += match->second.targetDiff;
+                                }
+                                entry.lastSubmitReply = std::chrono::system_clock::now();
+                                if(first) entry.first = entry.lastSubmitReply;
+                                auto lapse(entry.lastSubmitReply - entry.first);
+                                if(lapse.count()) {
+                                    double secs = std::chrono::duration_cast<std::chrono::milliseconds>(lapse).count() / 1000.0;
+                                    entry.daps = entry.acceptedDiff / secs;
+                                }
+                                break;
+                            }
+                            sentShares.erase(match);
+                        }
+                        else {
+                            using std::cout;
+                            cout<<"Pool ["<<index<<"] ";
+                            if(me.name.length()) cout<<'"'<<me.name<<"\" ";
+                            cout<<"signaled untracked share "<<shareID<<std::endl;
+                            // Maybe I should be throwing there.
+                        }
+                    };
+                    pool.workerAuthCallback = [&configuration, &remote, &notify, &iconBitmaps, &ico](const AbstractWorkSource &owner, const std::string &worker, StratumState::AuthStatus status) {
+                        if(status == StratumState::as_failed) {
+                            notify->ShowMessage(L"At least one worker failed to authenticate!");
+			                iconBitmaps->SetCurrentState(STATE_ERROR);
+			                iconBitmaps->GetCompositedIcon(ico);
+			                notify->SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
+                        }
+                        using std::cout;
+                        cout<<"Pool ";
+                        if(owner.name.length()) cout<<'"'<<owner.name<<'"';
+                        else cout<<"0x"<<&owner;
+                        cout<<" worker \""<<worker<<"\" ";
+                        switch(status) {
+                        case StratumState::as_pending: cout<<std::endl<<"  waiting for authorization."; break;
+                        case StratumState::as_accepted: cout<<std::endl<<"  authorized."; break;
+                        case StratumState::as_inferred: cout<<std::endl<<"  gets accepted shares anyway."; break;
+                        case StratumState::as_notRequired: cout<<std::endl<<"  seems to not need authorization."; break;
+                        case StratumState::as_off: cout<<" IMPOSSIBLE"; throw std::exception("Something has gone really wrong with worker authorization!"); break;
+                        case StratumState::as_failed: cout<<std::endl<<" !! FAILED AUTHORIZATION !!"; break;
+                        default:
+                            throw std::exception("Impossible. Code out of sync?");
+                        }
+                        cout<<std::endl;
+		            };
+                }
+
+                if(remote.Activate(configuration->algo) == 0) {
                     notify->ShowMessage(L"No remote servers.");
 			        if(iconBitmaps) {
                         iconBitmaps->SetCurrentState(STATE_ERROR);
@@ -501,55 +611,8 @@ int main(int argc, char **argv) {
                     }
 			        notify->SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
                 }
-		    }
-            remote.SetNoAuthorizedWorkerCallback([&configuration, &remote, &notify, &iconBitmaps, &ico]() {
-                if(configuration && remote.GetNumPoolsAdded()) {
-                    notify->ShowMessage(L"No workers logged to server!");
-			        iconBitmaps->SetCurrentState(STATE_ERROR);
-			        iconBitmaps->GetCompositedIcon(ico);
-			        notify->SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
-                }
-		    });
-		    remote.dispatchFunc = [&miner](AbstractWorkSource &pool, std::unique_ptr<stratum::AbstractWorkFactory> &newWork) {
-			    if(miner) miner->SetWorkFactory(pool, newWork);
-                // It is fine for the miner to not be there. Still connect so the pool can signal me as non-working.
-		    };
-            remote.diffChangeFunc = [&miner](AbstractWorkSource &pool, stratum::WorkDiff &diff) {
-			    if(miner) miner->SetDifficulty(pool, diff);
-		    };
-            for(asizei index = 0; index < remote.GetNumServers(); index++) {
-                remote.GetServer(index).shareResponseCallback = [index, &sentShares, &stats](const AbstractWorkSource &me, asizei shareID, StratumShareResponse stat) {
-                    ShareIdentifier key { &me, index, shareID };
-                    auto match(sentShares.find(key));
-                    if(match != sentShares.cend()) {
-                        ShareFeedback(key, match->second, stat);
-                        for(auto &entry : stats.poolShares) {
-                            if(&me != entry.src) continue;
-                            bool first = entry.accepted == 0 && entry.rejected == 0;
-                            if(stat == StratumShareResponse::ssr_rejected) entry.rejected++;
-                            else if(stat == StratumShareResponse::ssr_accepted) {
-                                entry.accepted++;
-                                entry.acceptedDiff += match->second.targetDiff;
-                            }
-                            entry.lastSubmitReply = std::chrono::system_clock::now();
-                            if(first) entry.first = entry.lastSubmitReply;
-                            auto lapse(entry.lastSubmitReply - entry.first);
-                            if(lapse.count()) {
-                                double secs = std::chrono::duration_cast<std::chrono::milliseconds>(lapse).count() / 1000.0;
-                                entry.daps = entry.acceptedDiff / secs;
-                            }
-                            break;
-                        }
-                        sentShares.erase(match);
-                    }
-                    else {
-                        cout<<"Pool ["<<index<<"] ";
-                        if(me.name.length()) cout<<'"'<<me.name<<"\" ";
-                        cout<<"signaled untracked share "<<shareID<<endl;
-                        // Maybe I should be throwing there.
-                    }
-                };
             }
+            stats.prgStart = prgmInitialized.count();
 
             OpenCL12Wrapper api;
             commands::monitor::ConfigInfoCMD::ConfigDesc configInfoCMDReply;
@@ -617,15 +680,6 @@ int main(int argc, char **argv) {
 		        RegisterMonitorCommands(parsers, web.admin, api, remote, stats, std::make_pair(AlgoIdentifier(), 0), devConfMap, devConfReasons, configInfoCMDReply);
             }
 		    RegisterAdminCommands(parsers, web.admin, admin);
-
-            remote.onPoolCommand = [&stats](const AbstractWorkSource &pool) {
-                for(auto &update : stats.poolShares) {
-                    if(update.src == &pool) {
-                        update.lastActivity = std::chrono::system_clock::now();
-                        break;
-                    }
-                }
-            };
 
             MinerMessagePump everything(*notify, *iconBitmaps, network, remote, stats);
             everything.miner = miner.get();

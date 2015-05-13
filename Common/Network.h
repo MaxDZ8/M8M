@@ -134,13 +134,13 @@ public:
 
 	class AbstractDataSocket : public SocketInterface {
 	public:
-		virtual asizei Send(const abyte *octects, asizei count) = 0;
-		virtual asizei Receive(abyte  *octects, asizei buffSize) = 0;
+		virtual asizei Send(const abyte *octects, asizei count) throw() = 0;
+		virtual asizei Receive(abyte  *octects, asizei buffSize) throw() = 0;
 		/*! \return Number of bytes sent. If this is zero this might be signaling an error, and you should check if this
 		socket still Works(). This is due to the fact you are encouraged (but not forced) to use sockets in nonblocking mode
 		so this should always be able to consume at least an octet. */
-		asizei Send(const aubyte *octects, asizei count);
-		asizei Receive(aubyte  *octects, asizei buffSize);
+		asizei Send(const aubyte *octects, asizei count) throw();
+		asizei Receive(aubyte  *octects, asizei buffSize) throw();
 		virtual bool GotData() const = 0;
 		virtual bool CanSend() const = 0;
 		virtual bool Works() const = 0; //!< false if an error occured
@@ -163,13 +163,23 @@ public:
 
 	virtual ~NetworkInterface() { }
 
+    enum ConnectionError {
+        ce_ok,
+        ce_failedResolve,
+        ce_badSocket,
+        ce_failedConnect,
+        ce_noRoutes
+    };
+
 	/*! Notice this function is called BeginConnection, not connect or something.
 	It immediately returns a socket so you can start building objects on top of it but it's very likely the connection
 	procedures will not be completed by the time this returns. It is necessary to use SleepOn putting this in the receiver
 	queue to figure out when the connection is ready to go - this will also allow the object to transition to a fully
 	working state without requiring thread locks. 
-	In other terms, the returned connection is technically a future, but the object isn't so it is returned immediately. */
-	virtual ConnectedSocketInterface& BeginConnection(const char *host, const char *portService) = 0;
+	In other terms, the returned connection is technically a future, but the object isn't so it is returned immediately. 
+    \returns A pointer to a new connected socket owned by this with .second being ce_ok OR
+    nullptr, with .second being an error code. */
+	virtual std::pair<ConnectedSocketInterface*, ConnectionError> BeginConnection(const char *host, const char *portService) = 0;
 
 	//! If false is returned, then the object passed was not managed by this, and call is NOP.
 	virtual bool CloseConnection(ConnectedSocketInterface &object) = 0;
@@ -274,7 +284,7 @@ private:
 public:
 	WindowsNetwork();
 	~WindowsNetwork();
-	ConnectedSocketInterface& BeginConnection(const char *host, const char *portService);
+	std::pair<ConnectedSocketInterface*, ConnectionError> BeginConnection(const char *host, const char *portService);
 	bool CloseConnection(ConnectedSocketInterface &object);
 
 	asizei SleepOn(std::vector<SocketInterface*> &read, std::vector<SocketInterface*> &write, asizei timeoutms);

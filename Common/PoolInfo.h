@@ -20,10 +20,11 @@ struct PoolInfo {
 		double stratum, one, share;
 		DiffMultipliers() : stratum(0), one(0), share(0) { }
 	} diffMul;
-	const string user;
-	const string pass;
-	const string name;
+	string user;
+	string pass;
+	string name;
 	string algo;
+    explicit PoolInfo() = default;
 	PoolInfo(const string &nick, const string &url, const string &userutf8, const string &passutf8)
 		: user(userutf8), pass(passutf8), merkleMode(mm_SHA256D), name(nick), appLevelProtocol("stratum"),
 		  diffMode(dm_btc) {

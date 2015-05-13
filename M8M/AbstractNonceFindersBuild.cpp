@@ -11,7 +11,7 @@ bool AbstractNonceFindersBuild::RegisterWorkProvider(const AbstractWorkSource &s
     const void *key = &src; // I drop all information so I don't run the risk to try access this async
     auto compare = [key](const CurrentWork &test) { return test.owner == key; };
     if(std::find_if(owners.cbegin(), owners.cend(), compare) != owners.cend()) return false; // already added. Not sure if this buys anything but not a performance path anyway
-    CurrentWork source(src.GetDiffMultipliers());
+    CurrentWork source(src.diffMul);
     source.owner = key;
     owners.push_back(std::move(source));
     return true;
@@ -57,7 +57,7 @@ bool AbstractNonceFindersBuild::SetWorkFactory(const AbstractWorkSource &from, s
     std::unique_lock<std::mutex> lock(guard);
     for(auto &el : owners) {
         if(el.owner == &from) {
-            if(el.factory && factory->restart == false) factory->Continuing(*el.factory);
+            if(el.factory && factory && factory->restart == false) factory->Continuing(*el.factory);
             el.factory = std::move(factory);
             el.updated.work = true;
             return true;

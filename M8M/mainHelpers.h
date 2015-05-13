@@ -119,6 +119,7 @@ static bool LoadConfigJSON(rapidjson::Document &root, CFGLoadErrInfo &errInfo, c
 struct Settings {
 	std::vector< unique_ptr<PoolInfo> > pools;
 	std::string driver, algo, impl;
+    std::chrono::seconds reconnDelay = std::chrono::seconds(120);
 	rapidjson::Document implParams;
 };
 /*!< This structure contains every possible setting, in a way or the other.
@@ -247,9 +248,14 @@ static Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson
 		Value::ConstMemberIterator driver = root.FindMember("driver");
 		Value::ConstMemberIterator algo = root.FindMember("algo");
 		Value::ConstMemberIterator impl = root.FindMember("impl");
+        Value::ConstMemberIterator reconnDelay = root.FindMember("reconnectDelay");
 		if(driver != root.MemberEnd() && driver->value.IsString()) ret->driver = mkString(driver->value);
 		if(algo != root.MemberEnd() && algo->value.IsString()) ret->algo = mkString(algo->value);
 		if(impl != root.MemberEnd() && impl->value.IsString()) ret->impl = mkString(impl->value);
+        if(reconnDelay != root.MemberEnd()) {
+            if(reconnDelay->value.IsUint()) ret->reconnDelay = std::chrono::seconds(reconnDelay->value.GetUint());
+            else throw std::string("\"reconnectDelay\", value ") + std::to_string(reconnDelay->value.GetUint()) + " is invalid.";
+        }
 	}
 	Value::ConstMemberIterator implParams = root.FindMember("implParams");
 	if(implParams != root.MemberEnd()) ret->implParams.CopyFrom(implParams->value, ret->implParams.GetAllocator());

@@ -31,7 +31,7 @@ public:
 private:
     static const UINT WM_APP_DATA_CHANGED;
     static const UINT WM_APP_NOTIFICON;
-    static UINT totalIconsCHECK;
+    static UINT totalIcons;
 
     struct AsyncOwned { // the other thread spawns real OS resources here and kills them on exit.
 		HWND windowHandle;

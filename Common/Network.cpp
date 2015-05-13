@@ -154,8 +154,10 @@ WindowsNetwork::~WindowsNetwork() {
 }
 
 
-NetworkInterface::ConnectedSocketInterface& WindowsNetwork::BeginConnection(const char *host, const char *portService) {
+// Trailing return types are cool with better name resolution!
+auto WindowsNetwork::BeginConnection(const char *host, const char *portService) -> std::pair<ConnectedSocketInterface*, ConnectionError> {
 	std::unique_ptr<ConnectedSocket> newSocket(new ConnectedSocket(host, portService));
+    ConnectedSocket *nullconn = nullptr;
 	ConnectedSocketInterface *proxy = static_cast<ConnectedSocketInterface*>(newSocket.get());
 	std::unique_ptr<PendingConnection> newConnection(new PendingConnection(newSocket.get()));
 	addrinfo hints;
@@ -165,11 +167,11 @@ NetworkInterface::ConnectedSocketInterface& WindowsNetwork::BeginConnection(cons
 	hints.ai_protocol = IPPROTO_TCP;
 	addrinfo *result = nullptr;
 	ScopedFuncCall blast([result]() { if(result) freeaddrinfo(result); });
-	if(getaddrinfo(host, portService, &hints, &result)) throw std::exception("getaddrinfo failed.");
+	if(getaddrinfo(host, portService, &hints, &result)) return std::make_pair(nullconn, ce_failedResolve);
 	for(addrinfo *check = result; check; check = check->ai_next) {
 		newConnection->candidates.reserve(newConnection->candidates.size() + 1);
 		SOCKET up = socket(check->ai_family, check->ai_socktype, check->ai_protocol);
-		if(up == INVALID_SOCKET) throw std::exception("Failed socket creation");
+		if(up == INVALID_SOCKET) return std::make_pair(nullconn, ce_badSocket); // I assume this means I'm very low on resources
 		SetBlocking(up, false);
 		if(connect(up, check->ai_addr, int(check->ai_addrlen))) {
 			auto error = GetSocketError();
@@ -179,14 +181,14 @@ NetworkInterface::ConnectedSocketInterface& WindowsNetwork::BeginConnection(cons
 		// I could just skip this but its' possibly indication of low resources, no point in even starting
 		newConnection->candidates.push_back(up);
 	}
-	if(newConnection->candidates.size() == 0) throw std::exception("Could not find a valid route to server.");
+	if(newConnection->candidates.size() == 0) return std::make_pair(nullconn, ce_noRoutes);
 	PendingConnection *pending = newConnection.get();
 	connecting.insert(std::make_pair(proxy, pending));
 	ScopedFuncCall cancelPending([this, proxy]() { connecting.erase(proxy); });
 	connections.insert(std::make_pair(proxy, newSocket.get()));
 	cancelPending.Dont();
 	newConnection.release();
-	return *newSocket.release();
+	return std::make_pair(newSocket.release(), ce_ok);
 }
 
 
@@ -254,7 +256,11 @@ asizei WindowsNetwork::SleepOn(std::vector<SocketInterface*> &read, std::vector<
 	timeout.tv_sec = long(timeoutms / 1000);
 	timeout.tv_usec = (timeoutms % 1000) * 1000;
 	int result = select(int(biggest), &readReady, &writeReady, &failures, &timeout);
-	if(!result) return 0;
+	if(!result) {
+        for(auto &el : read) el = nullptr;
+        for(auto &el : write) el = nullptr;
+        return 0;
+    }
 	if(result < 1) throw std::exception("Some error occured while waiting for sockets to connect.");
 	auto activated = [&failures, this](SocketInterface *hilevel, const fd_set &search) -> bool {
 		auto el = connections.find(hilevel);
@@ -349,8 +355,8 @@ asizei WindowsNetwork::ConnectedSocket::Receive(abyte *storage, asizei count) {
 	int received = recv(socket, storage, len, 0);
 	if(received < 0) {
 		int err = WSAGetLastError();
-		if(err != WSAEWOULDBLOCK) throw std::exception("send(...) returned negative count, this is an unhandled error.");
-		else received = 0;
+		if(err != WSAEWOULDBLOCK) failed = true; // throw std::exception("send(...) returned negative count, this is an unhandled error.");
+		received = 0;
 	}
 	return asizei(received);
 }

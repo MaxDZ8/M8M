@@ -32,9 +32,6 @@
     <ClInclude Include="Stratum\parsing.h">
       <Filter>Stratum</Filter>
     </ClInclude>
-    <ClInclude Include="SourcePolicies\FirstPoolWorkSource.h">
-      <Filter>SourcePolicies</Filter>
-    </ClInclude>
     <ClInclude Include="BTC\Funcs.h">
       <Filter>BTC</Filter>
     </ClInclude>
@@ -64,6 +61,7 @@
     </ClInclude>
     <ClInclude Include="PoolInfo.h" />
     <ClInclude Include="AbstractNotifyIcon.h" />
+    <ClInclude Include="WorkSource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="aes.cpp" />
@@ -81,15 +79,13 @@
     <ClCompile Include="WebSocket\HandShaker.cpp">
       <Filter>WebSocket</Filter>
     </ClCompile>
-    <ClCompile Include="SourcePolicies\FirstPoolWorkSource.cpp">
-      <Filter>SourcePolicies</Filter>
-    </ClCompile>
     <ClCompile Include="BTC\Funcs.cpp">
       <Filter>BTC</Filter>
     </ClCompile>
     <ClCompile Include="AREN\SharedUtils\OSUniqueChecker.cpp">
       <Filter>AREN\SharedUtils</Filter>
     </ClCompile>
+    <ClCompile Include="WorkSource.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Windows">
@@ -100,9 +96,6 @@
     </Filter>
     <Filter Include="Stratum">
       <UniqueIdentifier>{c6e81c97-9f52-44d7-9d68-ea4d0baebf3a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="SourcePolicies">
-      <UniqueIdentifier>{d1ec87dd-6a98-417a-a610-112afe2ae9a8}</UniqueIdentifier>
     </Filter>
     <Filter Include="BTC">
       <UniqueIdentifier>{c5ea6a6f-d3ff-4521-aba2-ca40478ce975}</UniqueIdentifier>
