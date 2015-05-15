@@ -72,7 +72,10 @@ private:
                         triggered.insert(el.first);
                     }
                 }
-                else sleepFunc(SLEEP_MS);
+                else {
+                    sleepFunc(SLEEP_MS);
+                    TickStatus();
+                }
             }
         } catch(std::exception ohno) {
             AbnormalTerminationSignal(ohno.what());

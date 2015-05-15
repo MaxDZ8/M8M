@@ -56,6 +56,11 @@ public:
     //! Used to build stats in TrackedValues
     AbstractWorkSource& GetServer(asizei i) const { return *pools[i].source; }
 
+    //! Sometimes it is worth knowing if an AbstractWorkSource is attempting to connect, such as initial setup
+    bool MightWork(asizei i) const {
+        return pools[i].source->Ready() || pools[i].route != nullptr; // TCP handshake not completed, but maybe it'll do
+    }
+
     // PoolEnumeratorInterface - - - - - - - - - - - -
     asizei GetNumServers() const { return pools.size(); }
     const PoolInfo& GetServerInfo(asizei i) const { return pools[i].config; }

@@ -121,7 +121,7 @@ struct MinerMessagePump {
     NonceFindersInterface *miner = nullptr;
 
     MinerMessagePump(AbstractNotifyIcon &icon, AbstractIconCompositer &rasters, Network &net, PoolManager &servers, TrackedValues &track)
-        : notify(icon), iconBitmaps(rasters), network(net), remote(servers), stats(track) { }
+        : notify(icon), iconBitmaps(rasters), network(net), remote(servers), stats(track), startTime(std::chrono::system_clock::now()) { }
 
     bool Pump(const std::function<void(auint ms)> &sleepFunc, bool &run, MiniServers &web, aulong &firstNonce, std::map<ShareIdentifier, ShareFeedbackData> &sentShares, TrackedAdminValues &admin) {
 		bool firstShare = true;
@@ -196,46 +196,77 @@ struct MinerMessagePump {
     }
 
 private:
-    NonceFindersInterface::Status minerState = NonceFindersInterface::s_created;
+    const std::chrono::system_clock::time_point startTime; // sort of. Sure connections cannot complete right away...
+    std::pair<asizei, std::wstring> prevIconStats = std::make_pair(666, std::wstring());
 
     //! Refresh miner icon according to state but with some care.
+    //! Note miner state is not the only thing worth checking out, especially until initialization completed.
     void WatchDog(NonceFindersInterface *miner) {
-        if(!miner) return; // there's another set error, keep that one.
+        auto minerState(CheckMiner());
+        auto poolState(CheckPools());
+        auto worse(minerState.first > poolState.first? minerState : poolState);
+        if(worse == prevIconStats) return;
+        switch(worse.first) {
+        case 2: iconBitmaps.SetCurrentState(STATE_OK); break;
+        case 10: iconBitmaps.SetCurrentState(STATE_WARN); break;
+        case 11: iconBitmaps.SetCurrentState(STATE_ERROR); break;
+        default:
+            throw std::string("Supposed to not happen, unrecognized error level ") + std::to_string(worse.first);
+        }
+        std::vector<aubyte> ico;
+        iconBitmaps.GetCompositedIcon(ico);
+        notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
+        if(worse.second.size()) notify.ShowMessage(worse.second.c_str());
+        prevIconStats = std::move(worse);
+    }
 
+    // Those values are really stupid... They have a meaning in WatchDog only and the bottom line is bigger .first --> more tragic error
+    //! \todo is this too ugly? Perhaps there should be a whole "stack" of problems and the watchdog could decide what to do... ??
+    //! \todo Another complication is that initialization drives the icon explicitly so this must take care of keeping the set state... Perhaps I should unify.
+    std::pair<asizei, std::wstring> CheckMiner() const {
+        if(!miner) return std::make_pair(11, std::wstring());
+        auto ret = std::make_pair(0, std::wstring());
         const auto state = miner->TestStatus();
-        if(minerState == state) return;
-
-	    std::vector<aubyte> ico;
         switch(state) {
-        case NonceFindersInterface::s_initialized:
-        case NonceFindersInterface::s_unresponsive: {
-			iconBitmaps.SetCurrentState(STATE_WARN);
-            if(state == NonceFindersInterface::s_unresponsive) notify.ShowMessage(L"Mining process is having issues.");
-        } break;
+        case NonceFindersInterface::s_initialized: break;
+        case NonceFindersInterface::s_unresponsive: 
+            ret.first = 10; // warning
+            ret.second = L"Mining process is having issues.";
+            break;
         case NonceFindersInterface::s_stopped:
         case NonceFindersInterface::s_initFailed:
         case NonceFindersInterface::s_terminated: {
-			iconBitmaps.SetCurrentState(STATE_ERROR);
-            if(state == NonceFindersInterface::s_initFailed) notify.ShowMessage(L"Could not initialize miner.");
+            ret.first = 11; // critical error -> RED
+            if(state == NonceFindersInterface::s_initFailed) ret.second = L"Could not initialize miner.";
             if(state == NonceFindersInterface::s_terminated) {
                 auto detail(miner->GetTerminationReason());
-                if(detail.empty()) notify.ShowMessage(L"Miner process terminated!\nThis is very wrong!");
+                if(detail.empty()) ret.second = L"Miner process terminated!\nThis is very wrong!";
                 else {
                     std::vector<wchar_t> meh(detail.size() + 1);
                     for(asizei cp = 0; cp < detail.size(); cp++) meh[cp] = detail[cp];
                     meh.back() = 0;
-                    notify.ShowMessage(meh.data());
+                    ret.second = meh.data();
                 }
             }
         } break;
         case NonceFindersInterface::s_running: {
-			iconBitmaps.SetCurrentState(STATE_OK);
+			ret.first = 2; // everything fine
         } break;
         default: throw "Impossible, missing a transition? Code incoherent.";
         }
-		iconBitmaps.GetCompositedIcon(ico);
-		notify.SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
-        minerState = state;
+        return ret;
+    }
+
+    std::pair<asizei, std::wstring> CheckPools() const {
+        asizei poolCount(remote.GetNumServers());
+        if(poolCount == 0) return std::make_pair(11, L"No remote servers.");
+        asizei ready = 0;
+        for(asizei i = 0; i < poolCount; i++) {
+            if(remote.MightWork(i)) ready++;
+        }
+        auto now(std::chrono::system_clock::now());
+        if(ready) return std::make_pair(0, std::wstring()); // should I signal a pool has gone down? As long as at least one is working, everything should be fine.
+        return std::make_pair(11, L"All pools disconnected!");
     }
 
     void SendResults(const NonceOriginIdentifier &from, const VerifiedNonces &sharesFound, std::map<ShareIdentifier, ShareFeedbackData> &sentShares) {
@@ -603,14 +634,7 @@ int main(int argc, char **argv) {
 		            };
                 }
 
-                if(remote.Activate(configuration->algo) == 0) {
-                    notify->ShowMessage(L"No remote servers.");
-			        if(iconBitmaps) {
-                        iconBitmaps->SetCurrentState(STATE_ERROR);
-			            iconBitmaps->GetCompositedIcon(ico);
-                    }
-			        notify->SetIcon(ico.data(), M8M_ICON_SIZE, M8M_ICON_SIZE);
-                }
+                remote.Activate(configuration->algo);
             }
             stats.prgStart = prgmInitialized.count();
 
