@@ -17,55 +17,71 @@ public:
         std::vector<std::string> rejectReasons; //!< device-independant reasons for which the object was discarded.
 
         // Stuff below is only valid when rejectReasons.empty() is true. 
-
+        std::string impl; //!< algorithm implementation being used
         std::vector<auint> devices; //!< might be from different context/platforms. Linear indices.
     };
 
-
-    struct ConfigDesc {
-        bool selected = false; //!< true if {algo,impl} pair selects a valid algo
-        bool specified = false; //!< true if a valid config object has been pulled from config file
-        // if object has been specified, here are the configurations in the order they appear in config
-        std::vector<ConfigInfo> configs; //!< if this is non-empty the [i] configuration object has been considered invalid.
-        std::vector<AbstractAlgorithm::ConfigDesc> informative; //!< config for each device, in linear index order, valid indices contained in configs
+    struct ConfigDescriptorInterface {
+        virtual ~ConfigDescriptorInterface() { }
+        virtual bool ValidSelection() const = 0; //!< true if {algo,impl} pair selected a valid algo
+        virtual std::string GetSelectedAlgorithm() const = 0;
+        virtual bool ValidConfig() const = 0; //!< true if a corresponding set of configs has been successfully loaded from config file
+        virtual asizei GetNumDeducedConfigs() const = 0; //!< how many configs to probe using GetConfig or GetResources
+        virtual ConfigInfo GetConfig(asizei cfg) const = 0; //!< every used device is mapped to a config and therefore to a single set of resources
+        /*! This is a bit more complicated. GetConfig will return a list of devices identified by linear index using the requested config.
+        Just iterate on all linear indices pulled from that array to get a descriptor for each device. Even if all devices use the same config,
+        they can still have different resources (in the future when "elastic" intensity will see the light).
+        You can still probe an unused device and it will pass out a ConfigDesc with hashCout 0 returning true. */
+        virtual bool GetResources(AbstractAlgorithm::ConfigDesc &desc, auint dev) const = 0;
     };
 
-    const ConfigDesc conf;
-
-	ConfigInfoCMD(const ConfigDesc &desc) : conf(desc), AbstractCommand("configInfo") { }
+	ConfigInfoCMD(const ConfigDescriptorInterface &desc) : conf(desc), AbstractCommand("configInfo") { }
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		// .params is an array of strings, static informations to be retrieved
 		using namespace rapidjson;
-        if(conf.selected == false) {
+        if(conf.ValidSelection() == false) {
             build.SetNull();
             return nullptr;
         }
-        build.SetArray();
-        if(conf.specified == false) return nullptr;
-        build.Reserve(SizeType(conf.configs.size()), build.GetAllocator());
-        for(auto &el : conf.configs) {
-            Value entry;
-            if(el.rejectReasons.size()) {
-                Value reasons(kArrayType);
-                for(auto &str : el.rejectReasons) reasons.PushBack(StringRef(str.c_str()), build.GetAllocator());
-                entry.SetObject();
-                entry.AddMember("rejectReasons", reasons, build.GetAllocator());
-                Document copy;
-                copy.CopyFrom(*el.specified, build.GetAllocator());
-                entry.AddMember("settings", copy, build.GetAllocator());
-            }
-            else {
-                entry.SetArray();
-                for(auto &dev : el.devices) {
-                    Value spec(kObjectType);
-                    spec.AddMember("device", dev, build.GetAllocator());
-                    spec.AddMember("hashCount", conf.informative[dev].hashCount, build.GetAllocator());
-                    spec.AddMember("memUsage", Describe(conf.informative[dev].memUsage, build.GetAllocator()), build.GetAllocator());
-                    entry.PushBack(spec, build.GetAllocator());
+        auto &alloc(build.GetAllocator());
+        auto selAlgo(conf.GetSelectedAlgorithm());
+        build.SetObject();
+        build.AddMember("algo", Value(selAlgo.c_str(), SizeType(selAlgo.length()), alloc), alloc);
+        Value confArr(kNullType);
+        if(conf.ValidConfig()) {
+            confArr.SetArray();
+            confArr.Reserve(SizeType(conf.GetNumDeducedConfigs()), alloc);
+            for(asizei loop = 0; loop < conf.GetNumDeducedConfigs(); loop++) {
+                auto el(conf.GetConfig(loop));
+                Value entry;
+                if(el.rejectReasons.size()) {
+                    Value reasons(kArrayType);
+                    for(auto &str : el.rejectReasons) reasons.PushBack(StringRef(str.c_str()), alloc);
+                    entry.SetObject();
+                    entry.AddMember("rejectReasons", reasons, alloc);
+                    Document copy;
+                    copy.CopyFrom(*el.specified, alloc);
+                    entry.AddMember("settings", copy, alloc);
                 }
+                else {
+                    entry.SetObject();
+                    entry.AddMember("impl", Value(el.impl.c_str(), SizeType(el.impl.length()), alloc), alloc);
+                    Value devArr(kArrayType);
+                    for(auto &dev : el.devices) {
+                        Value spec(kObjectType);
+                        AbstractAlgorithm::ConfigDesc info;
+                        conf.GetResources(info, dev);
+                        spec.AddMember("device", dev, alloc);
+                        spec.AddMember("hashCount", info.hashCount, alloc);
+                        spec.AddMember("memUsage", Describe(info.memUsage, alloc), alloc);
+                        devArr.PushBack(spec, alloc);
+                    }
+                    entry.AddMember("active", devArr, alloc);
+                }
+                confArr.PushBack(entry, alloc);
             }
-            build.PushBack(entry, build.GetAllocator());
         }
+        build.AddMember("selected", confArr, alloc);
 		return nullptr;
 	}
 
@@ -84,6 +100,7 @@ private:
         }
         return arr;
 	}
+    const ConfigDescriptorInterface &conf;
 };
 
 

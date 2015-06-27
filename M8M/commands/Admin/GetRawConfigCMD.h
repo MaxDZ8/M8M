@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "../AbstractCommand.h"
+#include <rapidjson/document.h>
 
 namespace commands {
 namespace admin {

@@ -9,24 +9,83 @@
 namespace commands {
 namespace monitor {
 
-template<typename ProcessorProvider>
+
 class SystemInfoCMD : public AbstractCommand {
-	ProcessorProvider &procs;
 public:
-	SystemInfoCMD(ProcessorProvider &processors) : procs(processors), AbstractCommand("systemInfo") { }
+    struct ProcessingNodesEnumeratorInterface {
+        virtual const char* GetAPIName() const = 0;
+        virtual asizei GetNumPlatforms() const = 0;
+
+	    enum PlatformInfoString {
+		    pis_profile,
+		    pis_version,
+		    pis_name,
+		    pis_vendor,
+		    pis_extensions
+	    };
+        virtual std::string GetPlatformString(asizei p, PlatformInfoString pis) const = 0;
+        virtual asizei GetNumDevices(asizei p) const = 0;
+        
+	    enum DeviceInfoString {
+		    dis_chip,
+		    dis_vendor,
+		    dis_driverVersion,
+		    dis_profile,
+		    dis_apiVersion,
+		    dis_extensions
+	    };
+	    enum DeviceInfoUint {
+		    diu_vendorID,
+		    diu_clusters,
+		    diu_coreClock
+	    };
+	    enum DeviceInfoUnsignedLong {
+		    diul_maxMemAlloc,
+		    diul_globalMemBytes,
+		    diul_ldsBytes,
+		    diul_globalMemCacheBytes,
+		    diul_cbufferBytes,
+	    };
+	    enum DeviceInfoBool {
+		    dib_ecc,
+		    dib_huma,
+		    dib_littleEndian,
+		    dib_available,
+		    dib_compiler,
+		    dib_linker
+	    };
+	    virtual std::string GetDeviceInfo(asizei plat, asizei dev, DeviceInfoString prop) const = 0;
+	    virtual auint GetDeviceInfo(asizei plat, asizei dev, DeviceInfoUint prop) = 0;
+	    virtual aulong GetDeviceInfo(asizei plat, asizei dev, DeviceInfoUnsignedLong prop) = 0;
+	    virtual bool GetDeviceInfo(asizei plat, asizei dev, DeviceInfoBool prop) = 0;
+	    enum LDSType {
+		    ldsType_none,
+		    ldsType_global,
+		    ldsType_dedicated
+	    };
+	    virtual LDSType GetDeviceLDSType(asizei plat, asizei dev) = 0;
+        struct DevType {
+            bool defaultDevice = false;
+            bool cpu = false;
+            bool gpu = false;
+            bool accelerator = false;
+        };
+        virtual DevType GetDeviceType(asizei plat, asizei dev) = 0;
+    };
+
+	SystemInfoCMD(ProcessingNodesEnumeratorInterface &processors) : procs(processors), AbstractCommand("systemInfo") { }
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		// Easy, as all params are ignored.
 		using namespace rapidjson;
 		build.SetObject();
-		build.AddMember("API", StringRef(procs.GetName()), build.GetAllocator());
+		build.AddMember("API", StringRef(procs.GetAPIName()), build.GetAllocator());
 		build.AddMember("platforms", Value(kArrayType), build.GetAllocator());
 		Value &platforms(build["platforms"]);
-		platforms.Reserve(rapidjson::SizeType(procs.platforms.size()), build.GetAllocator());
-		for(asizei loop = 0; loop < procs.platforms.size(); loop++) {
-			ProcessorProvider::Platform &plat(procs.platforms[loop]);
+		platforms.Reserve(rapidjson::SizeType(procs.GetNumPlatforms()), build.GetAllocator());
+		for(asizei plat = 0; plat < procs.GetNumPlatforms(); plat++) {
 			Value padd(kObjectType);
 #define GS(x) { \
-	const std::string temp(procs.GetDeviceGroupInfo(plat, ProcessorProvider::dgis_##x)); \
+	const std::string temp(procs.GetPlatformString(plat, ProcessingNodesEnumeratorInterface::pis_##x)); \
 	padd.AddMember(#x, Value(temp.c_str(), rapidjson::SizeType(temp.length()), build.GetAllocator()), build.GetAllocator()); \
 }
 			GS(profile);
@@ -37,17 +96,16 @@ public:
 
 			padd.AddMember(StringRef("devices"), Value(kArrayType), build.GetAllocator());
 			Value &devices(padd["devices"]);
-			devices.Reserve(rapidjson::SizeType(plat.devices.size()), build.GetAllocator());
-			for(asizei dev = 0; dev < plat.devices.size(); dev++) {
-				const ProcessorProvider::Device &device(plat.devices[dev]);
+			devices.Reserve(rapidjson::SizeType(procs.GetNumDevices(plat)), build.GetAllocator());
+			for(asizei dev = 0; dev < procs.GetNumDevices(plat); dev++) {
 				Value add(kObjectType);
 #define GDSTR(x) { \
-	const std::string temp(procs.GetDeviceInfo(device, ProcessorProvider::dis_##x)); \
+	const std::string temp(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::dis_##x)); \
 	add.AddMember(#x, Value(temp.c_str(), rapidjson::SizeType(temp.length()), build.GetAllocator()), build.GetAllocator()); \
 }
-#define GDUI(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(device, ProcessorProvider::diu_##x)), build.GetAllocator());
-#define GDUL(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(device, ProcessorProvider::diul_##x)), build.GetAllocator());
-#define GDB(x)   add.AddMember(#x, Value(procs.GetDeviceInfo(device, ProcessorProvider::dib_##x)), build.GetAllocator());
+#define GDUI(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diu_##x)), build.GetAllocator());
+#define GDUL(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diul_##x)), build.GetAllocator());
+#define GDB(x)   add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::dib_##x)), build.GetAllocator());
 				GDSTR(chip);
 				GDSTR(vendor);
 				GDSTR(driverVersion);
@@ -71,32 +129,33 @@ public:
 #undef GDUI
 #undef GDSTR
 				{
-					aulong ldsBytes = procs.GetDeviceInfo(device, procs.diul_ldsBytes);
+					aulong ldsBytes = procs.GetDeviceInfo(plat, dev, procs.diul_ldsBytes);
 					add.AddMember(StringRef("ldsBytes"), ldsBytes, build.GetAllocator());
-					ProcessorProvider::LDSType ldst = procs.GetDeviceLDSType(device);
+					ProcessingNodesEnumeratorInterface::LDSType ldst = procs.GetDeviceLDSType(plat, dev);
 					switch(ldst) {
-					case procs.ldsType_dedicated: add.AddMember("ldsType", Value("dedicated"), build.GetAllocator()); break;
-					case procs.ldsType_none: add.AddMember("ldsType", Value("none"), build.GetAllocator()); break;
-					case procs.ldsType_global: add.AddMember("ldsType", Value("global"), build.GetAllocator()); break;
+					case ProcessingNodesEnumeratorInterface::ldsType_dedicated: add.AddMember("ldsType", Value("dedicated"), build.GetAllocator()); break;
+					case ProcessingNodesEnumeratorInterface::ldsType_none: add.AddMember("ldsType", Value("none"), build.GetAllocator()); break;
+					case ProcessingNodesEnumeratorInterface::ldsType_global: add.AddMember("ldsType", Value("global"), build.GetAllocator()); break;
 					}
 				}
+                auto device(procs.GetDeviceType(plat, dev));
 				{
 					std::string type;
-					if(device.type.defaultDevice) type = "default";
+					if(device.defaultDevice) type = "default";
 					auto append = [&type](const char *text) {
 						if(type.size()) type += ',';
 						type += text;
 					};
-					if(device.type.gpu) append("GPU");
-					if(device.type.accelerator) append("Accelerator");
-					if(device.type.cpu) append("CPU");
+					if(device.gpu) append("GPU");
+					if(device.accelerator) append("Accelerator");
+					if(device.cpu) append("CPU");
 					add.AddMember("type", Value(type.c_str(), rapidjson::SizeType(type.length()), build.GetAllocator()), build.GetAllocator());
 				}
 				{
-					const auint vendor = OpenCL12Wrapper::GetDeviceInfo(device, OpenCL12Wrapper::diu_vendorID);
-					const std::string chipName(procs.GetDeviceInfo(device, procs.dis_chip));
-					const std::string extensions(procs.GetDeviceInfo(device, procs.dis_extensions));
-					auto chipType = device.type.gpu? KnownHardware::ct_gpu : KnownHardware::ct_cpu;
+					const auint vendor = procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diu_vendorID);
+					const std::string chipName(procs.GetDeviceInfo(plat, dev, procs.dis_chip));
+					const std::string extensions(procs.GetDeviceInfo(plat, dev, procs.dis_extensions));
+					auto chipType = device.gpu? KnownHardware::ct_gpu : KnownHardware::ct_cpu;
 					KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vendor, chipName.c_str(), chipType, extensions.c_str());
 					const char *hw = KnownHardware::GetArchPresentationString(arch, false);
 					if(hw && strlen(hw)) add.AddMember("arch", Value(hw, rapidjson::SizeType(strlen(hw)), build.GetAllocator()), build.GetAllocator());
@@ -107,6 +166,8 @@ public:
 		}
 		return nullptr;
 	}
+private:
+    ProcessingNodesEnumeratorInterface &procs;
 };
 
 

@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "../AbstractCommand.h"
+#include "../../../Common/StratumState.h"
 
 namespace commands {
 namespace monitor {

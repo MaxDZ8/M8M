@@ -9,13 +9,17 @@ namespace commands {
 namespace monitor {
 
 class DeviceConfigCMD : public AbstractCommand {
-    std::vector<auint> mapping; //!< device i uses config [i], auint(-1) if off.
 public:
-	DeviceConfigCMD(const std::vector<auint> &allDevices) : mapping(allDevices), AbstractCommand("deviceConfig") { }
+    struct DeviceConfigMapperInterface {
+        virtual ~DeviceConfigMapperInterface() { }
+        virtual std::vector<auint> GetConfigMappings() const = 0; //!< device i uses config [i], auint(-1) if off.
+    };
+	DeviceConfigCMD(DeviceConfigMapperInterface &allDevices) : mapper(allDevices), AbstractCommand("deviceConfig") { }
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		// In theory this could take various forms such as enumerating only specific devices...
 		// But I really don't care. For the time being I just map'em all!
 		build.SetArray();
+        auto mapping(mapper.GetConfigMappings());
         build.Reserve(rapidjson::SizeType(mapping.size()), build.GetAllocator());
         for(auto index : mapping) {
             if(index == auint(-1)) build.PushBack(rapidjson::Value("off"), build.GetAllocator());
@@ -23,6 +27,8 @@ public:
         }
 		return nullptr;
 	}
+private:
+    DeviceConfigMapperInterface &mapper;
 };
 
 
