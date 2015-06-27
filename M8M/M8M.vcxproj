@@ -140,7 +140,8 @@ mkdir $(SolutionDir)deploy\M8M
 copy $(TargetPath) $(SolutionDir)deploy\M8M\
 mkdir $(SolutionDir)deploy\M8M\kernels
 xcopy $(ProjectDir)kernels\*.* $(SolutionDir)deploy\M8M\kernels
-xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
+xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M
+copy $(ProjectDir)algorithms.json $(SolutionDir)deploy\M8M\</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist $(SolutionDir)deploy rd /S /Q $(SolutionDir)deploy
@@ -177,8 +178,6 @@ xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
     <ClInclude Include="AlgoImplementations\QubitFiveStepsCL12.h" />
     <ClInclude Include="AlgoMiner.h" />
     <ClInclude Include="clAlgoFactories.h" />
-    <ClInclude Include="CLEventGuardian.h" />
-    <ClInclude Include="cmdHubs.h" />
     <ClInclude Include="commands\AbstractCommand.h" />
     <ClInclude Include="commands\AbstractStreamingCommand.h" />
     <ClInclude Include="commands\Admin\ConfigFileCMD.h" />
@@ -205,18 +204,14 @@ xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
     <ClInclude Include="KnownConstantsProvider.h" />
     <ClInclude Include="KnownHardware.h" />
     <ClInclude Include="M8MIcon.h" />
-    <ClInclude Include="mainHelpers.h" />
     <ClInclude Include="MiningPerformanceWatcher.h" />
     <ClInclude Include="NonceFindersInterface.h" />
     <ClInclude Include="NonceStructs.h" />
-    <ClInclude Include="OpenCL12Wrapper.h" />
     <ClInclude Include="PoolManager.h" />
-    <ClInclude Include="ProcessingNodesFactory.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="StartParams.h" />
     <ClInclude Include="StopWaitDispatcher.h" />
     <ClInclude Include="ThreadedNonceFinders.h" />
-    <ClInclude Include="WebMonitorTracker.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BlockVerifiers\BlockVerifiers.vcxproj">
@@ -237,11 +232,15 @@ xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AbstractAlgorithm.cpp" />
-    <ClCompile Include="AbstractNonceFindersBuild.cpp" />
     <ClCompile Include="AbstractWSServer.cpp" />
+    <ClCompile Include="AlgoSourcesLoader.cpp" />
+    <ClCompile Include="DataDrivenAlgoFactory.cpp" />
     <ClCompile Include="M8M.cpp" />
+    <ClCompile Include="M8MMiningApp.cpp" />
+    <ClCompile Include="M8MPoolConnectingApp.cpp" />
+    <ClCompile Include="M8MPoolMonitoringApp.cpp" />
+    <ClCompile Include="M8MWebServingApp.cpp" />
     <ClCompile Include="PoolManager.cpp" />
-    <ClCompile Include="ProcessingNodesFactory.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

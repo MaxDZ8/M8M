@@ -1,185 +1,120 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Header Files\Commands">
-      <UniqueIdentifier>{82047d60-ca08-4102-ba50-a2c1c0b85ac9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Commands\Monitor">
-      <UniqueIdentifier>{9027c23b-f23d-4e55-8f9b-1b8253c2cb3c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Commands\Admin">
-      <UniqueIdentifier>{ab6eedc8-228a-43be-8f57-cc6efab01003}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\AlgoImplementations">
+    <Filter Include="AlgoImplementations">
       <UniqueIdentifier>{10749c18-2b41-4e69-8643-1b363bcac4cc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\Commands">
-      <UniqueIdentifier>{d3269760-4ec7-4553-98f3-15f5b2e710b6}</UniqueIdentifier>
+    <Filter Include="Commands">
+      <UniqueIdentifier>{82047d60-ca08-4102-ba50-a2c1c0b85ac9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Commands\Monitor">
+      <UniqueIdentifier>{9027c23b-f23d-4e55-8f9b-1b8253c2cb3c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Commands\Admin">
+      <UniqueIdentifier>{ab6eedc8-228a-43be-8f57-cc6efab01003}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="KnownHardware.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="M8MIcon.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="OpenCL12Wrapper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="WebMonitorTracker.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="commands\AbstractCommand.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\AbstractStreamingCommand.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\ExtensionListCMD.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\ExtensionState.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\PushInterface.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\UnsubscribeCMD.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\UpgradeCMD.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\VersionCMD.h">
-      <Filter>Header Files\Commands</Filter>
+      <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\AlgoCMD.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\ConfigInfoCMD.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\DeviceConfigCMD.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\DeviceShares.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\PoolCMD.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\PoolShares.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\RejectReasonCMD.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\ScanTime.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\SystemInfoCMD.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractWSServer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="IconCompositer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\UptimeCMD.h">
-      <Filter>Header Files\Commands\Monitor</Filter>
+      <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Admin\GetRawConfigCMD.h">
-      <Filter>Header Files\Commands\Admin</Filter>
+      <Filter>Commands\Admin</Filter>
     </ClInclude>
     <ClInclude Include="commands\Admin\ReloadCMD.h">
-      <Filter>Header Files\Commands\Admin</Filter>
+      <Filter>Commands\Admin</Filter>
     </ClInclude>
     <ClInclude Include="commands\Admin\SaveRawConfigCMD.h">
-      <Filter>Header Files\Commands\Admin</Filter>
+      <Filter>Commands\Admin</Filter>
     </ClInclude>
     <ClInclude Include="commands\Admin\ConfigFileCMD.h">
-      <Filter>Header Files\Commands\Admin</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Header Files</Filter>
+      <Filter>Commands\Admin</Filter>
     </ClInclude>
     <ClInclude Include="AlgoImplementations\FreshWarmCL12.h">
-      <Filter>Header Files\AlgoImplementations</Filter>
+      <Filter>AlgoImplementations</Filter>
     </ClInclude>
     <ClInclude Include="AlgoImplementations\MYRGRSMonolithicCL12.h">
-      <Filter>Header Files\AlgoImplementations</Filter>
+      <Filter>AlgoImplementations</Filter>
     </ClInclude>
     <ClInclude Include="AlgoImplementations\NeoscryptSmoothCL12.h">
-      <Filter>Header Files\AlgoImplementations</Filter>
+      <Filter>AlgoImplementations</Filter>
     </ClInclude>
     <ClInclude Include="AlgoImplementations\QubitFiveStepsCL12.h">
-      <Filter>Header Files\AlgoImplementations</Filter>
+      <Filter>AlgoImplementations</Filter>
     </ClInclude>
-    <ClInclude Include="KnownConstantsProvider.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="mainHelpers.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MiningPerformanceWatcher.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="NonceFindersInterface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="NonceStructs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ProcessingNodesFactory.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StartParams.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StopWaitDispatcher.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ThreadedNonceFinders.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractAlgorithm.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractNonceFindersBuild.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AbstractSpecialValuesProvider.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoMiner.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="clAlgoFactories.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CLEventGuardian.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="cmdHubs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="PoolManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
+    <ClInclude Include="AbstractAlgorithm.h" />
+    <ClInclude Include="AbstractNonceFindersBuild.h" />
+    <ClInclude Include="AbstractSpecialValuesProvider.h" />
+    <ClInclude Include="AbstractWSServer.h" />
+    <ClInclude Include="AlgoMiner.h" />
+    <ClInclude Include="clAlgoFactories.h" />
+    <ClInclude Include="IconCompositer.h" />
+    <ClInclude Include="KnownConstantsProvider.h" />
+    <ClInclude Include="KnownHardware.h" />
+    <ClInclude Include="M8MIcon.h" />
+    <ClInclude Include="MiningPerformanceWatcher.h" />
+    <ClInclude Include="NonceFindersInterface.h" />
+    <ClInclude Include="NonceStructs.h" />
+    <ClInclude Include="PoolManager.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="StartParams.h" />
+    <ClInclude Include="StopWaitDispatcher.h" />
+    <ClInclude Include="ThreadedNonceFinders.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc">
@@ -192,23 +127,15 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AbstractAlgorithm.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="AbstractNonceFindersBuild.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="AbstractWSServer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="M8M.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ProcessingNodesFactory.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="PoolManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClCompile Include="AbstractAlgorithm.cpp" />
+    <ClCompile Include="AbstractWSServer.cpp" />
+    <ClCompile Include="M8M.cpp" />
+    <ClCompile Include="PoolManager.cpp" />
+    <ClCompile Include="M8MPoolConnectingApp.cpp" />
+    <ClCompile Include="M8MPoolMonitoringApp.cpp" />
+    <ClCompile Include="M8MWebServingApp.cpp" />
+    <ClCompile Include="M8MMiningApp.cpp" />
+    <ClCompile Include="AlgoSourcesLoader.cpp" />
+    <ClCompile Include="DataDrivenAlgoFactory.cpp" />
   </ItemGroup>
 </Project>
