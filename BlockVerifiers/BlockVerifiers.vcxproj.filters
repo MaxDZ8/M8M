@@ -5,27 +5,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BlockVerifierInterface.h" />
-    <ClInclude Include="bv\Fresh.h">
-      <Filter>bv</Filter>
-    </ClInclude>
-    <ClInclude Include="bv\MyriadGroestl.h">
-      <Filter>bv</Filter>
-    </ClInclude>
-    <ClInclude Include="bv\Neoscrypt.h">
-      <Filter>bv</Filter>
-    </ClInclude>
-    <ClInclude Include="bv\Qubit.h">
-      <Filter>bv</Filter>
-    </ClInclude>
+    <ClInclude Include="HashBlocks.h" />
+    <ClInclude Include="NeoScrypt.h" />
+    <ClInclude Include="SHA256_trunc.h" />
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="bv">
-      <UniqueIdentifier>{237346f0-b83c-429a-9bb5-f54dda1e831e}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="bv\Neoscrypt.cpp">
-      <Filter>bv</Filter>
-    </ClCompile>
+    <ClCompile Include="NeoScrypt.cpp" />
   </ItemGroup>
 </Project>

@@ -4,15 +4,14 @@
  */
 #pragma once
 #include "ThreadedNonceFinders.h"
+#include "../BlockVerifiers/BlockVerifierInterface.h"
 
-template<typename BlockVerifier>
 class AlgoMiner : public ThreadedNonceFinders {
 public:
-    AlgoMiner(std::function<void(auint)> sleepFunc) : ThreadedNonceFinders(sleepFunc) { }
-
+    AlgoMiner(BlockVerifierInterface &bv) : checker(bv) { }
 private:
+    BlockVerifierInterface &checker;
     std::array<aubyte, 32> HashHeader(std::array<aubyte, 80> &header, auint nonce) const {
-        BlockVerifier checker;
         return checker.Hash(header, nonce);
     }
 };

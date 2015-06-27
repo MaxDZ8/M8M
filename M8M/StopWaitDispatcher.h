@@ -51,11 +51,12 @@ public:
     //! Tries to evolve algorithm state. The only thing that prevents an algorithm to evolve is completion of the mapping operations.
     //! \param [in,out] blockers contains a list of events representing completed operations. If the event I'm waiting for is in the set,
     //! I will remove it from the set of waiting events.
-    AlgoEvent Tick(std::set<cl_event> &blockers) {
+    AlgoEvent Tick(std::vector<cl_event> &blockers) {
         // The first, most important thing to do is to free results so I can start again.
         if(mapping) {
-            if(blockers.find(mapping) == blockers.cend()) return AlgoEvent::working;
-            blockers.erase(mapping);
+            auto matched(std::find(blockers.cbegin(), blockers.cend(), mapping));
+            if(matched == blockers.cend()) return AlgoEvent::working;
+            blockers.erase(matched);
             return AlgoEvent::results;
         }
         if(algo.Overflowing()) return AlgoEvent::exhausted; // nothing to do
@@ -129,6 +130,19 @@ public:
     //! Returns true if the header **might** be returned by a future call to GetResults
     bool IsInFlight(const std::array<aubyte, 80> &test) {
         return test == dispatchedHeader || test == blockHeader;
+    }
+
+    /*! Ideally, restore object state as before the last Tick() happened.
+    In practice some nonces get lost. Not such a big problem in the bigger drawing. */
+    void Cancel(std::vector<cl_event> &blockers) {
+        if(mapping) {
+            clEnqueueUnmapMemObject(queue, candidates, nonces, 0, NULL, NULL);
+            nonces = nullptr;
+            clReleaseEvent(mapping);
+            auto match(std::find(blockers.begin(), blockers.end(), mapping));
+            if(match != blockers.end()) blockers.erase(match); // will always happen but worth a check
+            mapping = 0;
+        }
     }
 
 private:

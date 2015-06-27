@@ -39,21 +39,29 @@ public:
         > 0 on returning true. If this does not hold, just return false and update nothing. */
     virtual bool ResultsFound(NonceOriginIdentifier &src, VerifiedNonces &nonces) = 0;
 
+    
     enum Status {
-        s_created,      //!< created, Init() not called yet. Initialization and creation is derived class responsability!
-        s_initialized,  //!< Init() has been called and successfully completed with no errors. Start() not yet called.
-        s_running,      //!< Start() has been called and we speculate everything is fine
-        s_unresponsive, //!< bad stuff. Some watchdog have not been re-set too long, probably a good idea to kill this.
-        s_stopped,      //!< Stop has been called.
+        s_created,
+        s_running,
+        s_sleeping,
+        s_unresponsive,
+        s_stopped,
         
         s_initFailed,
-        s_terminated
+        s_failed
     };
 
-    //! This can have side-effects, such as testing for dead threads and update status itself. For this reason, it's not Get.
-    //! If s_terminated is returned, GetTerminationReason will attempt to return meaningful data.
-    virtual Status TestStatus() = 0;
+    /*! [0] is the number of non-responsive or failed queues which will hopefully be zero.
+    [1] is the total count of work queues this knows about. */
+    virtual std::array<asizei, 2> GetNumWorkQueues() const = 0;
 
-    //! Returns non-empty string describing the reason 
-    virtual std::string GetTerminationReason() const = 0;
+    /*! For each work queue, this pulls out
+    - <0> as the device (linear index) on which it's running
+    - <1> is mostly to decide the meaning of the next
+    - <2> is the last error message. Of course if everything is fine then there will be no message. If the thread is failed that's an huge problem. */
+    virtual std::tuple<asizei, Status, std::vector<std::string> > GetTerminationReason(asizei queue) const = 0;
+
+    /*! Even if threads are running (not failed) they could still have issues. Monitoring the time of last work generation seems to be a fairly
+    accurate way of probing their state. Shall the thread have any issue, they will go late with this one. */
+    virtual std::chrono::system_clock::time_point GetLastWUGenTime(asizei queue) const = 0;
 };

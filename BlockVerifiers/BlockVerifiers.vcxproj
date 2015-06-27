@@ -77,13 +77,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BlockVerifierInterface.h" />
-    <ClInclude Include="bv\Fresh.h" />
-    <ClInclude Include="bv\MyriadGroestl.h" />
-    <ClInclude Include="bv\Neoscrypt.h" />
-    <ClInclude Include="bv\Qubit.h" />
+    <ClInclude Include="HashBlocks.h" />
+    <ClInclude Include="NeoScrypt.h" />
+    <ClInclude Include="SHA256_trunc.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="bv\Neoscrypt.cpp" />
+    <ClCompile Include="NeoScrypt.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

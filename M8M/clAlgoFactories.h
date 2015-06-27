@@ -7,10 +7,6 @@
 #include <vector>
 #include <string>
 #include "AbstractAlgorithm.h"
-#include "AlgoImplementations/FreshWarmCL12.h"
-#include "AlgoImplementations/MYRGRSMonolithicCL12.h"
-#include "AlgoImplementations/QubitFiveStepsCL12.h"
-#include "AlgoImplementations/NeoscryptSmoothCL12.h"
 
 
 /*! Takes care of parsing algorithm-implementation parameters to known data, checking device compatibility AND creating the actual object. */
@@ -25,15 +21,19 @@ public:
     virtual std::vector<std::string> Parse(const rapidjson::Value &params) {
         // If here, algorithm requirements are met. Are the settings ok? A typical limitation regards max concurrency.
         std::vector<std::string> ret;
-        if(params.IsObject() == false) ret.push_back("Passed parameter structure must be an object.");
-        else {
-	        const rapidjson::Value::ConstMemberIterator li(params.FindMember("linearIntensity"));
-            unsigned __int32 linearIntensity = 0;
-	        if(li == params.MemberEnd()) ret.push_back("Invalid settings, missing \"linearIntensity\", required.");
-            else if(li->value.IsUint()) linearIntensity = li->value.GetUint();
-            if(!linearIntensity && li != params.MemberEnd()) ret.push_back("Invalid settings, bad \"linearIntensity\" value.");
-            this->linearIntensity = linearIntensity;
+        if(params.IsObject() == false) {
+            ret.push_back("Passed parameter structure must be an object.");
+            return ret;
         }
+	    const rapidjson::Value::ConstMemberIterator li(params.FindMember("linearIntensity"));
+        unsigned __int32 linearIntensity = 0;
+	    if(li == params.MemberEnd()) {
+            ret.push_back("Invalid settings, missing \"linearIntensity\", required.");
+            return ret;
+        }
+        else if(li->value.IsUint()) linearIntensity = li->value.GetUint();
+        if(!linearIntensity && li != params.MemberEnd()) ret.push_back("Invalid settings, \"linearIntensity\" cannot be 0.");
+        this->linearIntensity = linearIntensity;
         // The nonce must currently be a 32-bit value.
         const asizei hashCount = linearIntensity * GetIntensityMultiplier();
         if(hashCount > auint(~0)) ret.push_back("linearIntensity is too high, would result in more than 4Gi hashes per scan");
@@ -67,8 +67,13 @@ public:
         return ret;
     }
 
-    //! If a device is eligible, you can call this to create an algorithm using the current settings.
-    virtual std::unique_ptr<AbstractAlgorithm> New(cl_context ctx, cl_device_id dev) const = 0;
+    virtual void Resources(std::vector<AbstractAlgorithm::ResourceRequest> &res, KnownConstantProvider &K) const = 0;
+
+    virtual void Kernels(std::vector<AbstractAlgorithm::KernelRequest> &kern) const = 0;
+
+    virtual asizei GetHashCount() const = 0;
+    virtual asizei GetNumUintsPerCandidate() const = 0;
+    virtual SignedAlgoIdentifier GetAlgoIdentifier() const = 0;
 
 protected:
     asizei linearIntensity; //!< I'm pretty sure this one will be common to all algorithms.
@@ -120,23 +125,3 @@ protected:
         return ret;
     }
 };
-
-
-/*! 'Easy' algorithms have linearIntensity as only setting. Their biggest buffer is a function of hashCount. */
-template<typename Instance, asizei INTENSITY_MULTIPLIER, asizei BUFFER_BYTES_PER_HASH>
-struct EasyGoingAlgoFactory : AbstractAlgoFactory {
-    std::unique_ptr<AbstractAlgorithm> New(cl_context ctx, cl_device_id dev) const {
-        asizei hashCount = linearIntensity * GetIntensityMultiplier();
-        return std::make_unique<Instance>(ctx, dev, hashCount);
-    }
-    asizei GetIntensityMultiplier() const { return INTENSITY_MULTIPLIER; }
-    asizei GetBiggestBufferSize(asizei hashCount) const { return hashCount * BUFFER_BYTES_PER_HASH; }
-};
-
-
-typedef EasyGoingAlgoFactory<algoImplementations::QubitFiveStepsCL12, 256, 16 * sizeof(cl_uint)> QubitFiveStepsAF; // intermediate hashes are 512bit -> 16 uints
-typedef EasyGoingAlgoFactory<algoImplementations::MYRGRSMonolithicCL12, 512, 0> MYRGRSMonolithicAF; // monolithic kernels don't need to pass stuff around and fixed memory costs are known
-typedef EasyGoingAlgoFactory<algoImplementations::FreshWarmCL12, 256, 16 * sizeof(cl_uint)> FreshWarmAF; // same as qubit fivesteps
-
-// Memory-intensive algos. Note how intensity multiplier is way lower!
-typedef EasyGoingAlgoFactory<algoImplementations::NeoscryptSmoothCL12, 64, 16 * sizeof(cl_uint)> NeoscryptSmoothAF; // main problem here 32KiB scratchpad. Maybe lower intensity to 56 or 48

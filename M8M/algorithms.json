@@ -1,0 +1,208 @@
+{
+    "Qubit": {
+        "$verification": [
+            "luffa512",
+            "cubehash512",
+            "shavite512",
+            "simd512",
+            {
+                "op": "truncate",
+                "hash": "echo512"
+            }
+        ],
+        "fiveSteps": {
+            "version": "v1",
+            "candHashUints": 16,
+            "intensityScaling": 256,
+            "linearSizes": {
+                "passingBytes": 64
+            },
+
+            "resources": {
+                "io0": [ "gpu_only", "passingBytes", "I/O buffer [0]" ],
+                "io1": [ "gpu_only", "passingBytes", "I/O buffer [1]" ],
+                "$AES_T_TABLES": [ "gpu_only, ro" ],
+                "uint sh3_roundCount": 14,
+                "$SIMD_ALPHA": [ "gpu_only, ro" ],
+                "$SIMD_BETA": [ "gpu_only, ro" ]
+            },
+            "kernels": [
+                [
+                    "Luffa_1W.cl",
+                    "Luffa_1way",
+                    "-D LUFFA_HEAD",
+                    [ 256 ],
+                    "$wuData, io0"
+                ],
+                [
+                    "CubeHash_2W.cl",
+                    "CubeHash_2way",
+                    "",
+                    [ 2, 32 ],
+                    "io0, io1"
+                ],
+                [
+                    "SHAvite3_1W.cl",
+                    "SHAvite3_1way",
+                    "",
+                    [ 64 ],
+                    "io1, io0, AES_T_TABLES, sh3_roundCount"
+                ],
+                [
+                    "SIMD_16W.cl",
+                    "SIMD_16way",
+                    "",
+                    [ 16, 4 ],
+                    "io0, io1, io0, SIMD_ALPHA, SIMD_BETA"
+                ],
+                [
+                    "Echo_8W.cl",
+                    "Echo_8way",
+                    "-D AES_TABLE_ROW_1 -D AES_TABLE_ROW_2 -D AES_TABLE_ROW_3 -D ECHO_IS_LAST",
+                    [ 8, 8 ],
+                    "io1, $candidates, $dispatchData, AES_T_TABLES"
+                ]
+            ]
+        }
+    },
+    "Fresh": {
+        "$verification": [
+            "shavite512",
+            "simd512",
+            "shavite512",
+            "simd512",
+            {
+                "op": "truncate",
+                "hash": "echo512"
+            }
+        ],
+        "warm": {
+            "version": "v1",
+            "candHashUints": 16,
+            "intensityScaling": 256,
+            "linearSizes": {
+                "passingBytes": 64
+            },
+            
+            "resources": {
+                "io0":            [ "gpu_only", "passingBytes", "I/O buffer [0]" ],
+                "io1":            [ "gpu_only", "passingBytes", "I/O buffer [1]" ],
+                "$AES_T_TABLES":  [ "gpu_only, ro", "AES round T tables" ],
+                "uint sh3_roundCount": 14,
+                "$SIMD_ALPHA":    [ "gpu_only, ro", "SIMD &alpha; table" ],
+                "$SIMD_BETA":     [ "gpu_only, ro", "SIMD &beta; table" ]
+            },
+            "kernels": [
+                [
+                    "SHAvite3_1W.cl", "SHAvite3_1way", "-D HEAD_OF_CHAINED_HASHING",
+                    [64],
+                    "$wuData, io0, AES_T_TABLES, sh3_roundCount"
+                ],
+                [
+                    "SIMD_16W.cl", "SIMD_16way", "",
+                    [16, 4],
+                    "io0, io1, io0, SIMD_ALPHA, SIMD_BETA"
+                ],
+                [
+                    "SHAvite3_1W.cl", "SHAvite3_1way", "",
+                    [64],
+                    "io1, io0, AES_T_TABLES, sh3_roundCount"
+                ],
+                [
+                    "SIMD_16W.cl", "SIMD_16way", "",
+                    [16, 4],
+                    "io0, io1, io0, SIMD_ALPHA, SIMD_BETA"
+                ],
+                [
+                    "Echo_8W.cl", "Echo_8way", "-D AES_TABLE_ROW_1 -D AES_TABLE_ROW_2 -D AES_TABLE_ROW_3 -D ECHO_IS_LAST",
+                    [8, 8],
+                    "io1, $candidates, $dispatchData, AES_T_TABLES"
+                ]
+            ]
+        }
+    },
+    "GRSMYR": {
+        "$verification": [
+            "groestl512",
+            "sha256_trunc"
+        ],
+        "monolithic": {
+            "version": "v1",
+            "candHashUints": 8,
+            "intensityScaling": 512,
+            
+            "resources": {
+                "uint[5] roundCount": [14, 14, 14, 2, 3]
+            },
+            "kernels": [
+                [
+                    "grsmyr_monolithic.cl", "grsmyr_monolithic", "",
+                    [256],
+                    "$candidates, $wuData, $dispatchData, roundCount"
+                ]
+            ]
+        }
+    },
+    "Neoscrypt": {
+        "$verification": [
+            "neoscrypt"
+        ],
+        "smooth": {
+            "version": "v1",
+            "candHashUints": 8,
+            "intensityScaling": 64,
+            "linearSizes": {
+                "buffA": 320,
+                "buffB": 288,
+                "kdfRes": 256,
+                "bigPad": 32768,
+                "intermediate": 256
+            },
+            "resources": {
+                "buffA":     [ "gpu_only", "buffA" ],
+                "buffB":     [ "gpu_only", "buffB" ],
+                "kdfResult": [ "gpu_only", "kdfRes" ],
+                "pad":       [ "gpu_only", "bigPad" ],
+                "xo":        [ "gpu_only", "intermediate" ],
+                "xi":        [ "gpu_only", "intermediate" ],
+                "uint LOOP_ITERATIONS": 128,
+                "uint KDF_CONST_N": 32,
+                "uint STATE_SLICES": 4,
+                "uint MIX_ROUNDS": 10,
+                "uint KDF_SIZE": 256
+            },
+            "kernels": [
+                [
+                    "ns_KDF_4W.cl", "firstKDF_4way", "",
+                    [4, 16],
+                    "$wuData, kdfResult, KDF_CONST_N, buffA, buffB"
+                ],
+                [
+                    "ns_coreLoop_1W.cl", "sequentialWrite_1way", "-D BLOCKMIX_SALSA",
+                    [64],
+                    "kdfResult, pad, LOOP_ITERATIONS, STATE_SLICES, MIX_ROUNDS, xo"
+                ],
+                [
+                    "ns_coreLoop_1W.cl", "indirectedRead_1way", "-D BLOCKMIX_SALSA",
+                    [64],
+                    "xo, pad, LOOP_ITERATIONS, STATE_SLICES, MIX_ROUNDS"
+                ],
+                [
+                    "ns_coreLoop_1W.cl", "sequentialWrite_1way", "-D BLOCKMIX_CHACHA",
+                    [64],
+                    "kdfResult, pad, LOOP_ITERATIONS, STATE_SLICES, MIX_ROUNDS, xi"
+                ],
+                [
+                    "ns_coreLoop_1W.cl", "indirectedRead_1way", "-D BLOCKMIX_CHACHA",
+                    [64],
+                    "xi, pad, LOOP_ITERATIONS, STATE_SLICES, MIX_ROUNDS"
+                ],
+                [
+                    "ns_KDF_4W.cl", "lastKDF_4way", "",
+                    [4, 16],
+                    "$candidates, $dispatchData, xo, xi, KDF_CONST_N, buffA, buffB, pad"
+                ]
+            ]
+        }
+    }
+}

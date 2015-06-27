@@ -55,6 +55,11 @@ struct AlgoIdentifier {
 };
 
 
+struct SignedAlgoIdentifier : AlgoIdentifier {
+    aulong signature = 0;
+};
+
+
 /*! Because of a variety of reasons M8M had a fairly complicated algorithm management. There were 'algorithm families', 'algorithm implementations' and
 implementations had a set of settings. Because a friend told me I should practice templates, I went with templates but it's obvious M8M consumes very
 little CPU performance so there's no real reason to work that way.
@@ -73,7 +78,8 @@ Note the new AbstractAlgorithm is really dumb and does not even know about hashi
 takes place in "dispatcher objects". \sa StopWaitDispatcher */
 class AbstractAlgorithm {
 public:
-    const AlgoIdentifier identifier;
+    virtual SignedAlgoIdentifier Identify() const = 0;
+
     const cl_context context;
     const cl_device_id device;
 #if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support non-unique cl_device_id values
@@ -87,81 +93,18 @@ public:
             uint hash[uintsPerHash]
         It is strongly suggested they produce an hash out so it can be checked for validity. */
 
-    /*! This is computed as a side-effect of PrepareKernels and not much of a performance path.
-    Represents the specific algorithm-implementation and version. Computed as a side effect of PrepareKernels, which is supposed to be called by Init(). */
-    aulong GetVersioningHash() const { return aiSignature; }
+    //! Implementations don't load from disk anymore. Instead, they request an handle to a persistent, RO buffer of data.
+    //! Try to make this non-throwing, add error descriptions to the vector instead.
+    typedef std::function<std::pair<const char*, asizei>(std::vector<std::string> &errors, const std::string &kernelFile)> SourceCodeBufferGetterFunc;
 
-
-    /*! When initialized, algorithms can optionally provide information about what they're initializing so the user can understand what's going on.
-    In that case, Init() will allocate nothing and exit early. */
-    struct ConfigDesc {
-        aulong hashCount;
-        enum AddressSpace {
-            as_device,
-            as_host
-        };
-        struct MemDesc {
-            AddressSpace memoryType;
-            std::string presentation;
-            auint bytes;
-            explicit MemDesc() : memoryType(as_device), bytes(0) { }
-        };
-        std::vector<MemDesc> memUsage;
-        explicit ConfigDesc() : hashCount(0) { }
-    };
-
-    /*! Performs all the heavy duty required to create the resources to run the algorithm. Returns a list of all errors encountered.
-    Those are really errors, so if something non-empty is returned you should bail out.
-    Call this immediately after CTOR. Must be called before Tick, GetEvents, GetResults, GetVersioningHash.
-    Providing a pointer to a valid ConfigDesc object degenerates this to something akin to NOP. The call might perform different validation and
-    WILL NOT initialize anything for real. In particular, it does not allocate resources. It is therefore valid to call Init multiple times with
-    a ConfigDesc object, even after a successful call to Init(nullptr, ...). Nonetheless, Init(nullptr, ....) cannot be called again after one
-    successful execution.
-    \note The easiest way to implement this is to call DescribeResources and return before PrepareResources. */
-    virtual std::vector<std::string> Init(ConfigDesc *desc, AbstractSpecialValuesProvider &specialValues, const std::string &loadPathPrefix) = 0;
-
-    //! If this returns true you're supposed to not dispatch any more work but rather upload new hash data and restart scanning hashes from 0.
-    bool Overflowing() const { return nonceBase + hashCount > std::numeric_limits<auint>::max(); };
-
-    //! Returns true if algorithm expects block input hash in big-endian form. Dispatcher will have to pack data differently.
-    virtual bool BigEndian() const = 0;
-
-    /*! Using the provided command-queue/device assume all input buffers have been correctly setup and run a whole algorithm iteration (all involved steps).
-    Compute exactly <i>amount</i> hashes, starting from hash=nonceBase.
-    It is assumed count <= this->hashCount.
-    \note Some kernels have requirements on workgroup size and thus put a requirement on amount being a multiple of WG size.
-    Of course this base class does not care; derived classes must be careful with setup, including rebinding special resources. */
-    void RunAlgorithm(cl_command_queue q, asizei amount);
-
-    void Restart(asizei nonceStart = 0) { nonceBase = nonceStart; }
-
-    /*! Returns a value used to compute network difficulty. This can be called by multiple threads so it must be re-entrant,
-    not much of a big deal as it's usually just returning a constant. */
-    virtual aulong GetDifficultyNumerator() const = 0;
-
-protected:
-    struct WorkGroupDimensionality {
-        auint dimensionality;
-        asizei wgs[3]; //!< short for work group size
-        WorkGroupDimensionality(auint x)                   : dimensionality(1) { wgs[0] = x;    wgs[1] = 0;    wgs[2] = 0; }
-        WorkGroupDimensionality(auint x, auint y)          : dimensionality(2) { wgs[0] = x;    wgs[1] = y;    wgs[2] = 0; }
-        WorkGroupDimensionality(auint x, auint y, auint z) : dimensionality(3) { wgs[0] = x;    wgs[1] = y;    wgs[2] = z; }
-        explicit WorkGroupDimensionality() = default;
-    };
-    struct KernelRequest {
-        std::string fileName;
-        std::string entryPoint;
-        std::string compileFlags;
-        WorkGroupDimensionality groupSize;
-        std::string params;
-    };
-
+    // Algorithms are no more created here. Instead, given a configuration we pull resource and kernel descriptions.
+    // A data-driven algorithm is then built elsewhere.
     struct ResourceRequest {
         std::string name;
-        asizei bytes;
-        cl_mem_flags memFlags;
-        const aubyte *initialData; //!< must provide this->bytes amount of bytes, not owned
-        bool immediate; /*!< if this is true, then this does not allocate a buffer, useful to give uints to kernels for example.
+        asizei bytes = 0;
+        cl_mem_flags memFlags = 0;
+        const aubyte *initialData = nullptr; //!< must provide this->bytes amount of bytes, not owned
+        bool immediate = false; /*!< if this is true, then this does not allocate a buffer, useful to give uints to kernels for example.
                         Immediates are not counted in memory footprint, even though they are most likely pushed to a cbuffer anyway! */
         aubyte imValue[8]; //!< used when immediate is true to store the data
 
@@ -170,10 +113,13 @@ protected:
 
         std::string presentationName; //!< only used when not empty, overrides name for user-presentation purposes
 
-        bool useProvidedBuffer; //!< true if initialData is to be used from host memory directly, only relevant at buffer creation
+        bool useProvidedBuffer = false; //!< true if initialData is to be used from host memory directly, only relevant at buffer creation
                                 //!< \note For immediates, the initialData pointer is rebased to imValue anyway so this is a bit moot.
 
-        explicit ResourceRequest() { }
+        explicit ResourceRequest() {
+            memset(&channels, 0, sizeof(channels));
+            memset(&imageDesc, 0, sizeof(imageDesc));
+        }
         ResourceRequest(const char *name, cl_mem_flags allocationFlags, asizei footprint, const void *initialize = nullptr) {
             this->name = name;
             memFlags = allocationFlags;
@@ -206,7 +152,54 @@ protected:
             initialData = imValue;
         }
     };
+    
+    struct WorkGroupDimensionality {
+        auint dimensionality;
+        asizei wgs[3]; //!< short for work group size
+        WorkGroupDimensionality(auint x)                   : dimensionality(1) { wgs[0] = x;    wgs[1] = 0;    wgs[2] = 0; }
+        WorkGroupDimensionality(auint x, auint y)          : dimensionality(2) { wgs[0] = x;    wgs[1] = y;    wgs[2] = 0; }
+        WorkGroupDimensionality(auint x, auint y, auint z) : dimensionality(3) { wgs[0] = x;    wgs[1] = y;    wgs[2] = z; }
+        explicit WorkGroupDimensionality() = default;
+    };
 
+    struct KernelRequest {
+        std::string fileName;
+        std::string entryPoint;
+        std::string compileFlags;
+        WorkGroupDimensionality groupSize;
+        std::string params;
+    };
+
+    //! If this returns true you're supposed to not dispatch any more work but rather upload new hash data and restart scanning hashes from 0.
+    bool Overflowing() const { return nonceBase + hashCount > std::numeric_limits<auint>::max(); };
+
+    /*! Using the provided command-queue/device assume all input buffers have been correctly setup and run a whole algorithm iteration (all involved steps).
+    Compute exactly <i>amount</i> hashes, starting from hash=nonceBase.
+    It is assumed count <= this->hashCount.
+    \note Some kernels have requirements on workgroup size and thus put a requirement on amount being a multiple of WG size.
+    Of course this base class does not care; derived classes must be careful with setup, including rebinding special resources. */
+    void RunAlgorithm(cl_command_queue q, asizei amount);
+
+    void Restart(asizei nonceStart = 0) { nonceBase = nonceStart; }
+
+    struct ConfigDesc {
+        aulong hashCount;
+        enum AddressSpace {
+            as_device,
+            as_host
+        };
+        struct MemDesc {
+            AddressSpace memoryType;
+            std::string presentation;
+            auint bytes;
+            explicit MemDesc() : memoryType(as_device), bytes(0) { }
+        };
+        std::vector<MemDesc> memUsage;
+        explicit ConfigDesc() : hashCount(0) { }
+    };
+    static void DescribeResources(std::vector<ConfigDesc::MemDesc> &desc, const std::vector<ResourceRequest> &res);
+
+protected:
     /*! \param ctx OpenCL context used for creating kernels and resources. Kernels take a while to build and are very small so they can be shared
                    across devices... but they currently don't.
         \param dev This is the device this algorithm is going to use for the bulk of processing. Note complicated algos might be hybrid GPU-CPU
@@ -214,20 +207,9 @@ protected:
 
         Don't mess with CL here. Actual heavy lifting in Init()! Ideally this should be NOP.
     */
-    AbstractAlgorithm(asizei numHashes, cl_context ctx, cl_device_id dev, const char *algo, const char *imp, const char *ver, asizei candHashUints)
-        : identifier(algo, imp, ver), context(ctx), device(dev), hashCount(numHashes), uintsPerHash(candHashUints) {
+    AbstractAlgorithm(asizei numHashes, cl_context ctx, cl_device_id dev, asizei candHashUints)
+        : context(ctx), device(dev), hashCount(numHashes), uintsPerHash(candHashUints) {
     }
-
-    /*! Allow user to estimate memory footprint without allocating real memory. */
-    std::vector<std::string> DescribeResources(ConfigDesc &desc, ResourceRequest *resources, asizei numResources, const AbstractSpecialValuesProvider &specialValues) const;
-
-    /*! Derived classes are expected to call this somewhere in their ctor. It deals with allocating memory and eventually initializing it in a
-    data-driven way. Note special resources cannot be created using this, at least in theory. Just create them in the ctor before PrepareKernels. 
-    While this is allowed to throw, it is suggested to produce a list of errors to be returned by Init(). */
-    std::vector<std::string> PrepareResources(ResourceRequest *resources, asizei numResources, const AbstractSpecialValuesProvider &specialValues);
-
-    //! Similarly, kernels are described by data and built by resolving the previously declared resources. Device used to pull out eventual error logs.
-    std::vector<std::string> PrepareKernels(KernelRequest *kernels, asizei numKernels, AbstractSpecialValuesProvider &specialValues, const std::string &loadPathPrefix);
 
     struct KernelDriver : WorkGroupDimensionality {
         cl_kernel clk;
@@ -247,16 +229,7 @@ protected:
     std::vector<cl_mem> lbBuffers;
 
 private:
-    aulong aiSignature = 0; //!< \sa GetVersioningHash()
     asizei nonceBase = 0;
-
-    //! Called at the end of PrepareKernels. Given a cl_kernel and its originating KernelRequest object, generates a stream of clSetKernelArg according
-    //! to its internal bindings, resHandles and resRequests (for immediates).
-    void BindParameters(KernelDriver &kd, const KernelRequest &bindings, AbstractSpecialValuesProvider &specialValues);
-
-    /*! Called at the end of PrepareKernels as an aid. Combines kernel file names, entrypoints, compile flags algo name and everything
-    required to uniquely identify what's going to be run. */
-    aulong ComputeVersionedHash(const KernelRequest *kerns, asizei numKernels, const std::map<std::string, std::string> &src) const;
 };
 
 #if defined MAX_MACRO_PUSHED

@@ -5,126 +5,180 @@
 #pragma once
 #include "AbstractNonceFindersBuild.h"
 #include <functional>
-#include "CLEventGuardian.h"
 #include <algorithm>
+#include "DataDrivenAlgorithm.h"
 
 
 class ThreadedNonceFinders : public AbstractNonceFindersBuild {
-public:
-    ThreadedNonceFinders(const std::function<void(auint ms)> &sleep) : sleepFunc(sleep) { mangling.resize(owners.size()); }
-    ~ThreadedNonceFinders() {
-        if(pumper) {
-            keepWorking = false;
-            pumper->join(); // is that too risky? Originally, there was a Stop call so dtor was trivial...
-        }
-    }
-
-    void Start() {
-        std::unique_lock<std::mutex> lock(guard);
-        if(status == s_initialized) {
-            auto pumpFunc(GetMiningThread());
-            pumper = std::make_unique<std::thread>(pumpFunc); // note with lambda captures we can be very very thread-safe, type-safe etc
-            status = s_running;
-        }
-    }
-
 protected:
     virtual std::array<aubyte, 32> HashHeader(std::array<aubyte, 80> &header, auint nonce) const = 0;
 
+    struct WorkInfo {
+        stratum::AbstractWorkFactory *work;
+        stratum::WorkDiff diff;
+        const void *owner;
+        explicit WorkInfo() { owner = nullptr;    work = nullptr; }
+        WorkInfo(stratum::AbstractWorkFactory *w, stratum::WorkDiff d, const void *o) : work(w), diff(d), owner(o) { }
+    };
+
+    struct PoolSelectionPolicyInterface {
+        virtual ~PoolSelectionPolicyInterface() { }
+        virtual WorkInfo Select(const std::vector<CurrentWork> &pools) = 0;
+    };
+
+    struct FirstWorkingPool : PoolSelectionPolicyInterface {
+        WorkInfo Select(const std::vector<CurrentWork> &pools) {
+            for(auto &pool : pools) {
+                if(pool.factory) return WorkInfo(pool.factory, pool.workDiff, pool.owner);
+            }
+            return WorkInfo();
+        }
+    } psPolicy;
+
 private:
-    std::unique_ptr<std::thread> pumper;
-    std::function<void(auint)> sleepFunc;
-    std::atomic<bool> keepWorking = true;
-    CLEventGuardian wait;
-    std::set<cl_event> watched; //!< list of all events currently living somewhere in this->wait, which requires them to be unique
+    struct ThreadResources : Miner::HeapResourcesInterface {
+        std::chrono::milliseconds sleepInterval, workValidationInterval;
+        std::chrono::system_clock::time_point workValidated, algoStarted;
 
-    std::vector<NonceValidation> flying;
-    std::vector<const CurrentWork*> mangling; //!< shared pointers to the CurrentWork structure being mangled, to detect changes, one for each dispatcher
+        stratum::AbstractWorkFactory *myWork = nullptr;
+        const void *owner = nullptr;
+        stratum::Work current;
+        stratum::WorkDiff diff;
+        std::array<aubyte, 80> header; //!< header to dispatch at next Feed. It is kept so when diff changes we don't regen.
 
-    MiningThreadFunc GetMiningThread() { return [this]() { MiningThread(); }; }
+        std::vector<NonceValidation> flying;
 
-    void MiningThread() {
-        const auint SLEEP_MS = 50;
-        std::set<cl_event> triggered;
-        bool first = true;
-        try {
-            std::vector<bool> algoWaiting(algo.size());
-            std::vector<std::chrono::system_clock::time_point> algoStart(algo.size());
-            std::vector<aubyte> signalCompletion(algo.size()); // first few iterations might be off, avoid signalling
-            while(keepWorking) {
-                if(GottaWork()) {
-                    if(first) {
-                        // First of all, feed all algorithms the first time.
-                        for(asizei init = 0; init < algo.size(); init++) {
-                            auto valid(Feed(*algo[init]));
-                            flying.push_back(valid);
-                        }
-                        first = false;
-                    }
-                    else UpdateDispatchers(flying);
-                    for(asizei loop = 0; loop < algo.size(); loop++) {
-                        algoWaiting[loop] = MiningThreadPump(algoStart[loop], signalCompletion[loop], *algo[loop], triggered);
-                    }
-                    auto add(wait());
-                    for(auto &el : add) { // anyway, those are removed from watch
-                        watched.erase(el.first);
-                        if(el.second != CL_SUCCESS) throw "Miner thread event waiting failed with error " + std::to_string(el.second);
-                        triggered.insert(el.first);
-                    }
+        std::vector<cl_event> waiting;
+        asizei iterations = 0;
+    };
+
+    MiningMain GetMiningMain() {
+        return [this](Miner &self, asizei index, AbstractAlgorithm::SourceCodeBufferGetterFunc loader, AlgoBuild &build
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+                , asizei devLinearIndex
+#endif
+        ) {
+            {
+                std::unique_lock<std::mutex> lock(self.sync);
+                self.lastUpdate = std::chrono::system_clock::now();
+            }
+            ThreadResources *heap = nullptr;
+            try {
+                // DataDrivenAlgorithm *algo = new DataDrivenAlgorithm(numHashes, ctx, cldev, algoname, implname, version, candHashUints);
+                DataDrivenAlgorithm *algo = new DataDrivenAlgorithm(build.numHashes, build.ctx, build.dev, build.candHashUints);
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+                algo->linearDeviceIndex = cl_uint(devLinearIndex);
+#endif
+                self.algo.reset(algo);
+                algo->identifier = std::move(build.identifier);
+                self.dispatcher.reset(new StopWaitDispatcher(*self.algo));
+                heap = new ThreadResources;
+                self.heapResources.reset(heap);
+                heap->sleepInterval = std::chrono::milliseconds(500 + index * 50);
+                heap->workValidationInterval = std::chrono::milliseconds(100 + index * 10);
+                auto err(algo->Init(self.dispatcher->AsValueProvider(), loader, build.res, build.kern));
+                if(err.size()) {
+                    std::string conc;
+                    for(auto &meh : err) conc += meh + '\n';
+                    throw conc;
                 }
-                else {
-                    sleepFunc(SLEEP_MS);
-                    TickStatus();
+                build.res.clear();
+                build.kern.clear();
+            }
+            catch(std::exception ohno) { BadThings(self, s_initFailed, ohno.what()); }
+            catch(const char *ohno)    { BadThings(self, s_initFailed, ohno); }
+            catch(std::string ohno)    { BadThings(self, s_initFailed, ohno.c_str()); }
+            catch(...)                 { BadThings(self, s_initFailed, "Mining thread failed to initialize due to unknown exception."); }
+            if(self.status != s_created) return;
+            self.status = s_running;
+
+            try {
+                while(keepRunning) {
+                    MiningPump(self, *heap);
+                    std::unique_lock<std::mutex> lock(self.sync);
+                    if(self.status == s_running) self.lastUpdate = std::chrono::system_clock::now();
                 }
             }
-        } catch(std::exception ohno) {
-            AbnormalTerminationSignal(ohno.what());
-        } catch(const char *ohno) {
-            AbnormalTerminationSignal(ohno);
-        } catch(std::string ohno) {
-            AbnormalTerminationSignal(ohno.c_str());
-        } catch(...) {
-            AbnormalTerminationSignal("Mining thread terminated due to unknown exception.");
+            catch(std::exception ohno) { BadThings(self, s_failed, ohno.what()); }
+            catch(const char *ohno)    { BadThings(self, s_failed, ohno); }
+            catch(std::string ohno)    { BadThings(self, s_failed, ohno.c_str()); }
+            catch(...)                 { BadThings(self, s_failed, "Mining thread terminated due to unknown exception."); }
+            exitedThreads++; // not quite yet but what can possibly go wrong at this point? It's the best we can do.
+        };
+    }
+    
+    //! In this function I mostly take care of the work to mangle. Once decided what to do PumpDispatcher is the real deal.
+    void MiningPump(Miner &self, ThreadResources &heap) {
+        bool newWork = false, newDiff = false;
+        if(heap.myWork == nullptr) {
+            std::unique_lock<std::mutex> lock(guard);
+            auto use(psPolicy.Select(owners));
+            heap.myWork = use.work;
+            heap.owner = use.owner;
+            if(heap.myWork) {
+                AddFactory(heap.myWork);
+                heap.workValidated = std::chrono::system_clock::now();
+                newWork = true;
+                if(heap.diff != use.diff) {
+                    heap.diff = use.diff;
+                    newDiff = true;
+                }
+            }
+            else { // still nothing to do
+                lock.unlock();
+                std::unique_lock<std::mutex> pre(self.sync);
+                self.status = s_sleeping;
+                pre.unlock();
+                std::this_thread::sleep_for(heap.sleepInterval);
+                std::unique_lock<std::mutex> post(self.sync);
+                self.status = s_running;
+                return;
+            }
         }
+        // Ok, I have work. Every once in a while, check if the work is already valid.
+        if(std::chrono::system_clock::now() > heap.workValidated + heap.workValidationInterval) {
+            std::unique_lock<std::mutex> lock(guard);
+            auto match(std::find_if(owners.cbegin(), owners.cend(), [&heap](const CurrentWork &cw) { return cw.factory == heap.myWork; }));
+            if(match != owners.cend()) heap.workValidated = std::chrono::system_clock::now();
+            else { // I must get another one; easiest way is to just give up and the policy will get me one next time but handle the ref counting
+                auto factory(std::find(usedFactories.begin(), usedFactories.end(), heap.myWork));
+                self.dispatcher->Cancel(heap.waiting);
+                heap.algoStarted = std::chrono::system_clock::time_point();
+                heap.myWork = nullptr;
+                RemFactory(factory->res.get());
+                return;
+            }
+            // Also take the chance to update the work difficulty - the header data comes automatically from the factory
+            if(heap.diff != match->workDiff) newDiff = true;
+            heap.diff = match->workDiff;
+        }
+        PumpDispatcher(self, heap, newWork, newDiff);
     }
 
-    //! \return true if the dispatcher is stalled waiting for results (not equivalent to test waiting set as those are unique).
-    bool MiningThreadPump(std::chrono::high_resolution_clock::time_point &started, aubyte &completed, StopWaitDispatcher &dispatcher, std::set<cl_event> &triggered) {
-        bool waitResults = false;
-        auto what = dispatcher.Tick(triggered);
+    void PumpDispatcher(Miner &self, ThreadResources &heap, bool newWork, bool newDiff) {
+        using namespace std::chrono;
+        auto &dispatcher(*self.dispatcher);
+        if(heap.algoStarted == system_clock::time_point()) Feed(self, heap, newWork, newDiff);
+
+        auto what = dispatcher.Tick(heap.waiting);
         switch(what) {
-            case AlgoEvent::dispatched: {
-                started = std::chrono::system_clock::now();
-            } break;
-            case AlgoEvent::exhausted: {
-                auto valid(Feed(dispatcher));
-                flying.push_back(valid);
-            } break;
+            case AlgoEvent::dispatched: heap.algoStarted = std::chrono::system_clock::now();    break;
+            case AlgoEvent::exhausted: Feed(self, heap, true, newDiff);    break;
             case AlgoEvent::working: {
-                std::vector<cl_event> blockers;
-                dispatcher.GetEvents(blockers);
-                for(auto &ev : blockers) {
-                    if(watched.find(ev) == watched.cend()) {
-                        watched.insert(ev);
-                        ScopedFuncCall clear([ev, this]() { watched.erase(ev); });
-                        wait.Watch(ev);
-                        clear.Dont();
-                    }
-                }
-                waitResults = true;
+                dispatcher.GetEvents(heap.waiting);
                 // Since we're gonna wait, take the chance to clear the header cache.
-                for(asizei check = 0; check < flying.size(); check++) {
-                    const auto &header(flying[check].header);
-                    auto search = [&header](const std::unique_ptr<StopWaitDispatcher> &test) { return test->IsInFlight(header); };
-                    if(std::any_of(algo.cbegin(), algo.cend(), search) == false) {
-                        std::swap(flying[check], flying[flying.size() - 1]);
-                        flying.pop_back();
+                for(asizei check = 0; check < heap.flying.size(); check++) {
+                    const auto &header(heap.flying[check].header);
+                    if(self.dispatcher->IsInFlight(header) == false) {
+                        std::swap(heap.flying[check], heap.flying[heap.flying.size() - 1]);
+                        heap.flying.pop_back();
                         check--;
                     }
                 }
+                clWaitForEvents(cl_uint(heap.waiting.size()), heap.waiting.data());
             } break;
             case AlgoEvent::results: {
-                TickStatus();
+                TickStatus(self);
                 auto produced(dispatcher.GetResults()); // we know header already!
 #if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support device replication which adds non-unique cl_device_id, preventing map to work
                 auto quirky(std::make_pair(dispatcher.algo.device, dispatcher.algo.linearDeviceIndex));
@@ -132,12 +186,12 @@ private:
 #else
                 auto match(linearDevice.find(dispatcher.algo.device));
 #endif
-                auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - started);
-                if(completed < 16) completed++;
+                auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - heap.algoStarted);
+                if(heap.iterations < 16) heap.iterations++;
                 else if(onIterationCompleted) onIterationCompleted(match->second, produced.nonces.size() != 0, elapsed);
                 if(produced.nonces.empty()) break;
                 auto matchPred = [&produced](const NonceValidation &test) { return test.header == produced.from; };
-                auto dispatch(*std::find_if(flying.cbegin(), flying.cend(), matchPred));
+                auto dispatch(*std::find_if(heap.flying.cbegin(), heap.flying.cend(), matchPred));
                 auto verified(CheckResults(dispatcher.algo.uintsPerHash, produced, dispatch)); // note with stop-n-wait dispatchers there is only one possible match so a set will suffice
 #if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support device replication which adds non-unique cl_device_id, preventing map to work
                 verified.device = dispatcher.algo.linearDeviceIndex;
@@ -147,16 +201,59 @@ private:
 #endif
                 verified.nonce2 = dispatch.nonce2;
                 if(verified.Total()) Found(dispatch.generator, verified);
+                heap.algoStarted = system_clock::time_point();
             } break;
         }
-        return waitResults;
+
     }
+
+    //! Start a new algorithm iteration. This means updating new data to device and remember the validation data.
+    void Feed(Miner &self, ThreadResources &heap, bool newWork, bool newDiff) {
+        adouble netDiff = heap.myWork->GetNetworkDiff();
+        bool generated = false;
+        if(newWork) {
+            auto info(AbstractWorkSource::GetCanonicalAlgoInfo(self.algo->Identify().algorithm.c_str()));
+            heap.current = heap.myWork->MakeNoncedHeader(info.bigEndian == false, info.diffNumerator);
+            for(asizei cp = 0; cp < heap.header.size(); cp++) heap.header[cp] = heap.current.header[cp];
+
+            self.lastWUGen = std::chrono::system_clock::now();
+            self.dispatcher->algo.Restart();
+            self.dispatcher->BlockHeader(heap.header);
+            generated = true;
+        }
+        if(newDiff) {
+            self.dispatcher->TargetBits(heap.diff.target[3]);
+            generated = true;
+        }
+        if(generated) {
+            NonceValidation track { { heap.owner, heap.myWork->job }, netDiff, heap.diff.shareDiff, heap.current.nonce2, heap.header };
+            heap.flying.push_back(std::move(track)); // not quite, but will be started right away
+        }
+    }
+
+    
+    void TickStatus(Miner &self) {
+        std::unique_lock<std::mutex> lock(self.sync);
+        self.lastUpdate = std::chrono::system_clock::now();
+        self.status = s_running; // not really needed, it's already s_running because of construction!
+    }
+
+
+	static double ResDiff(const std::array<aubyte, 32> &hash, double diffMul) {
+		const double numerator = diffMul * btc::TRUE_DIFF_ONE;
+		std::array<unsigned __int64, 4> copied;
+		memcpy_s(copied.data(), sizeof(copied), hash.data(), 32);
+		const double divisor = btc::LEToDouble(copied);
+		return numerator / divisor;
+	}
 
     VerifiedNonces CheckResults(asizei uintsPerHash, const MinedNonces &found, const NonceValidation &input) const {
         VerifiedNonces verified;
         verified.targetDiff = input.target;
         auto match = [&input](const CurrentWork &test) { return test.owner == input.generator.owner; };
+        std::unique_lock<std::mutex> lock(guard);
         const auto diffMul(std::find_if(owners.cbegin(), owners.cend(), match)->diffMul);
+        lock.unlock();
         for(asizei test = 0; test < found.nonces.size(); test++) {
 		    std::array<aubyte, 80> header; // hashers expect header in opposite byte order
 		    for(auint i = 0; i < 80; i += 4) {
@@ -183,17 +280,20 @@ private:
 			while(pull && reference[pull] == 0) pull--;
 			if(pull < HASH_DIGITS) pull = HASH_DIGITS;
 			for(asizei cp = 0; cp < HASH_DIGITS; cp++) good.hashSlice[cp] = reference[pull - cp];
-            if(shareDiff >= input.network * shareDiff * shareDiff) good.block = true;
+            if(shareDiff >= input.network * diffMul.share * diffMul.share) good.block = true;
             verified.nonces.push_back(good);
         }
         return verified;
     }
 
-	static double ResDiff(const std::array<aubyte, 32> &hash, double diffMul) {
-		const double numerator = diffMul * btc::TRUE_DIFF_ONE;
-		std::array<unsigned __int64, 4> copied;
-		memcpy_s(copied.data(), sizeof(copied), hash.data(), 32);
-		const double divisor = btc::LEToDouble(copied);
-		return numerator / divisor;
-	}
+    void Found(const NonceOriginIdentifier &owner, VerifiedNonces &magic) {
+        std::unique_lock<std::mutex> lock(guard);
+        results.push(std::make_pair(owner, std::move(magic)));
+    }
+
+    void BadThings(Miner &self, Status status, const char *msg) {
+        std::unique_lock<std::mutex> lock(guard);
+        self.status = status;
+        self.exitMessage.push_back(msg);
+    }
 };
