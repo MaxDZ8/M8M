@@ -7,6 +7,7 @@ some stuff has been pulled out (such as Multi-byte int and Half support,) while 
 has been put in (the better HTON metod). */
 #pragma once
 #include "ArenDataTypes.h"
+#include <array>
 
 
 template<typename scalar>

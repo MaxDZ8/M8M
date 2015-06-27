@@ -7,8 +7,8 @@
 #if defined(_WIN32)
 #include <WinSock2.h> // what is this? In general, I would just define WIN32_LEAN_AND_MEAN but looks like it breaks GDI+ (?)
 #include <Windows.h>
-#include <gdiplus.h>
 #include <windowsx.h>
+#include <gdiplus.h>
 #include "../NotifyIconStructs.h"
 #include "../AREN/ScopedFuncCall.h"
 #include <mutex>
@@ -16,13 +16,16 @@
 #include <string>
 #include <functional>
 
+
 namespace windows {
 
 class AsyncNotifyIconPumper {
 public:
     void WakeupSignal() {
 		std::unique_lock<std::mutex> lock(*mutex);
-        if(asyncOwned.windowHandle) PostMessage(asyncOwned.windowHandle, WM_APP_DATA_CHANGED, 0, 0);
+        if(asyncOwned.windowHandle && shared->NeedsDataChangeWakeup()) {
+            PostMessage(asyncOwned.windowHandle, WM_APP_DATA_CHANGED, 0, 0);
+        }
 	}
     std::function<void()> GetUIManglingThreadFunc(NotifyIconThreadShare &s, std::mutex &mutex);
 

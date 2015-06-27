@@ -7,13 +7,15 @@
 #include "../../AREN/arenDataTypes.h"
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
+#include <WinSock2.h>
+//^ due to windows headers being stupid, including windows.h before this (in case it's used) breaks compile.
+// defining WIN32_LEAN_AND_MEAN can give problems with GDI+ if used so basically always include this just in case
 #include <Windows.h> // AllocConsole and FreeConsole
-#undef WIN32_LEAN_AND_MEAN
 #else
 #error TODO
 #endif
 
+#include <fstream>
 #include <iostream>
 #include "../../AREN/ScopedFuncCall.h"
 

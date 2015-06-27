@@ -23,6 +23,7 @@ public:
     virtual void Tick() = 0;
 	virtual void BuildMenu() = 0;
 	virtual auint AddMenuItem(const wchar_t *msg, std::function<void()> onClick, bool enabled = true) = 0;
+	virtual void ChangeMenuItem(asizei entry, const wchar_t *msg, std::function<void()> onClick, bool enabled = true) = 0;
 	virtual bool GetMenuItemStatus(auint i) = 0;
 	virtual void SetMenuItemStatus(auint i, bool enable) = 0;
 	bool ToggleMenuItemStatus(auint i) { // would be an interface if not for that... oh well.

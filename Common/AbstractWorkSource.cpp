@@ -135,7 +135,11 @@ AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWri
         return diff;
     };
     ret.diffChanged = nowDiff != prevDiff;
-    ret.newWork = different(prevJob, nowJob);
+    ret.newWork = different(prevJob, nowJob) && GetCurrentDiff().shareDiff != .0; // new work is to be delayed as long as diff is 0
+    if(prevDiff.shareDiff == .0 && nowDiff.shareDiff != .0) {
+        // When this happens and we already have a job of any sort we can finally flush the new work to the outer code
+        if(nowJob.job.size()) ret.newWork = true;
+    }
     return ret;
 }
 
@@ -160,7 +164,7 @@ stratum::AbstractWorkFactory* AbstractWorkSource::GenWork() const {
     const auto work(stratum->GetCurrentJob());
     const auto subscription(stratum->GetSubscription());
 	if(sizeof(nonce2) != subscription.extraNonceTwoSZ)  throw std::exception("nonce2 size mismatch");
-	if(diff.shareDiff <= 0.0) throw std::exception("I need to check out this to work with diff 0");
+	if(diff.shareDiff <= 0.0) throw std::exception("GenWork must be called only when new work is signaled as available!");
 
     auto btcLikeMerkle = [](std::array<aubyte, 32> &imerkle, const std::vector<aubyte> &coinbase) {
         btc::SHA256Based(imerkle, coinbase.data(), coinbase.size());
@@ -237,6 +241,20 @@ void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, Stratu
 	    for(asizei loop = 0; loop < list.size(); loop++) list[loop] = stratum->GetWorkerInfo(loop);
     }
     else GetCredentials(list);
+}
+
+
+auto AbstractWorkSource::GetCanonicalAlgoInfo(const char *algo) -> AlgoInfo {
+    AlgoInfo known[] = {
+        { "qubit",     true,  0x0000000000FFFFFFull },
+        { "grsmyr",    true,  0x000000000000FFFFull },
+        { "neoScrypt", false, 0xFFFF000000000000ull },
+        { "fresh",     true,  0x000000000000FFFFull }
+    };
+    for(const auto &test : known) {
+        if(_stricmp(test.name.c_str(), algo) == 0) return test;
+    }
+    return AlgoInfo();
 }
 
 

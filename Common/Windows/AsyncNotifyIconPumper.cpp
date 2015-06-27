@@ -214,7 +214,7 @@ void AsyncNotifyIconPumper::UpdateMessage() {
 	idata.cbSize = sizeof(idata);
 	idata.hWnd = asyncOwned.windowHandle;
 	idata.uID = iconIndex;
-	idata.uFlags = NIF_INFO | (shared->icon.title.length()? NIF_SHOWTIP : 0);
+	idata.uFlags = NIF_INFO | NIF_SHOWTIP;
 	idata.dwInfoFlags = 0;
 	memset(idata.szInfo, 0, sizeof(idata.szInfo));
     const std::wstring &text(shared->lastMessage.text);
@@ -271,11 +271,10 @@ void AsyncNotifyIconPumper::UpdateIconNCaption() {
 		idata.hIcon = asyncOwned.osIcon; //! \todo http://msdn.microsoft.com/en-us/library/windows/desktop/bb773352(v=vs.85).aspx, LoadIconMetric
 		idata.uFlags |= NIF_ICON;
 	}
-	if(shared->updateCaption) {
+	if(shared->icon.title.size()) { // always needs to be put back in place
 		std::wstring &title(shared->icon.title);
 		asizei len = title.length() < 127? title.length() : 127;
 		for(asizei cp = 0; cp < len; cp++) idata.szTip[cp] = title[cp];
-		title.clear();
 		idata.uFlags |= NIF_MESSAGE;
 	}
 	BOOL success = Shell_NotifyIcon(ACTION, &idata);

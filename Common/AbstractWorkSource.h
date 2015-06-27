@@ -92,6 +92,9 @@ public:
 
     bool Ready() const { return stratum != nullptr; } //!< A pool is ready if it is going to produce work. Not necessarily already producing or accepting.
 
+    //! Contains a static array with difficulty numerator and endianess info for all known algos.
+    static AlgoInfo GetCanonicalAlgoInfo(const char *algo);
+
 protected:
 	AbstractWorkSource(const char *name, const AlgoInfo &algo, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm);
 
@@ -114,8 +117,6 @@ protected:
 	virtual std::pair<bool, asizei> Receive(abyte *storage, asizei rem) throw() = 0;
 
 	std::unique_ptr<StratumState> stratum;
-
-	typedef std::vector< std::pair<const char*, const char*> > Credentials;
     
     //! Upon creation, AbstractWorkSources can be used in the sense they won't crash if you call their funcs but they don't do anything useful until
     //! some outer code builds a connection to server and initiates stratum handshaking. This is performed by creating a brand new stratum state.

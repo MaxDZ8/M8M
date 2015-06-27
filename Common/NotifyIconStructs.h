@@ -59,4 +59,7 @@ struct NotifyIconThreadShare {
 	bool guiTerminated;
 
 	explicit NotifyIconThreadShare() : terminate(false), regenMenu(false), updateIcon(false), updateMessage(false), guiTerminated(false), updateCaption(false) { }
+    bool NeedsDataChangeWakeup() {
+        return terminate || regenMenu || updateIcon || updateMessage || updateCaption;
+    }
 };

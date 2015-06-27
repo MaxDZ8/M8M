@@ -33,8 +33,10 @@ public:
 
 	virtual void AddIcon(const char *name, const aubyte *values) = 0;
 	virtual void SetCurrentIcon(const char *name) = 0;
+    virtual std::string GetCurrentIconName() const = 0;
 	virtual void AddState(const char *name, const aubyte *pixel) = 0;
 	virtual void SetCurrentState(const char *name) = 0;
+    virtual std::string GetCurrentStateName() const = 0;
     virtual void SetIconHotspot(asizei x, asizei y, asizei w, asizei h) = 0; // or "composition rectangle"
 	virtual void GetCompositedIcon(aubyte *buffer) const = 0;
 	void GetCompositedIcon(std::vector<aubyte> &ico) const {
@@ -44,25 +46,6 @@ public:
 };
 
 
-/*! The DummyIconCompositer does nothing.
-It's used when M8M is run with the --invisible parameter. I still have handle it by pointer but at least I can assume it points to something
-so I avoid doing ugly ifs.
-The only debatable behavior in this case is GetCompositedIcon, which currently returns black transparent icon.
-It isn't a problem as when this is used there will be no icon either. */
-class DummyIconCompositer : public AbstractIconCompositer {
-public:
-    DummyIconCompositer(asizei width, asizei height, aushort alphaChannelIndex = 3) : AbstractIconCompositer(width, height, alphaChannelIndex) { }
-
-    void AddIcon(const char *name, const aubyte *values) { }
-    void SetCurrentIcon(const char *name) { }
-    void AddState(const char *name, const aubyte *pixel) { }
-    void SetCurrentState(const char *name) { }
-    void SetIconHotspot(asizei x, asizei y, asizei w, asizei h) { }
-    void GetCompositedIcon(aubyte *buffer) const { memset(buffer, 0, 4 * width * height); }
-};
-
-
-/*! Real deal. Keep some data around. */
 class IconCompositer : public AbstractIconCompositer {
 public:
     IconCompositer(asizei width, asizei height, aushort alphaChannelIndex = 3) : AbstractIconCompositer(width, height, alphaChannelIndex) { }
@@ -76,6 +59,7 @@ public:
 		}
 		throw std::string("No icon named \"") + name + "\"";
 	}
+    std::string GetCurrentIconName() const { return activeIcon < icons.size()? icons[activeIcon].name : ""; }
 	void AddState(const char *name, const aubyte *pixel) { states.push_back(StateDecoration(name, pixel)); }
 	void SetCurrentState(const char *name) {
 		for(asizei loop = 0; loop < states.size(); loop++) {
@@ -86,6 +70,7 @@ public:
 		}
 		throw std::string("No state named \"") + name + "\"";
 	}
+    std::string GetCurrentStateName() const { return activeState < states.size()? states[activeState].name : ""; }
 	void SetIconHotspot(asizei x, asizei y, asizei w, asizei h) {
 		hsx = x;
 		hsy = y;
@@ -142,9 +127,11 @@ private:
 	};
 	struct StateDecoration {
 		const char *name;
-		const aubyte *pixel;
-		explicit StateDecoration() : name(nullptr), pixel(nullptr) { }
-		StateDecoration(const char *n, const aubyte *p) : name(n), pixel(p) { }
+		std::array<aubyte, 4> pixel;
+		explicit StateDecoration() : name(nullptr) { }
+		StateDecoration(const char *n, const aubyte *p) : name(n) { 
+            for(asizei cp = 0; cp < 4; cp++) pixel[cp] = p[cp];
+        }
 	};
 	std::vector<Icon> icons;
 	std::vector<StateDecoration> states;

@@ -22,23 +22,23 @@ public:
 		: network(netAPI), landing(nullptr), numberedPushers(0), port(servicePort), processing(nullptr), resURI(httpRes), wsProtocol(wsProtoString) { }
 	void FillSleepLists(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
 	void Refresh(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
-	void RegisterCommand(commands::AbstractCommand &cmd) { commands.insert(std::make_pair(cmd.name, &cmd)); }
+	void RegisterCommand(std::unique_ptr<commands::AbstractCommand> &cmd) {
+        auto pair(std::make_pair(cmd->name, std::move(cmd)));
+        commands.insert(std::move(pair));
+    }
 	/*! Create a socket and wait for new clients to connect. This operation is synchronous so there's no callback. */
 	void Listen();
 	bool AreYouListening() const { return landing != nullptr; }
 
 	void BeginClose() { shutdownInitiated = std::chrono::system_clock::now(); }
 	bool AreYouClosing() { return shutdownInitiated != TimePoint(); } //!< only relevant when AreYouListening is true
-	
-	enum ClientConnectionEvent {
-		cce_welcome, //!< sent as soon as TCP/IP connection completes - websocket handshake still going on
-		cce_farewell //!< I just destroyed a socket.
-	};
+
+    asizei GetNumClients() const { return clients.size(); }
 
 	/*! This function is called after a client connection has been dropped or added.
-	The second parameter is 1 if a client was added, -1 if it was removed.
-	Third parameter is the number of clients currently connected. */
-	std::function<bool(ClientConnectionEvent, aint change, asizei count)> clientConnectionCallback;
+	The 1st parameter is 1 if a client was added, -1 if it was removed.
+	2nd parameter is the number of clients currently connected. */
+	std::function<void(aint change, asizei count)> clientConnectionCallback;
 
 	/*! Shutting down the server takes some care as we must try to gracefully close.
 	Therefore, this is called to signal close completed with parameter false.
@@ -101,14 +101,12 @@ private:
 	void PurgeClosedConnections();
 	void EnqueuePushData();
 
-	virtual void CloseCompleted() = 0;
-
 	NetworkInterface &network;
 	NetworkInterface::ServiceSocketInterface *landing; //!< A simple pointer is sufficient since the network blasts it anyway, we just have to de-register it.
 	TimePoint shutdownInitiated; //!< if connections are not shut down after a few seconds, they get blasted, 0 --> running no shutdown requested
 	asizei numberedPushers;
 	std::vector<ClientState> clients;
-	std::map<std::string, commands::AbstractCommand*> commands;
+	std::map<std::string, std::unique_ptr<commands::AbstractCommand>> commands;
 	std::vector<PushList> pushing;
 	/*! This is to support unsubscribe as it has no way to know which client requested unsubscribe.
 	Sure, I keep an unique string of stream identifiers but if there's no stream id there's no use for it.

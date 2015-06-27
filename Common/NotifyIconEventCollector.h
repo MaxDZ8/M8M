@@ -110,8 +110,17 @@ public:
 		building.back().enabled = enabled;
 		return auint(building.size() - 1);
 	}
+    void ChangeMenuItem(asizei entry, const wchar_t *msg, std::function<void()> onClick, bool enabled = true) {
+        std::unique_lock<std::mutex> lock(mutex);
+        sharedState.commands[entry].message = msg;
+        sharedState.commands[entry].callback = onClick;
+        sharedState.commands[entry].enabled = true;
+        sharedState.commands[entry].trigger = false;
+        sharedState.regenMenu = true;
+    }
 	bool GetMenuItemStatus(auint i) {
 		std::unique_lock<std::mutex> lock(mutex);
+        sharedState.regenMenu = true;
 		return sharedState.commands[i].enabled;
 	}
 	void SetMenuItemStatus(auint i, bool enable) {

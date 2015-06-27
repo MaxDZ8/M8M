@@ -65,7 +65,6 @@ void AbstractWSServer::Refresh(std::vector<Network::SocketInterface*> &toRead, s
 			network.CloseServiceSocket(*landing);
 			landing = nullptr;
 			numberedPushers = 0;
-			CloseCompleted();
 			if(serviceStateCallback) serviceStateCallback(false);
 		}
 	}
@@ -125,7 +124,7 @@ void AbstractWSServer::ReadWrite(std::vector<Network::SocketInterface*> &toRead,
 				dataPush->pusher = std::move(stream);
 				if(matched->second->GetMaxPushing() > 1) dataPush->name = std::to_string(numberedPushers);
 				else numberedPushers--;
-				dataPush->originator = matched->second;
+				dataPush->originator = matched->second.get();
 				if(list == pushing.end()) {
 					PushList add;
 					add.dst = &el->conn.get();
@@ -183,7 +182,7 @@ void AbstractWSServer::UpgradeConnect(std::vector<Network::SocketInterface*> &to
 			clients.push_back(ClientState(pipe));
 			clients.back().initializer = std::move(init);
 			destroy.Dont();
-			if(this->clientConnectionCallback) this->clientConnectionCallback(cce_welcome, 1, clients.size());
+			if(this->clientConnectionCallback) this->clientConnectionCallback(1, clients.size());
 		}
 	}
 }
@@ -196,7 +195,7 @@ void AbstractWSServer::Unsubscribe(const std::string &commandName, const std::st
 	if(list == pushing.end()) return; // this client had no pushes active
 	auto cmdMatch = commands.find(commandName);
 	if(cmdMatch == commands.cend()) return; // maybe this would be worth an exception?
-	const commands::AbstractCommand *command = cmdMatch->second;
+	const commands::AbstractCommand *command = cmdMatch->second.get();
 	for(asizei loop = 0; loop < list->active.size(); loop++) {
 		if(list->active[loop]->originator != command) continue;
 		if(stream.empty() || stream == list->active[loop]->name) {
@@ -223,7 +222,7 @@ void AbstractWSServer::PurgeClosedConnections() {
 			}
 			network.CloseConnection(clients[loop].conn);
 			clients.erase(clients.begin() + loop);
-			if(clientConnectionCallback) clientConnectionCallback(cce_farewell, -1, clients.size());
+			if(clientConnectionCallback) clientConnectionCallback(-1, clients.size());
 		}
 	}
 	//! \todo The handshake can also fail... but I have no way to know currently.
