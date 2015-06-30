@@ -25,7 +25,7 @@ This might exist or not, might parse correctly or not and even if parsed, it mig
 Anyway, the results of the loading process are to be tracked so the "getRawConfig" and "configFile" commands can get their data. */
 class M8MConfiguredApp : public M8MIconApp {
 public:
-    Settings* LoadSettings(std::wstring file, bool specified) {
+    Settings* LoadSettings(std::wstring file, bool specified, const char *defAlgo) {
 	    using namespace rapidjson;
 	    const std::wstring ori(file);
         loadInfo.specified = specified;
@@ -46,7 +46,7 @@ public:
         }
         auto configuration(std::make_unique<Settings>());
         if(config.good.IsObject()) loadInfo.valid = true;
-        configuration.reset(BuildSettings(config.valueErrors, config.good));
+        configuration.reset(BuildSettings(config.valueErrors, config.good, defAlgo));
         loadInfo.configFile = std::move(file);
 	    loadInfo.redirected = ori != loadInfo.configFile;
 	    loadInfo.valid = configuration != nullptr;
@@ -91,7 +91,7 @@ private:
 	    }
     }
     
-    static Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value &root) {
+    static Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value &root, const char *algoSelected) {
 	    unique_ptr<Settings> ret(new Settings);
 	    if(root.IsObject() == false) {
 		    errors.push_back("Valid configurations must be objects.");
@@ -209,10 +209,15 @@ private:
 	    }
 	    {
 		    Value::ConstMemberIterator driver = root.FindMember("driver");
-		    Value::ConstMemberIterator algo = root.FindMember("algo");
+		    Value::ConstMemberIterator defAlgo = root.FindMember("algo");
             Value::ConstMemberIterator reconnDelay = root.FindMember("reconnectDelay");
 		    if(driver != root.MemberEnd() && driver->value.IsString()) ret->driver = mkString(driver->value);
-		    if(algo != root.MemberEnd() && algo->value.IsString()) ret->algo = mkString(algo->value);
+            if(algoSelected) ret->algo = algoSelected;
+            else if(defAlgo == root.MemberEnd()) {
+                throw std::exception("Configuration file missing \"algo\" key, but required when \"--algo\" parameter is not specified.");
+            }
+            else if(defAlgo->value.IsString() == false) throw std::exception("Invalid configuration, \"algo\" must be a string!");
+            else ret->algo = mkString(defAlgo->value);
             if(reconnDelay != root.MemberEnd()) {
                 if(reconnDelay->value.IsUint()) ret->reconnDelay = std::chrono::seconds(reconnDelay->value.GetUint());
                 else throw std::string("\"reconnectDelay\", value ") + std::to_string(reconnDelay->value.GetUint()) + " is invalid.";

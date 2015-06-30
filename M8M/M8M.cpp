@@ -21,6 +21,7 @@ as an hierarchy of classes. This will hopefully also reduce the sheer amount of 
 struct StartParamsInferredStructs : StartParams {
     StartParamsInferredStructs(const wchar_t *cmdl) : StartParams(cmdl) { }
     std::wstring configFile;
+    std::string algo;
     bool configSpecified = false;
 
     //! That's really unused but just convenient to keep it there.
@@ -89,6 +90,19 @@ void Parse(std::unique_ptr<OSUniqueChecker> &onlyOne, StartParamsInferredStructs
         result.invisible = true;
     }
 
+    if(result.ConsumeParam(value, L"algo")) {
+        if(value.empty()) {
+            const wchar_t *title = L"--algo";
+            const wchar_t *msg = L"This parameter requires a value to be specified. Parameter ignored."
+                                    L"\nExecution will continue but clean up your command line please.";
+            MessageBox(NULL, msg, title, MB_OK | MB_ICONWARNING);
+        }
+        else {
+            result.algo.reserve(value.size());
+            for(auto c : value) result.algo.push_back(char(c));
+        }
+    }
+
     if(result.FullyConsumed() == false) {
         const wchar_t *title = L"Dirty command line";
         const std::wstring rem(result.GetRemLine());
@@ -131,7 +145,7 @@ int main(int argc, char **argv) {
             M8MWebServingApp application(networkWrapper);
             application.LoadKernelDescriptions(L"algorithms.json", "kernels/");
             application.InitIcon(start.invisible);
-            std::unique_ptr<Settings> config(application.LoadSettings(start.configFile, start.configSpecified));
+            std::unique_ptr<Settings> config(application.LoadSettings(start.configFile, start.configSpecified, start.algo.size()? start.algo.c_str() : nullptr));
             if(config) { // pool setup
                 application.SetReconnectDelay(config->reconnDelay);
                 for(asizei init = 0; init < config->pools.size(); init++) {
