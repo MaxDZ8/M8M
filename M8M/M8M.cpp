@@ -32,7 +32,7 @@ struct StartParamsInferredStructs : StartParams {
 };
 
 
-void Parse(StartParamsInferredStructs &result) {
+void Parse(std::unique_ptr<OSUniqueChecker> &onlyOne, StartParamsInferredStructs &result) {
     std::vector<wchar_t> value;
     if(result.ConsumeParam(value, L"alreadyRunning")) {
         if(value.size()) {
@@ -46,8 +46,8 @@ void Parse(StartParamsInferredStructs &result) {
 	    /* M8M is super spiffy and so minimalistic I often forgot it's already running.
 	    Running multiple instances might make sense in the future (for example to mine different algos on different cards)
 	    but it's not supported for the time being. Having multiple M8M instances doing the same thing will only cause driver work and GPU I$ to work extra hard. */
-        OSUniqueChecker onlyOne;
-	    if(onlyOne.CanStart(L"M8M_unique_instance_systemwide_mutex") == false) {
+        onlyOne.reset(new OSUniqueChecker);
+	    if(onlyOne->CanStart(L"M8M_unique_instance_systemwide_mutex") == false) {
 		    const wchar_t *msg = L"It seems you forgot M8M is already running. Check out your notification area!\n"
 				                    L"Running multiple instances is not a good idea in general and it's not currently supported.\n"
 								    L"This program will now close.";
@@ -119,7 +119,8 @@ int main(int argc, char **argv) {
 
     try {
         StartParamsInferredStructs start(cmdLine);
-        Parse(start);
+        std::unique_ptr<OSUniqueChecker> sysSemaphore;
+        Parse(sysSemaphore, start);
         bool run = true, reboot = false;
         while(run) {
             if(reboot) {
