@@ -5,39 +5,55 @@
  */
  
 .specificText {
-	font-family: monospace;
+    font-family: monospace;
 }
 
 .elapsedTime {
-	font-family: monospace;
+    font-family: monospace;
 }
 
 
 .minerLogin {
-	/* or possibly wallet? */
+    /* or possibly wallet? */
+	font-size: 85%;
+    font-family: monospace;
 }
 
 
 .devicePattern {
 /* used on canvas elements to show the color/pattern being used to represent the device. */
-	border: ridge gray;
+    border: ridge gray;
+    vertical-align: sub;
 }
 
 
 .monCategory  {
-	border: thin solid black;
-	background: rgba(247, 247, 247, 1.0);
-	border-radius: 4px;
-	box-shadow: 3px 5px 2px 0px rgba(0, 0, 0, 0.5);
-	padding-bottom: .5em;
-	padding-left: 1em;
+    border: thin solid black;
+    background: rgba(247, 247, 247, 1.0);
+    border-radius: 4px;
+    box-shadow: 3px 5px 2px 0px rgba(0, 0, 0, 0.5);
+    padding-bottom: .5em;
+    padding-left: 1em;
+    margin-top: .5em;
 }
 
 
-.monCategoryTitle  {
-	font-weight: bolder;
-	font-size: 125%;
+h2 {
+    font-weight: bolder;
+    font-size: 140%;
+    margin-top: .4em;
+    margin-bottom: 0em;
+    margin-left: 1em;
 }
+
+
+h3 {
+    font-weight: bolder;
+    font-size: 120%;
+    margin-top: .4em;
+    margin-bottom: 0em;
+}
+
 
 div.detailsBox {
   background-color: white;
@@ -52,58 +68,62 @@ div.detailsBox {
 
 
 table {
-	background: white;
-	border-collapse: collapse;
-	border: thin solid black;
+    background: white;
+    border-collapse: collapse;
+    border: thin solid black;
 }
 
 
 tr {
-	text-align: center;
+    text-align: center;
 }
 
 
 th {
-	border: thin dotted black;
-	padding-left: .25em;
-	padding-right: .25em;
-	border-bottom: thin solid black;
+    border: thin dotted black;
+    padding-left: .25em;
+    padding-right: .25em;
+    border-bottom: thin solid black;
 }
 
 .divth {
-	border-bottom: none;
+    border-bottom: none;
 }
 
 .subth {
-	border-top: none;
-	border-bottom: thin solid black;
+    border-top: none;
+    border-bottom: thin solid black;
 }
 
 td {
-	border: thin dotted black;
-	padding-left: .25em;
-	padding-right: .25em;
+    border: thin dotted black;
+    padding-left: .25em;
+    padding-right: .25em;
+}
+
+td ul {
+    padding-left: 1em;
 }
 
 .hugeError {
-	text-shadow: 0 0.25em 3px rgba(255, 0, 0, 1);
-	font-size: 125%;
-	animation-duration: 4s;
-	animation-iteration-count: infinite;
-	animation-name: errorAni;
+    text-shadow: 0 0.25em 3px rgba(255, 0, 0, 1);
+    font-size: 125%;
+    animation-duration: 4s;
+    animation-iteration-count: infinite;
+    animation-name: errorAni;
 }
 
 @keyframes errorAni {
-	from {
-		text-shadow: 0 0.125em 3px rgba(180, 0, 0, 1.0);
-	}
-	5% {
-		text-shadow: 0 0.125em 3px rgba(255, 0, 0, .75);
-	}
-	90% {
-		text-shadow: 0 0.125em 3px rgba(255, 0, 0, .75);
-	}
-	to {
-		text-shadow: 0 -0.25em 3px rgba(255, 0, 0, 0);
-	}
+    from {
+        text-shadow: 0 0.125em 3px rgba(180, 0, 0, 1.0);
+    }
+    5% {
+        text-shadow: 0 0.125em 3px rgba(255, 0, 0, .75);
+    }
+    90% {
+        text-shadow: 0 0.125em 3px rgba(255, 0, 0, .75);
+    }
+    to {
+        text-shadow: 0 -0.25em 3px rgba(255, 0, 0, 0);
+    }
 }

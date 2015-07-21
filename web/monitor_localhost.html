@@ -8,85 +8,108 @@
 <meta charset="UTF-8">
 <link href="./web/M8M.css" rel="stylesheet" type="text/css" media="all">
 <title>M8M localhost monitor</title>
-<script src="./web/support.js"></script>
+<script src="./web/monitor_onload.js"></script>
+<script src="./web/miner.js"></script>
+<script src="./web/appHelp.js"></script>
 <script src="./web/MinerMonitor.js"></script>
-<script src="./web/presentation.js"></script>
-<script src="./web/onload.js"></script>
+<script src="./web/support.js"></script>
+<script src="./web/monitorState.js"></script>
+<script src="./web/StackedSampleChart.js"></script>
 <body>
 <div id="initializing">
-	<progress id="waitHint">Please wait while connection is setup.</progress><br>
-	<div>
-		<span id="pre">Connecting to miner</span> <span id="hostname" class="specificText"></span><span id="advancing">...</span>
-	</div>
+    <progress id="waitHint">Please wait while connection is setup.</progress><br>
+    <div>
+        <span id="pre">Connecting to miner</span> <span id="hostname" class="specificText"></span><span id="advancing">...</span>
+    </div>
 </div>
 <div id="monitoring">
-	<div>
-		<h1>Connected to <span id="server" class="specificText"></span></h1>
-		<span id="uptimebtn"></span>
-		Reply time: <span id="ping">?</span> ms<br>
-		<br>
-		<!-- planned to use <details> and <summary> here but Mozilla does not seem to support them! https://bugzilla.mozilla.org/show_bug.cgi?id=591737
-		Today is 2014-08-06. Sic. Leaving them always open for the time being. -->		
-		<section class="monCategory">
-			<h2 class="monCategoryTitle">System information</h2>
-			<div id="sysInfo">
-				<table>
-					<caption>Computing devices (<span id="M8M_API">API?</span>)</caption>
-					<thead><tr>
-						<th>Platform</th>
-						<th>Processor</th>
-						<th>Memory</th>
-						<th>Configuration</th>
-						<th>Index</th>
-					</tr></thead>
-					<tbody id="sysInfoDevices"></tbody>
-				</table>
-			</div>
-		</section><br>
-		<section class="monCategory">
-			<h2 class="monCategoryTitle">Mining status</h2>
-			<div id="miningStatus">
-				Hashing <span id="algo">algo?</span> @ <span id="totalHashrate">totHash?</span> <button id="algoDetails">Details</button><br>
-				Work to <span id="pool">pool?</span> <span id="poolAuthWarning"></span> <button id="poolDetails">Details</button><br>
-				Nonces accepted / sent: <span id="poolNonceStats">none produced yet</span>
-				<table>
-					<caption>Settings and device information</caption>
-					<colgroup class="configStaticProps" span="3" />
-					<colgroup span="1" />
-					<colgroup span="5" />
-					<colgroup span="3" />
-					<colgroup span="1" />
-					<thead>
-						<tr>
-							<th rowspan="2" rowspan="2">Configuration</th>
-							<th rowspan="2" rowspan="2">Hash count</th>
-							<th rowspan="2" rowspan="2">Memory usage</th>
-							<th rowspan="2" rowspan="2">Device used</th>
-							<th class="divth" colspan="4" id="perfMeasureHeader">Scan time [ms]</th>
-							<th class="divth" colspan="4">Nonces</th>
-							<th rowspan="2">Since last<br>result</th>
-							<th rowspan="2">Diff solved<br>per second</th>
-						</tr>
-						<tr>
-							<th class="subth">Min</th>
-							<th class="subth">Last</th>
-							<th class="subth">Avg<sub id="twindow">T</sub></th>
-							<th class="subth">Max</th>
-							<th class="subth">Found</th>
-							<th class="subth">Bad!</th>
-							<th class="subth">Low</th>
-							<th class="subth">Stale</th>
-						</tr>
-					</thead>
-					<tbody id="configInfo"></tbody>
-				</table>
-				Performance as: <select id="perfMode">
-					<option selected id="perfMode-IT">Iteration time</option>
-					<option id="perfMode-HR">Hashrate</option>
-				</select>
-			</div>
-		</section>
-	</div>
+    <h1>Connected to <span id="server" class="specificText"></span></h1>
+    <span id="serverInfo"></span>
+    Reply time: <span id="ping">?</span> ms<br>
+    <section class="monCategory">
+        <h2>System information</h2>
+        <table>
+            <caption>Computing devices (<span id="M8M_API">API?</span>)</caption>
+            <thead><tr>
+                <th>Platform</th>
+                <th>Processor</th>
+                <th>Memory</th>
+                <th>Configuration</th>
+                <th>Index</th>
+            </tr></thead>
+            <tbody id="sysInfoDevices"></tbody>
+        </table>
+    </section>
+    <br>
+    <section class="monCategory">
+        <h2 class="monCategoryTitle">Pool configuration and status</h2>
+        <div id="poolStatus">
+            <table>
+                <caption>Configured pools</caption>
+                <thead>
+                    <tr>
+						<th>Algorithm</th>
+                        <th>Name</th>
+                        <th>URL</th>
+                        <th>Authorization status</th>
+                    </tr>
+                </thead>
+                <tbody id="configuredPools"></tbody>
+            </table>
+            <table>
+                <caption>Selected pools</caption>
+                <thead>
+                    <tr>
+						<th rowspan='2'>Identification</th>
+                        <th rowspan='2'>Active?</th>
+                        <th class="divth" colspan="3">Nonces</th>
+                        <th rowspan='2'>Diff accepted<br>per second</th>
+                    </tr>
+                    <tr>
+                        <th class="subth">Sent</th>
+                        <th class="subth">Accepted</th>
+                        <th class="subth">Rejected</th>
+                    </tr>
+                </thead>
+                <tbody id="enabledPools"></tbody>
+            </table>
+        </div>
+    </section>
+    <br>
+    <section class="monCategory">
+        <h2 class="monCategoryTitle">Mining performance</h2>
+        <div id="miningStatus">
+            Hashing <span id="algo">algo?</span> @ <span id="totalHashrate">totHash?</span><br>
+            <table>
+                <caption>Performance of used devices</caption>
+                <thead>
+                    <tr>
+                        <th rowspan="2">Device used</th>
+                        <th class="divth" colspan="4" id="perfMeasureHeader">Scan time [ms]</th>
+                        <th class="divth" colspan="4">Nonces</th>
+                        <th rowspan="2">Since last<br>result</th>
+                        <th rowspan="2">Diff solved<br>per second</th>
+                    </tr>
+                    <tr>
+                        <th class="subth">Min</th>
+                        <th class="subth">Last</th>
+                        <th class="subth">Avg<sub id="twindow">T</sub></th>
+                        <th class="subth">Max</th>
+                        <th class="subth">Found</th>
+                        <th class="subth">Bad!</th>
+                        <th class="subth">Low</th>
+                        <th class="subth">Stale</th>
+                    </tr>
+                </thead>
+                <tbody id="performance"></tbody>
+            </table>
+            Performance as: <select id="perfMode">
+                <option id="perfMode-IT">Iteration time</option>
+                <option selected id="perfMode-HR">Hashrate</option>
+            </select><br>
+			<canvas id='perfGraph' height='300' />
+        </div>
+    </section>
 </div>
 </body>
 </html>
