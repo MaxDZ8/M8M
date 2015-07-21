@@ -22,6 +22,15 @@ void AbstractAlgorithm::DescribeResources(std::vector<ConfigDesc::MemDesc> &desc
         if(res.bytes != auint(res.bytes)) throw std::exception("Buffer exceeds 4GiB, not supported for the time being.");
         build.bytes = auint(res.bytes);
         build.memoryType = isHOST(res.memFlags)? ConfigDesc::as_host : ConfigDesc::as_device;
+        // \sa DataDrivenAlgoFactory::ParseMemFlags
+        if((res.memFlags & CL_MEM_HOST_NO_ACCESS) != 0) build.flags.push_back("gpu only");
+        if((res.memFlags & CL_MEM_READ_ONLY) != 0) build.flags.push_back("ro");
+        if((res.memFlags & CL_MEM_WRITE_ONLY) != 0) build.flags.push_back("wo");
+        if((res.memFlags & CL_MEM_USE_HOST_PTR) != 0) build.flags.push_back("host memory");
+        if((res.memFlags & CL_MEM_ALLOC_HOST_PTR) != 0) build.flags.push_back("host alloc");
+        if((res.memFlags & CL_MEM_HOST_WRITE_ONLY) != 0) build.flags.push_back("host wo");
+        if((res.memFlags & CL_MEM_HOST_READ_ONLY) != 0) build.flags.push_back("host ro");
+
         desc.push_back(std::move(build));
     }
 }

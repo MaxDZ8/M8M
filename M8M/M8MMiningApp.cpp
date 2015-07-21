@@ -38,7 +38,7 @@ void M8MMiningApp::EnumerateDevices() {
                 computeNodes[loop].devices.push_back(Device());
                 computeNodes[loop].devices.back().clid = devBuff[dev];
                 computeNodes[loop].devices.back().type = type;
-                computeNodes[loop].devices.back().linearIndex = linearIndex++;
+                computeNodes[loop].devices.back().linearIndex = auint(linearIndex++);
             }
             break;
         }
@@ -62,23 +62,35 @@ void M8MMiningApp::EnumerateDevices() {
 
 //! \todo This takes for granted driver is opencl... not that this is a real problem as different drivers would likely result
 //! in a different object being used... anyway...
-void M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value &everything) {
+asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value &everything) {
     if(everything.IsObject() == false) {
         Error(L"Algo configs must be an object.");
-        return;
+        return 0;
     }
-    auto useful(everything.FindMember(algo.c_str()));
-    if(useful == everything.MemberEnd()) {
-        Error(L"Missing configs for the current algo.");
-        return;
+    // Look it up case-insensitive.
+    const rapidjson::Value *useful = nullptr;
+    for(auto el = everything.MemberBegin(); el != everything.MemberEnd(); ++el) {
+        if(algo.size() != el->name.GetStringLength()) continue;
+        if(_strnicmp(el->name.GetString(), algo.c_str(), algo.size()) == 0) {
+            useful = &el->value;
+            break;
+        }
+    }
+    if(useful == nullptr) {
+        const std::string meh("Missing configs for the algo \"" + algo + "\".");
+        std::wstring unicode;
+        unicode.reserve(meh.length());
+        for(asizei cp = 0; cp < meh.size(); cp++) unicode.push_back(meh[cp]);
+        Error(unicode);
+        return 0;
     }
     validConfigSelected = true;
-    auto implConfigs(Deduce(useful->value));
+    auto implConfigs(Deduce(*useful));
     std::vector<bool> validImpl(implConfigs.size());
     for(auto &el : validImpl) el = true;
     if(implConfigs.empty()) {
         Error(L"No configs for the current algo.");
-        return;
+        return 0;
     }
     configData.resize(implConfigs.size());
     for(asizei cp = 0; cp < implConfigs.size(); cp++) configData[cp].value = implConfigs[cp];
@@ -114,7 +126,7 @@ void M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value &
     SelectSettings(factories, implConfigs, validImpl);
     if(!BuildEveryUsefulContext()) {
         Error(L"No devices eligible to processing.");
-        return;
+        return 0;
     }
     for(const auto &plat : computeNodes) { // we could limit this to only used devices or only used by this miner, but handy to have
         for(const auto &dev : plat.devices) miner->linearDevice.insert(std::make_pair(dev.clid, dev.linearIndex));
@@ -130,6 +142,7 @@ void M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value &
         return sources.GetSourceBuffer(errors, kernFile);
     };
     std::function<std::pair<const char*, asizei>(std::vector<std::string> &errors, const std::string &kernFile)> loader(lambda);
+    asizei launched = 0;
     for(auto &plat : computeNodes) {
         for(auto &dev : plat.devices) {
             if(dev.configIndex == asizei(-1)) continue;
@@ -161,10 +174,12 @@ void M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value &
                 , dev.linearIndex
 #endif
             );
+            launched++;
         }
     }
     this->miner = std::move(miner);
     miningAlgorithm = algo;
+    return launched;
 }
 
 
@@ -427,6 +442,7 @@ commands::monitor::SystemInfoCMD::ProcessingNodesEnumeratorInterface::LDSType M8
     return value == CL_GLOBAL? ldsType_global : ldsType_none;
 }
 
+
 commands::monitor::SystemInfoCMD::ProcessingNodesEnumeratorInterface::DevType M8MMiningApp::GetDeviceType(asizei plat, asizei devIndex) {
     DevType ret;
     const auto &dev(computeNodes[plat].devices[devIndex]);
@@ -435,15 +451,6 @@ commands::monitor::SystemInfoCMD::ProcessingNodesEnumeratorInterface::DevType M8
     ret.accelerator = dev.type.accelerator;
     ret.defaultDevice = dev.type.defaultDevice;
     return ret;
-}
-
-
-std::vector<auint> M8MMiningApp::GetConfigMappings() const {
-    std::vector<auint> mapping;
-    for(const auto &plat : computeNodes) {
-        for(const auto &dev : plat.devices) mapping.push_back(auint(dev.configIndex));
-    }
-    return mapping;
 }
 
 

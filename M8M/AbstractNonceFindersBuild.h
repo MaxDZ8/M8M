@@ -66,10 +66,11 @@ public:
 
     /*! Map a cl_device_id to a device linearIndex for feedback. If not found, -1 will be used.
     Again, populated at construction time and supposed to be never, ever touched again if not by async thread so not thread protected. */
-    std::map<cl_device_id, asizei> linearDevice;
+    std::map<cl_device_id, auint> linearDevice;
 
     /*! This function is called every time an algorithm completes, regardless it produces a nonce or not, valid or not.
-    It's going to be called asynchronously so it must be appropriately synchronized. */
+    It's going to be called asynchronously so it must be appropriately synchronized.
+    It is assumed iterations always take at least one microseconds. Elapsed=0 can be used to signal device going to sleep. */
     std::function<void(asizei devIndex, bool found, std::chrono::microseconds elapsed)> onIterationCompleted;
 
     // Those are not really part of initialization but the class is still fairly easy.
@@ -216,6 +217,7 @@ protected:
         std::chrono::system_clock::time_point lastWUGen; //! Different from lastUpdate, last time an header was rolled. 
         Status status = s_created;
         std::vector<std::string> exitMessage;
+        asizei sleepCount = 0; // this is used to trigger "signal device unused" notification once
     };
     std::vector< std::unique_ptr<Miner> > miners; //!< unique_ptr used so those objects are persistent and can be used directly by the threads.
     std::atomic<bool> keepRunning = true;

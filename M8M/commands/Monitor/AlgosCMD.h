@@ -27,7 +27,7 @@ public:
         virtual asizei GetNumImplementations(asizei algo) const = 0;
         virtual void GetAlgoDescription(AlgoDesc &desc, asizei algo, asizei impl) const = 0;
     };
-    AlgosCMD(AlgoEnumeratorInterface &algos) : all(algos), AbstractCommand("algo") { }
+    AlgosCMD(AlgoEnumeratorInterface &algos) : all(algos), AbstractCommand("algos") { }
 
 	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
 		using namespace rapidjson;
@@ -51,8 +51,7 @@ public:
                 entry.PushBack(signature, alloc);
                 arr.PushBack(entry, alloc);
             }
-            Value adda(rapidjson::kObjectType);
-            adda.AddMember(Value(aname.c_str(), SizeType(aname.length()), alloc), arr, alloc);
+            build.AddMember(Value(aname.c_str(), SizeType(aname.length()), alloc), arr, alloc);
         }
 		return nullptr;
 	}

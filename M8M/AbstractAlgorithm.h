@@ -191,6 +191,7 @@ public:
         struct MemDesc {
             AddressSpace memoryType;
             std::string presentation;
+            std::vector<const char*> flags;
             auint bytes;
             explicit MemDesc() : memoryType(as_device), bytes(0) { }
         };

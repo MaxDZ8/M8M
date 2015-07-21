@@ -10,7 +10,6 @@
 #include "clAlgoFactories.h"
 #include "commands/Monitor/SystemInfoCMD.h"
 #include "commands/Monitor/AlgosCMD.h"
-#include "commands/Monitor/DeviceConfigCMD.h"
 #include "commands/Monitor/ConfigInfoCMD.h"
 #include "AlgoSourcesLoader.h"
 
@@ -22,7 +21,6 @@ It also includes most details of the old "OpenCL12Wrapper" object, which I never
 integrate several additional information which was previously tracked by other means such as the configuration used by each device. */
 class M8MMiningApp : public M8MPoolMonitoringApp,
                      protected commands::monitor::SystemInfoCMD::ProcessingNodesEnumeratorInterface,
-                     protected commands::monitor::DeviceConfigCMD::DeviceConfigMapperInterface,
                      protected commands::monitor::ConfigInfoCMD::ConfigDescriptorInterface {
 public:
     M8MMiningApp(NetworkInterface &factory) : M8MPoolMonitoringApp(factory) { }
@@ -37,8 +35,8 @@ public:
 
     /*! The big deal. I could break this in multiple external steps but I'm not really sure it's a good idea.
     After all, temporary information should not go out of its scope in theory.
-    \returns Number of devices activated. */
-    void StartMining(const std::string &algo, const rapidjson::Value &allConfigs);
+    \returns Number of queues successfully created. */
+    asizei StartMining(const std::string &algo, const rapidjson::Value &allConfigs);
 
     void Refresh(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
 
@@ -55,7 +53,7 @@ private:
     std::unique_ptr<NonceFindersInterface> miner;
     struct Device {
         cl_device_id clid = 0;
-        asizei linearIndex = 0;
+        auint linearIndex = 0;
         asizei configIndex = asizei(-1);
         AbstractAlgorithm::ConfigDesc resources;
 
@@ -151,9 +149,6 @@ protected:
 	bool GetDeviceInfo(asizei plat, asizei dev, DeviceInfoBool prop);
 	LDSType GetDeviceLDSType(asizei plat, asizei dev);
     DevType GetDeviceType(asizei plat, asizei dev);
-
-    // commands::monitor::DeviceConfigCMD::DeviceConfigMapperInterface //////////////////////////////////////
-    std::vector<auint> GetConfigMappings() const;
 
     // commands::monitor::ConfigInfoCMD::ConfigDescriptorInterface //////////////////////////////////////////
     bool ValidSelection() const { return validConfigSelected; }

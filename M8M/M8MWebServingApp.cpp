@@ -25,6 +25,18 @@ void M8MWebServingApp::Refresh(std::vector<Network::SocketInterface*> &toRead, s
         else icon = STATE_ICON_LISTENING;
     }
     if(GetIconName() != icon) ChangeIcon(icon, true);
+    // Not quite accurate but who cares, it comes easy
+    using namespace std::chrono;
+    if(startTime.firstNonce == std::chrono::system_clock::time_point()) {
+        bool found = false;
+        const auto zero = std::chrono::system_clock::time_point();
+        for(auto &test : deviceShares) {
+            if(test.first != zero) { // the assumption is that two devices are unlikely to produce a nonce in the same tick and that's not important anyway
+                startTime.firstNonce = test.first;
+                break;
+            }
+        }
+    }
 }
 
 
@@ -88,12 +100,11 @@ void M8MWebServingApp::RegisterMonitorCommands(AbstractWSServer &server) {
     RegisterCommand(server, new SystemInfoCMD(*this));
     RegisterCommand(server, new AlgosCMD(sources));
     RegisterCommand(server, new PoolCMD(*this));
-    RegisterCommand(server, new DeviceConfigCMD(*this));
     RegisterCommand(server, new RejectReasonCMD(*this));
     RegisterCommand(server, new ConfigInfoCMD(*this));
     RegisterCommand(server, new ScanTime(perfStats));
     RegisterCommand(server, new DeviceShares(*this));
-    RegisterCommand(server, new PoolShares(*this));
+    RegisterCommand(server, new PoolStats(*this));
     RegisterCommand(server, new UptimeCMD(*this));
     RegisterCommand(server, new commands::VersionCMD);
     RegisterCommand(server, new commands::ExtensionListCMD(extensions));

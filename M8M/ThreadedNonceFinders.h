@@ -123,13 +123,17 @@ private:
                     heap.diff = use.diff;
                     newDiff = true;
                 }
+                self.sleepCount = 0;
             }
             else { // still nothing to do
+                auto devLinear(GetDeviceLinearIndex(*self.dispatcher));
+                if(self.sleepCount == 1 && onIterationCompleted) onIterationCompleted(devLinear, false, std::chrono::microseconds(0));
                 lock.unlock();
                 std::unique_lock<std::mutex> pre(self.sync);
                 self.status = s_sleeping;
                 pre.unlock();
                 std::this_thread::sleep_for(heap.sleepInterval);
+                self.sleepCount++;
                 std::unique_lock<std::mutex> post(self.sync);
                 self.status = s_running;
                 return;
@@ -180,25 +184,15 @@ private:
             case AlgoEvent::results: {
                 TickStatus(self);
                 auto produced(dispatcher.GetResults()); // we know header already!
-#if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support device replication which adds non-unique cl_device_id, preventing map to work
-                auto quirky(std::make_pair(dispatcher.algo.device, dispatcher.algo.linearDeviceIndex));
-                auto match(&quirky);
-#else
-                auto match(linearDevice.find(dispatcher.algo.device));
-#endif
+                const auto devLinear(GetDeviceLinearIndex(dispatcher));
                 auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - heap.algoStarted);
                 if(heap.iterations < 16) heap.iterations++;
-                else if(onIterationCompleted) onIterationCompleted(match->second, produced.nonces.size() != 0, elapsed);
+                else if(onIterationCompleted) onIterationCompleted(devLinear, produced.nonces.size() != 0, elapsed);
                 if(produced.nonces.empty()) break;
                 auto matchPred = [&produced](const NonceValidation &test) { return test.header == produced.from; };
                 auto dispatch(*std::find_if(heap.flying.cbegin(), heap.flying.cend(), matchPred));
                 auto verified(CheckResults(dispatcher.algo.uintsPerHash, produced, dispatch)); // note with stop-n-wait dispatchers there is only one possible match so a set will suffice
-#if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support device replication which adds non-unique cl_device_id, preventing map to work
-                verified.device = dispatcher.algo.linearDeviceIndex;
-#else
-                if(match == linearDevice.cend()) verified.device = asizei(-1);
-                else verified.device = match->second;
-#endif
+                verified.device = devLinear;
                 verified.nonce2 = dispatch.nonce2;
                 if(verified.Total()) Found(dispatch.generator, verified);
                 heap.algoStarted = system_clock::time_point();
@@ -295,5 +289,15 @@ private:
         std::unique_lock<std::mutex> lock(guard);
         self.status = status;
         self.exitMessage.push_back(msg);
+    }
+
+    auint GetDeviceLinearIndex(const StopWaitDispatcher &dispatcher) const {
+#if defined REPLICATE_CLDEVICE_LINEARINDEX // ugly hack to support device replication which adds non-unique cl_device_id, preventing map to work
+        auto quirky(std::make_pair(dispatcher.algo.device, dispatcher.algo.linearDeviceIndex));
+        auto match(&quirky);
+#else
+        auto match(linearDevice.find(dispatcher.algo.device));
+#endif
+        return match->second;
     }
 };

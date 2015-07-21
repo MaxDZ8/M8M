@@ -81,6 +81,8 @@ protected:
 private:
     // commands::monitor::DeviceShares::ValueSourceInterface ////////////////////////////////////////////////
     bool GetDeviceShareStats(commands::monitor::DeviceShares::ShareStats &out, asizei devLinearIndex) {
+        // this must be generated before probing, if the web monitor is started before UpdateDeviceStats is called it will think we have 0 devices.
+        deviceShares.resize(GetNumDevices());
         if(devLinearIndex >= deviceShares.size()) return false;
         out = deviceShares[devLinearIndex];
         return true;

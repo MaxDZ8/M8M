@@ -132,6 +132,7 @@ int main(int argc, char **argv) {
     };
 
     try {
+        auto progStart(std::chrono::system_clock::now());
         StartParamsInferredStructs start(cmdLine);
         std::unique_ptr<OSUniqueChecker> sysSemaphore;
         Parse(sysSemaphore, start);
@@ -143,6 +144,7 @@ int main(int argc, char **argv) {
             }
             Network networkWrapper;
             M8MWebServingApp application(networkWrapper);
+            application.startTime.program = progStart;
             application.LoadKernelDescriptions(L"algorithms.json", "kernels/");
             application.InitIcon(start.invisible);
             std::unique_ptr<Settings> config(application.LoadSettings(start.configFile, start.configSpecified, start.algo.size()? start.algo.c_str() : nullptr));
@@ -159,7 +161,7 @@ int main(int argc, char **argv) {
             }
             application.EnumerateDevices();
             if(config) { // pulling up the miner.
-                application.StartMining(config->algo, config->implParams);
+                if(application.StartMining(config->algo, config->implParams)) application.startTime.hashing = std::chrono::system_clock::now();
             }
             config.reset();
             while(run = application.KeepRunning()) {

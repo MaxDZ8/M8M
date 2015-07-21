@@ -4,20 +4,20 @@
  */
 #pragma once
 #include "M8MPoolConnectingApp.h"
-#include "commands/Monitor/PoolShares.h"
+#include "commands/Monitor/PoolStats.h"
 #include <iostream>
 #include <chrono>
 
 class M8MPoolMonitoringApp : public M8MPoolConnectingApp,
-                             protected commands::monitor::PoolShares::ValueSourceInterface {
+                             protected commands::monitor::PoolStats::ValueSourceInterface {
 public:
     M8MPoolMonitoringApp(NetworkInterface &factory) : M8MPoolConnectingApp(factory) { }
 
 private:
-    struct TimeLapsePoolStats : commands::monitor::PoolShares::ShareStats {
+    struct TimeLapsePoolStats : commands::monitor::PoolStats::ShareStats {
         std::chrono::time_point<std::chrono::system_clock> first;
         adouble acceptedDiff;
-        AbstractWorkSource *src;
+        const AbstractWorkSource *src = nullptr;
 
         explicit TimeLapsePoolStats() : acceptedDiff(0) { }
     };
@@ -44,7 +44,7 @@ private:
     static std::string Suffixed(double value);
     
     // commands::monitor::PoolShares::ValueSourceInterface //////////////////////////////////////////////////
-    bool GetPoolShareStats(commands::monitor::PoolShares::ShareStats &out, asizei poolIndex) {
+    bool GetPoolShareStats(commands::monitor::PoolStats::ShareStats &out, asizei poolIndex) {
         if(poolIndex >= poolShares.size()) return false;
         out = poolShares[poolIndex];
         return true;

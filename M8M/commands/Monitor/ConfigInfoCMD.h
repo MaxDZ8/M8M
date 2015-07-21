@@ -93,9 +93,11 @@ private:
         for(auto &res : resources) {
             Value entry(kObjectType);
             entry.AddMember("space", StringRef(res.memoryType == AbstractAlgorithm::ConfigDesc::as_device? "device" : "host"), alloc);
-            entry.AddMember("presentation", StringRef(res.presentation.c_str()), alloc);
+            entry.AddMember("presentation", Value(res.presentation.c_str(), SizeType(res.presentation.length()), alloc), alloc);
             entry.AddMember("footprint", res.bytes, alloc);
-            entry.AddMember("notes", Value(kArrayType), alloc); // not implemented yet
+            Value notes(kArrayType);
+            for(const auto &flag : res.flags) notes.PushBack(StringRef(flag), alloc);
+            entry.AddMember("notes", notes, alloc);
             arr.PushBack(entry, alloc);
         }
         return arr;

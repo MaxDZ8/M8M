@@ -88,7 +88,10 @@ void M8MPoolMonitoringApp::PoolCommand(const AbstractWorkSource &pool) {
 void M8MPoolMonitoringApp::ConnectionState(const AbstractWorkSource &owner, ConnectionEvent ce) {
     // Every time I try to pull up a new connection I take a chance at growing the stat vector.
     // In theory I could do this once by figuring a proper interface protocol but this makes it more flexible and easier.
-    if(ce == ce_connecting) poolShares.resize(GetNumServers());
+    if(ce == ce_connecting) {
+        poolShares.resize(GetNumServers());
+        for(asizei cp = 0; cp < GetNumServers(); cp++) poolShares[cp].src = &GetPool(cp);
+    }
 
     using std::cout;
     using namespace std::chrono;
@@ -123,6 +126,7 @@ void M8MPoolMonitoringApp::ConnectionState(const AbstractWorkSource &owner, Conn
             if(entry.src == &owner) {
                 entry.cumulatedTime += system_clock::now() - entry.lastActivated;
                 entry.lastActivated = system_clock::time_point();
+                entry.lastConnDown = system_clock::now();
                 break;
             }
         }

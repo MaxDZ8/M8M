@@ -84,13 +84,16 @@ void AlgoSourcesLoader::Load(const std::wstring &algoDescFile, const std::string
     for(auto algo = algos.MemberBegin(); algo != algos.MemberEnd(); ++algo) {
         const std::string algorithm(algo->name.GetString(), algo->name.GetStringLength());
         auto container = std::find_if(chains.begin(), chains.end(), [&algorithm](const std::unique_ptr<AlgoFamily> &test) {
-            return test->name == algorithm;
+            return _stricmp(test->name.c_str(), algorithm.c_str()) == 0;
         });
         if(container == chains.end()) {
             auto temp(algorithm);
             chains.push_back(std::make_unique<AlgoFamily>());
             container = chains.begin() + (chains.size() - 1);
             container->get()->name = std::move(temp);
+        }
+        if(container->get()->name != algorithm) {
+            throw std::string("Algorithm \"") + container->get()->name + "\" aliasing with \"" + algorithm + "\", not allowed to happen.";
         }
         for(auto impl = algo->value.MemberBegin(); impl != algo->value.MemberEnd(); ++impl) {
             std::string implName(impl->name.GetString(), impl->name.GetStringLength());

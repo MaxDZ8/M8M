@@ -39,43 +39,59 @@ class MiningPerformanceWatcher : public MiningPerformanceWatcherInterface {
 
     struct Info {
         std::chrono::system_clock::time_point start;
-        size_t iterations = 0;
-        bool used = false;
+        size_t iterations = 0; //!< to compute average iteration time across the time window
+        bool used = false, sleeping = false;
     };
     std::vector<Info> info;
 
 public:
     std::chrono::seconds averageWindow;
 
-    explicit MiningPerformanceWatcher(std::chrono::seconds twindow = std::chrono::seconds(1)) : averageWindow(twindow) { }
+    explicit MiningPerformanceWatcher(std::chrono::seconds twindow = std::chrono::seconds(5)) : averageWindow(twindow) { }
 
     void SetNumDevices(size_t count) {
         stats.resize(count);
         info.resize(count);
     }
+    // It is assumed an iteration always takes > 0 microseconds to complete.
+    // Passing elapsed = 0 means 'device is being disabled'
     void Completed(size_t devIndex, bool found, std::chrono::microseconds elapsed) {
         using namespace std::chrono;
         auto &dev(stats[devIndex]);
         auto &collect(info[devIndex]);
+        const std::chrono::microseconds zero;
+        bool wasActive = collect.used && collect.sleeping == false;
         collect.used = true;
+        if(elapsed == zero) {
+            collect = Info();
+            collect.used = true;
+            collect.sleeping = true;
+            dev.last = zero;
+            dev.avg = zero;
+            return;
+        }
+        else collect.sleeping = false;
+
         auto now(system_clock::now());
         if(collect.start == system_clock::time_point()) collect.start = now;
         collect.iterations++;
 
-        std::chrono::microseconds zero;
-        if(dev.min == zero) dev.min = elapsed; // the assumption here is that everything will take at least 1 us.
-        else if(elapsed < dev.min) dev.min = elapsed;
-        if(dev.max == zero) dev.max = elapsed;
-        else if(elapsed > dev.max) dev.max = elapsed;
+        // Computing min and max takes some care. I update those only after a first nonce has been found as the first few iterations
+        // are usually a bit unstable.
+        if(wasActive) {
+            if(dev.min == zero) dev.min = elapsed; // the assumption here is that everything will take at least 1 us.
+            else if(elapsed < dev.min) dev.min = elapsed;
+            if(dev.max == zero) dev.max = elapsed;
+            else if(elapsed > dev.max) dev.max = elapsed;
+        }
 
-        if(found) {
-            dev.last = elapsed;
-            microseconds total = duration_cast<microseconds>(now - collect.start);
-            if(total >= duration_cast<microseconds>(averageWindow)) {
-                dev.avg = duration_cast<microseconds>(total / double(collect.iterations));
-                collect.start = system_clock::time_point();
-                collect.iterations = 0;
-            }
+        if(found) dev.last = elapsed;
+
+        microseconds total = duration_cast<microseconds>(now - collect.start);
+        if(total >= duration_cast<microseconds>(averageWindow)) {
+            dev.avg = duration_cast<microseconds>(total / double(collect.iterations));
+            collect.start = system_clock::time_point();
+            collect.iterations = 0;
         }
     }
     
