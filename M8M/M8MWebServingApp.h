@@ -16,24 +16,16 @@
 #include "commands/Admin/GetRawConfigCMD.h"
 #include "commands/Admin/SaveRawConfigCMD.h"
 #include "commands/Admin/ReloadCMD.h"
-#include "commands/Admin/ConfigFileCMD.h"
 
 
 class M8MWebServingApp : public M8MMinerTrackingApp,
-                         commands::monitor::UptimeCMD::StartTimeProvider,
-                         commands::admin::ConfigFileCMD::ConfigInfoProviderInterface {
+                         commands::monitor::UptimeCMD::StartTimeProvider {
 public:
     M8MWebServingApp(NetworkInterface &network) : M8MMinerTrackingApp(network) { }
-    
-    commands::admin::RawConfig rawConfig;
-    std::wstring configFile;
-    bool explicitConf = false, redirectedConf = false;
 
     struct {
         std::chrono::system_clock::time_point program, hashing, firstNonce;
     } startTime;
-
-    bool reloadRequested = false;
 
     //! \note Those changes are applied next time the corresponding service is started.
     void SetMonitor(aushort port, const char *resURI, const char *wsProtocol) {
@@ -46,8 +38,8 @@ public:
         admin.init.resURI = resURI;
         admin.init.wsProtocol = wsProtocol;
     }
-    bool Reboot() const { return reboot; }
-    
+    bool Reboot() const { return reloadRequested != std::chrono::system_clock::time_point(); }
+
     void FillSleepLists(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
         M8MMinerTrackingApp::FillSleepLists(toRead, toWrite);
         if(monitor.server) monitor.server->FillSleepLists(toRead, toWrite);
@@ -56,8 +48,16 @@ public:
 
     void Refresh(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
 
+    bool KeepRunning() const {
+        using namespace std::chrono;
+        auto zero = system_clock::time_point();
+        bool wait = reloadRequested == zero || system_clock::now() < reloadRequested + seconds(5); // better be enough before we shut down forcefully
+        if(reloadRequested != zero && !monitor.server && !admin.server) wait = false;
+        return wait && M8MMinerTrackingApp::KeepRunning();
+    }
+
 private:
-    bool reboot = false;
+    std::chrono::system_clock::time_point reloadRequested; //!< leave it a couple of seconds to dispatch quit message
     std::map<std::string, commands::ExtensionState> extensions; //!< nothing really defined for the time being
 
     struct Service {
@@ -117,10 +117,4 @@ private:
 
     // commands::monitor::UptimeCMD::StartTimeProvider //////////////////////////////////////////////////////
     void Unsubscribe(const std::string &command, const std::string &stream);
-
-    // commands::admin::ConfigFileCMD::ConfigInfoProviderInterface //////////////////////////////////////////
-    std::wstring Filename() const { return configFile; }
-    bool Explicit() const { return explicitConf; }
-    bool Redirected() const { return redirectedConf; }
-    bool Valid() const { return rawConfig.good.IsObject(); }
 };

@@ -51,11 +51,11 @@ void M8MMiningApp::EnumerateDevices() {
     for(asizei loop = 0; loop < computeNodes.size(); loop++) {
         if(match < computeNodes[loop].devices.size()) {
             computeNodes[loop].devices.push_back(computeNodes[loop].devices[match]);
-            computeNodes[loop].devices.back().linearIndex = li++;
+            computeNodes[loop].devices.back().linearIndex = auint(li++);
             break;
         }
         match -= computeNodes[loop].devices.size();
-    }            
+    }
 #endif
 }
 

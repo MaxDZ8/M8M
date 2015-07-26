@@ -6,6 +6,7 @@
 #include "M8MIconApp.h"
 #include "../Common/PoolInfo.h"
 #include "commands/Admin/GetRawConfigCMD.h"
+#include "commands/Admin/ConfigFileCMD.h"
 #include <codecvt>
 #include <rapidjson/filereadstream.h>
 #include <rapidjson/encodedstream.h>
@@ -23,7 +24,8 @@ struct Settings {
 /*! The second thing to bring up the application is to load up the configuration.
 This might exist or not, might parse correctly or not and even if parsed, it might be ill-formed.
 Anyway, the results of the loading process are to be tracked so the "getRawConfig" and "configFile" commands can get their data. */
-class M8MConfiguredApp : public M8MIconApp {
+class M8MConfiguredApp : public M8MIconApp,
+                         public commands::admin::ConfigFileCMD::ConfigInfoProviderInterface {
 public:
     Settings* LoadSettings(std::wstring file, bool specified, const char *defAlgo) {
 	    using namespace rapidjson;
@@ -57,13 +59,14 @@ public:
         return configuration.release();
     }
 
-private:
+protected:
     struct CFGLoadInfo {
         std::wstring configFile;
         bool specified = false, redirected = false, valid = false;
     } loadInfo;
     commands::admin::RawConfig config;
 
+private:
     void LoadJSON(const std::wstring &filename) {
 	    using std::unique_ptr;
 	    using namespace rapidjson;
@@ -227,4 +230,10 @@ private:
 	    if(implParams != root.MemberEnd()) ret->implParams.CopyFrom(implParams->value, ret->implParams.GetAllocator());
 	    return ret.release();
     }
+
+    // commands::admin::ConfigFileCMD::ConfigInfoProviderInterface //////////////////////////////////////////
+    std::wstring Filename() const { return loadInfo.configFile; }
+    bool Explicit() const { return loadInfo.specified; }
+    bool Redirected() const { return loadInfo.redirected; }
+    bool Valid() const { return config.good.IsObject(); }
 };

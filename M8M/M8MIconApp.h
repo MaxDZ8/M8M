@@ -59,12 +59,12 @@ public:
         Popup(err);
         ChangeState(STATE_WARN, true);
         goneWrong = false; // the state is now warning so pop up back to error or need.
-        // Technically a WARN "overwriting" ERROR is wrong but in this specific case it is a good idea to have changing GUIs, 
+        // Technically a WARN "overwriting" ERROR is wrong but in this specific case it is a good idea to have changing GUIs,
         // they have more chances of capturing user attention.
     }
     void Warning(const std::wstring &err) { Warning(err.c_str()); }
 
-    bool KeepRunning() const { return run; }
+    virtual bool KeepRunning() const { return run; }
 
 protected:
     void Tick() {
