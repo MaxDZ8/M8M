@@ -9,7 +9,7 @@ They manipulate the DOM tree and respond to various messages from server.
 Mostly presentation. It comes handy to evolve state as well. */
 
 var presentation = {
-	showReplyTime: function(pings) {
-		document.getElementById("ping").textContent = Math.ceil(pings * 1000);
-	},
+    showReplyTime: function(pings) {
+        document.getElementById("ping").textContent = Math.ceil(pings * 1000);
+    },
 };

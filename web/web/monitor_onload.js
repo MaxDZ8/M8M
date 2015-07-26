@@ -85,7 +85,7 @@ window.onload = function() {
     
     function uptime_callback(obj) {
         window.miner.programStart = new Date(obj.program * 1000);
-        window.miner.hashingStart = new Date(obj.hashing * 1000);
+        window.miner.hashingStart = obj.hashing? new Date(obj.hashing * 1000) : false;
         var fnt = document.getElementById('firstNonceTime');
         if(obj.nonce) {
             window.miner.firstNonce = new Date(obj.nonce * 1000);
@@ -95,7 +95,9 @@ window.onload = function() {
         window.setInterval(function() {
             var now = new Date();
             document.getElementById('progElapsed').textContent = window.appHelp.readableHHHHMMSS(now - window.miner.programStart);
-            document.getElementById('hashElapsed').textContent = window.appHelp.readableHHHHMMSS(now - window.miner.hashingStart);
+			var he = document.getElementById('hashElapsed');
+			if(window.miner.hashingStart) he.textContent = window.appHelp.readableHHHHMMSS(now - window.miner.hashingStart);
+			else he.innerHTML = '<em>Not started (yet?).</em>';
         }, 1000);
         
         minerMonitor.requestSimple('algos', algos_callback);
@@ -232,17 +234,20 @@ window.onload = function() {
             tr.appendChild(dsps);
             tbody.appendChild(tr);
         }
-        document.getElementById('totalHashrate').innerHTML = '<em>performance data not yet received</em>';
-        window.setInterval(function() {
-            var now = new Date();
-            for(var loop = 0; loop < window.monitorState.usedDevices.length; loop++) {
-                var udev = window.monitorState.usedDevices[loop];
-                if(udev.lastNonce.when) udev.lastNonce.cell.textContent = window.appHelp.readableHHHHMMSS(now - udev.lastNonce.when);
-            }
-        }, 1000);
-        minerMonitor.requestStream('scanTime', scanTime_callback);
-        minerMonitor.requestStream('deviceShares', deviceShares_callback);
-        
+        if(window.monitorState.usedDevices.length) {
+			// otherwise do nothing, text content already set.
+			document.getElementById('totalHashrate').innerHTML = '<em>performance data not yet received</em>';
+			window.setInterval(function() {
+				var now = new Date();
+				for(var loop = 0; loop < window.monitorState.usedDevices.length; loop++) {
+					var udev = window.monitorState.usedDevices[loop];
+					if(udev.lastNonce.when) udev.lastNonce.cell.textContent = window.appHelp.readableHHHHMMSS(now - udev.lastNonce.when);
+				}
+			}, 1000);
+			minerMonitor.requestStream('scanTime', scanTime_callback);
+			minerMonitor.requestStream('deviceShares', deviceShares_callback);
+        }
+		
         function genTDAppend(container, arr) {
             var ret = {};
             for(var loop = 0; loop < arr.length; loop++) {
@@ -268,6 +273,12 @@ window.onload = function() {
                     }
                 }
             }
+			var span = document.getElementById('algo');
+			span.textContent = 'nothing';
+			compatible.modClass(span, 'hugeError', 'add');
+			span = document.getElementById('totalHashrate');
+			span.textContent = '0 (bad config, persistent error)';
+			compatible.modClass(span, 'hugeError', 'add');
             return;
         }
         document.getElementById('algo').innerHTML = reply.algo;
@@ -366,7 +377,7 @@ window.onload = function() {
                 localIndex.push({ plat: p, devSlot: d });
             }
         }
-        var container = linearDevices[0].configCell.parentNode.parentNode.parentNode;
+        var container = document.getElementById('sysInfoDevices').parentNode.parentNode;
         for(var loop = 0; loop < reply.length; loop++) {
             var div = window.appHelp.makeFloatingDetailsDiv();
             container.parentNode.appendChild(div);

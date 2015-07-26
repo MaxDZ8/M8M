@@ -1,4 +1,8 @@
 "use strict"
+/*
+ * This code is released under the MIT license.
+ * For conditions of distribution and use, see the LICENSE or hit the web.
+ */
 
 /* What is a "stacked sample chart"?
 It is basically a stacked bar chart but the bars are 1-pixel wide.
