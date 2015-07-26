@@ -195,39 +195,39 @@ void M8MPoolMonitoringApp::ShareFeedback(const ShareIdentifier &share, const Sha
 
 
 std::string M8MPoolMonitoringApp::Suffixed(unsigned __int64 value) {
-	using namespace std;
-	if(value < 1000) return to_string(value);
-	const char *suffix = "KMGTPEZY";
-	unsigned int part = value % 1000;
-	value /= 1000;
-	size_t iso = 0;
-	while(iso < strlen(suffix) - 1 && value >= 1000) {
-		part = value % 1000;
-		value /= 1000;
-		iso++;
-	}
-	auto ret(to_string(value));
-	if(value < 100) {
-		ret += '.';
-		if(value > 10 || part >= 100) part /= 10;
-		else if(part < 100) {
-			ret += '0'; // if here, we divided at least once
-			part /= 10; // and eat a digit away
-		}
-		ret += to_string(part / (value >= 10? 10 : 1));
-	}
-	return ret + suffix[iso];
+    using namespace std;
+    if(value < 1000) return to_string(value);
+    const char *suffix = "KMGTPEZY";
+    unsigned int part = value % 1000;
+    value /= 1000;
+    size_t iso = 0;
+    while(iso < strlen(suffix) - 1 && value >= 1000) {
+        part = value % 1000;
+        value /= 1000;
+        iso++;
+    }
+    auto ret(to_string(value));
+    if(value < 100) {
+        ret += '.';
+        if(value > 10 || part >= 100) part /= 10;
+        else if(part < 100) {
+            ret += '0'; // if here, we divided at least once
+            part /= 10; // and eat a digit away
+        }
+        ret += to_string(part / (value >= 10? 10 : 1));
+    }
+    return ret + suffix[iso];
 }
 
 
 std::string M8MPoolMonitoringApp::Suffixed(double value) {
-	using namespace std;
-	if(value < 100.0) {
-		stringstream build;
-		build.precision(3 - (value >= 10.0? 1 : 0));
-		build<<fixed<<value;
-		return build.str();
-	}
-	// In all other cases, we have sufficient digits to be accurate with integers.
-	return Suffixed(static_cast<unsigned __int64>(value)); // truncate to be conservative
+    using namespace std;
+    if(value < 100.0) {
+        stringstream build;
+        build.precision(3 - (value >= 10.0? 1 : 0));
+        build<<fixed<<value;
+        return build.str();
+    }
+    // In all other cases, we have sufficient digits to be accurate with integers.
+    return Suffixed(static_cast<unsigned __int64>(value)); // truncate to be conservative
 }

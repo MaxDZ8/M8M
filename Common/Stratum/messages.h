@@ -32,7 +32,7 @@ mere data containers.
 It is unclear whatever messages should have a common base class.
 For the time being, they don't.
 The only thing the base class could contain is the ID, but this information
-is mere detail in the current implementation and those objects have a 
+is mere detail in the current implementation and those objects have a
 considerable different purpose. */
 namespace stratum {
 
@@ -81,7 +81,7 @@ struct MiningSubscribeResponse {
 struct MiningNotify {
 	/*! The merkle branches to be used to generate the new merlke root are perhaps the most important
 	piece of data. Legacy miners fail to process this notification if the roots are not there.
-	Due to lack of documentation, it seems I'll also do that. 
+	Due to lack of documentation, it seems I'll also do that.
 	The merkle roots are the various array elements in msg.params[4]. */
 	std::vector<btc::MerkleRoot> merkles;
 	std::string job; //!< msg.params[0], unclear if this is meant to be an int or not
@@ -96,7 +96,7 @@ struct MiningNotify {
 	/*! Notice I only set the scalar constants here, got enough params already and memory management
 	is better left to some other higher level component. So after ctor call you'll need to set
 	this->merkles, this->coinBaseOne, this->coinBaseTwo. It's a bit against RAII but that's it. */
-	MiningNotify(const std::string &jobID, __int32 version, __int32 currDiff, __int32 currNTime, bool discardPrev) 
+	MiningNotify(const std::string &jobID, __int32 version, __int32 currDiff, __int32 currNTime, bool discardPrev)
 	: job(jobID), blockVer(version), nbits(currDiff), ntime(currNTime), clear(discardPrev) {
 	}
 	explicit MiningNotify() : blockVer(0), nbits(0), ntime(0), clear(false) { }

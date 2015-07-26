@@ -78,7 +78,7 @@ private:
         std::unique_ptr<commands::PushInterface> pusher;
 		NamedPush() : originator(nullptr) { }
 	};
-	
+
 	struct PushList {
 		const Network::SocketInterface *dst; //!< not ConnectedSocketInterface as it must compare to wait list entry
 		std::vector< std::unique_ptr<NamedPush> > active;
@@ -94,7 +94,7 @@ private:
 		}
 	};
 
-	
+
 	void ReadWrite(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
 	void UpgradeConnect(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
 	void Unsubscribe(const std::string &command, const std::string &stream);
@@ -111,5 +111,5 @@ private:
 	/*! This is to support unsubscribe as it has no way to know which client requested unsubscribe.
 	Sure, I keep an unique string of stream identifiers but if there's no stream id there's no use for it.
 	NormalNetworkIO sets this in a loop using an ad-hoc object so this is guaranteed to match the client owning commands or be nullptr. */
-	const Network::SocketInterface *processing;	
+	const Network::SocketInterface *processing;
 };

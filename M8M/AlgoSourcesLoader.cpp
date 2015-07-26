@@ -6,17 +6,17 @@
 
 
 void AlgoSourcesLoader::Load(const std::wstring &algoDescFile, const std::string &kernLoadPath) {
-	using namespace rapidjson;
-	FILE *jsonFile = nullptr;
-	if(_wfopen_s(&jsonFile, algoDescFile.c_str(), L"rb")) return;
-	ScopedFuncCall autoClose([jsonFile]() { fclose(jsonFile); });
+    using namespace rapidjson;
+    FILE *jsonFile = nullptr;
+    if(_wfopen_s(&jsonFile, algoDescFile.c_str(), L"rb")) return;
+    ScopedFuncCall autoClose([jsonFile]() { fclose(jsonFile); });
 
-	char jsonReadBuffer[512];
-	FileReadStream jsonIN(jsonFile, jsonReadBuffer, sizeof(jsonReadBuffer));
-	AutoUTFInputStream<unsigned __int32, FileReadStream> input(jsonIN);
+    char jsonReadBuffer[512];
+    FileReadStream jsonIN(jsonFile, jsonReadBuffer, sizeof(jsonReadBuffer));
+    AutoUTFInputStream<unsigned __int32, FileReadStream> input(jsonIN);
     Document algos;
     algos.ParseStream< 0, AutoUTF<unsigned> >(input);
-	if(algos.HasParseError()) throw std::exception("Invalid algorithm description file!");
+    if(algos.HasParseError()) throw std::exception("Invalid algorithm description file!");
     // ^ That's not really supposed to happen. Really. Just do your homework or leave it alone.
     std::vector<std::string> uniqueFiles;
     Value *verification = nullptr;
@@ -32,7 +32,7 @@ void AlgoSourcesLoader::Load(const std::wstring &algoDescFile, const std::string
             if(kernels->value.IsArray() == false) throw std::exception("Kernels specifications must be an array");
             if(kernels->value.Size() == 0) throw std::exception("Kernels specifications array is empty");
             for(auto entry = kernels->value.Begin(); entry != kernels->value.End(); ++entry) ValidateExtractFile(uniqueFiles, *entry);
-            
+
             // Also take the chance for some other validation.
             auto ver = impl->value.FindMember("version");
             if(ver == impl->value.MemberEnd()) throw std::exception("Missing algorithm-implementation versioning string");
@@ -255,7 +255,7 @@ BlockVerifierInterface* AlgoSourcesLoader::NewVerifier(const rapidjson::Value &d
     build->head = gen.header;
     build->delHead = gen.same == false;
     build->chained.push_back(std::move(std::unique_ptr<IntermediateHasherInterface>(gen.intermediate)));
-    
+
     for(rapidjson::SizeType loop = 1; loop < desc.Size(); loop++) {
         asizei isize = build->chained[loop - 1]->GetHashByteCount();
         std::unique_ptr<IntermediateHasherInterface> add;

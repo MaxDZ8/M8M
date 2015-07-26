@@ -18,7 +18,7 @@ The IconCompositer keeps track of the current icon and a "state" represented by 
 This color is blended <b>below</b> the icon for all pixels in the compositing rectangle.
 IconCompositer does not care about endianess, color format or whatever. It just pulls arrays of aubyte values
 and multiplies/sets them by the various parameters, assuming everything will be coherent.
-So it could be all RGBA or all ARGB, it doesn't care. All values are assumed to be sequentially tightly packed. 
+So it could be all RGBA or all ARGB, it doesn't care. All values are assumed to be sequentially tightly packed.
 
 It's a nice little stupid helper struct for the time being, only aubyte is going to work.
 */
@@ -129,7 +129,7 @@ private:
 		const char *name;
 		std::array<aubyte, 4> pixel;
 		explicit StateDecoration() : name(nullptr) { }
-		StateDecoration(const char *n, const aubyte *p) : name(n) { 
+		StateDecoration(const char *n, const aubyte *p) : name(n) {
             for(asizei cp = 0; cp < 4; cp++) pixel[cp] = p[cp];
         }
 	};

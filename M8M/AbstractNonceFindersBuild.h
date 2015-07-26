@@ -13,7 +13,7 @@
 #include <chrono>
 
 
-/*! Interface for populating, initializing and starting a NonceFindersInterface object 
+/*! Interface for populating, initializing and starting a NonceFindersInterface object
 Two things to do here:
 1- register list of work providers
 2- register all algorithms to run on the various devices to be used.
@@ -24,7 +24,7 @@ class AbstractNonceFindersBuild : public NonceFindersInterface {
 public:
     /*! Register all sources which will provide work to this object. Those sources should all use the same algorithm, which in turn it's the same algo
     mangled by the various dispatchers. In other words, given an arbitrary registered source S, producing work W, dispatching W to an arbitrary Dispatcher D
-    is a valid operation producing good results. 
+    is a valid operation producing good results.
     Those calls must come first and before any call to InitWorkQueue(...). */
     bool RegisterWorkProvider(const AbstractWorkSource &src){
         const void *key = &src; // I drop all type information so I don't run the risk to try access this async
@@ -35,14 +35,14 @@ public:
         owners.push_back(std::move(source));
         return true;
     }
-    
+
     struct AlgoBuild {
         SignedAlgoIdentifier identifier;
         std::vector<AbstractAlgorithm::ResourceRequest> res;
         std::vector<AbstractAlgorithm::KernelRequest> kern;
         asizei numHashes = 0;
         cl_context ctx;
-        cl_device_id dev; 
+        cl_device_id dev;
         asizei candHashUints = 0;
     };
 
@@ -117,7 +117,7 @@ public:
     }
 
 
-    
+
     /*! For each work queue, this pulls out
     - <0> as the device (linear index) on which it's running
     - <1> is mostly to decide the meaning of the next
@@ -156,7 +156,7 @@ public:
             If they wake up from the dead they'll bail out but perhaps that's the best thing to do.
 
             In my experience dead threads are a fairly rare occurance. They are due mostly to brittle drivers and when they
-            die, they die in a OpenCL call to never return... so... 
+            die, they die in a OpenCL call to never return... so...
             Basically we leak their stack-allocated resources. */
         }
     }
@@ -175,7 +175,7 @@ protected:
     struct RefCounted {
         std::unique_ptr<Type> res;
         asizei count = 0;
-        
+
         RefCounted(Type *own) : res(own) { }
         RefCounted<Type>(RefCounted<Type> &&other) {
             res = std::move(other.res);
@@ -214,7 +214,7 @@ protected:
         // Those are rarely used but since each thread has its own, I cannot just sync on this->guard or I'll serialize everything, and they are hi-frequency
         std::mutex sync;
         std::chrono::system_clock::time_point lastUpdate; //! This is set when the thread starts so if this is 0 and status is s_created we're initializing.
-        std::chrono::system_clock::time_point lastWUGen; //! Different from lastUpdate, last time an header was rolled. 
+        std::chrono::system_clock::time_point lastWUGen; //! Different from lastUpdate, last time an header was rolled.
         Status status = s_created;
         std::vector<std::string> exitMessage;
         asizei sleepCount = 0; // this is used to trigger "signal device unused" notification once
@@ -223,7 +223,7 @@ protected:
     std::atomic<bool> keepRunning = true;
     std::atomic<auint> exitedThreads = 0; //!< This is used after a while to check how many threads exited before we destroy resources.
 
-    typedef std::function<void(Miner&, asizei slot, AbstractAlgorithm::SourceCodeBufferGetterFunc, AlgoBuild &build                              
+    typedef std::function<void(Miner&, asizei slot, AbstractAlgorithm::SourceCodeBufferGetterFunc, AlgoBuild &build
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
                 , asizei devLinearIndex
 #endif

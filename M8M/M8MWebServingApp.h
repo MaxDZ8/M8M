@@ -71,14 +71,14 @@ private:
 
     void AddMenuItems(AbstractNotifyIcon &icon);
 
-    
+
     void WebConnectionEvent(asizei change, asizei count, const std::string &what) {
 		if(count == 0) {
             if(change > 0) ChangeIcon(STATE_ICON_CLIENT_CONNECTED);
             else ChangeIcon(STATE_ICON_LISTENING);
         }
     }
-    
+
     void RegisterMonitorCommands(AbstractWSServer &server);
     void RegisterAdminCommands(AbstractWSServer &server);
 

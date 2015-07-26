@@ -26,7 +26,7 @@ public:
 
     /*! Activating a pool involves pulling up a TCP connection to it. It's a non-blocking operation.
     After the TCP connection comes up, a proper stratum object will be created and handshake will take place.
-    At some point the pool(s) will be able to generate work. 
+    At some point the pool(s) will be able to generate work.
     \returns Number of pools attempting activation. If this is zero, something is definitely wrong in config. */
     asizei BeginPoolActivation(const char *algo);
 
@@ -47,7 +47,7 @@ protected:
     virtual void PoolCommand(const AbstractWorkSource &owner) = 0; //!< called when at least a byte is received. Or a command? I haven't decided yet.
 	virtual void WorkChange(const AbstractWorkSource &pool, std::unique_ptr<stratum::AbstractWorkFactory> &newWork) = 0; //!< newWork can be nullptr(no work)
     virtual void DiffChange(const AbstractWorkSource &pool, const stratum::WorkDiff &diff) = 0;
-    
+
     //! Performance monitoring. Called after some shares have been queued for sending to the pool.
     virtual void AddSent(const AbstractWorkSource &pool, asizei sent) = 0;
 
@@ -109,7 +109,7 @@ protected:
         std::array<unsigned char, 4> hashSlice;
     };
     std::map<ShareIdentifier, ShareFeedbackData> sentShares;
-    
+
     void SendResults(const NonceOriginIdentifier &from, const VerifiedNonces &sharesFound);
 
     virtual void BadHashes(const AbstractWorkSource &owner, asizei linDevice, asizei badCount) = 0;

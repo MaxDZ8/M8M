@@ -24,7 +24,7 @@ class M8MMiningApp : public M8MPoolMonitoringApp,
                      protected commands::monitor::ConfigInfoCMD::ConfigDescriptorInterface {
 public:
     M8MMiningApp(NetworkInterface &factory) : M8MPoolMonitoringApp(factory) { }
-    
+
     /*! Pull up kernel descriptions from file. This loads up the sources to be later used to initialize the threads.
     It also computes signatures for all algorithms, regardless they're used or not. */
     void LoadKernelDescriptions(const std::wstring &desc, const std::string &kernPathPrefix) { sources.Load(desc, kernPathPrefix); }
@@ -137,7 +137,7 @@ protected:
         for(const auto &plat : computeNodes) count += plat.devices.size();
         return count;
     }
-    
+
     // commands::monitor::SystemInfoCMD::ProcessingNodesEnumeratorInterface /////// ugly ////////////////////
     const char* GetAPIName() const { return "OpenCL 1.2"; }
     asizei GetNumPlatforms() const { return computeNodes.size(); }

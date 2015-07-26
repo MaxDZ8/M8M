@@ -17,7 +17,7 @@
 
 
 /*! Implements an interface to manage a small control in OS notification area whose only task is to spawn
-occasional messages and a popup menu on request. 
+occasional messages and a popup menu on request.
 M8M real UI is supposed to be web based and those commands basically enable/disable web control.
 It does much more than collecting events in fact as it also takes care of estabilishing thread communication. */
 template<typename AsyncUI>
@@ -47,7 +47,7 @@ public:
 			sharedState.icon.height = height;
 			sharedState.updateIcon = true;
 		}
-		os.WakeupSignal();		
+		os.WakeupSignal();
 	}
 	void SetCaption(const wchar_t *title) {
 		std::wstring newTitle;
@@ -57,7 +57,7 @@ public:
 			sharedState.icon.title = std::move(newTitle);
 			sharedState.updateCaption = true;
 		}
-		os.WakeupSignal();		
+		os.WakeupSignal();
 	}
 
 	void ShowMessage(const wchar_t *text) {
@@ -73,7 +73,7 @@ public:
 		os.WakeupSignal();
 	}
 	/*! If you're not using a menu, this does nothing. Otherwise, it dispatches at least one callback function according to menu callbacks.
-	If multiple menu commands are available (say you slept this thread too long) then they are dispatched in the order of creation. 
+	If multiple menu commands are available (say you slept this thread too long) then they are dispatched in the order of creation.
 	Note I cannot run the callbacks right away as they might call back stuff which is locked so I must use a two-passes approach. */
 	void Tick() {
 		{
@@ -93,7 +93,7 @@ public:
 		}
 		os.WakeupSignal();
 	}
-	void BuildMenu() { 
+	void BuildMenu() {
 		{
 			std::unique_lock<std::mutex> lock(mutex);
 			sharedState.commands = std::move(building);
@@ -137,7 +137,7 @@ public:
 
 private:
 	AsyncUI os;
-	
+
 	std::unique_ptr<std::thread> lazyui;
 	NotifyIconThreadShare sharedState;
 	std::mutex mutex;

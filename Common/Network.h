@@ -118,7 +118,7 @@ enum SockErr {
 
 
 /*! Those objects are meant to provide abstractions over socket creation, destruction
-and management. It is better to have a single pool of sockets as each object only 
+and management. It is better to have a single pool of sockets as each object only
 operates on its own objects, but there might be good reasons to allow multiple instances
 (for example, to give each thread its own socket manager) so this is left to the
 outer code. */
@@ -151,7 +151,7 @@ public:
 		virtual std::string PeerPort() const = 0;
 	};
 
-	/*! Some sockets have the only purpose of accepting incoming connections. Those sockets are modelled using an objectof this type. 
+	/*! Some sockets have the only purpose of accepting incoming connections. Those sockets are modelled using an objectof this type.
 	They are only allowed to be used for either SleepOn or Accept. */
 	class ServiceSocketInterface : public SocketInterface {
 	public:
@@ -175,8 +175,8 @@ public:
 	It immediately returns a socket so you can start building objects on top of it but it's very likely the connection
 	procedures will not be completed by the time this returns. It is necessary to use SleepOn putting this in the receiver
 	queue to figure out when the connection is ready to go - this will also allow the object to transition to a fully
-	working state without requiring thread locks. 
-	In other terms, the returned connection is technically a future, but the object isn't so it is returned immediately. 
+	working state without requiring thread locks.
+	In other terms, the returned connection is technically a future, but the object isn't so it is returned immediately.
     \returns A pointer to a new connected socket owned by this with .second being ce_ok OR
     nullptr, with .second being an error code. */
 	virtual std::pair<ConnectedSocketInterface*, ConnectionError> BeginConnection(const char *host, const char *portService) = 0;
@@ -197,7 +197,7 @@ public:
     you should not assume this specific value has a meaning.
 	The pointers in the vectors passed do maintain their position but not their value.
 	The value is kept only for pointers which caused wakeup. Sleeping pointers are cleared.
-	This function is also used to perform full socket initialization in the case of connected streams. 
+	This function is also used to perform full socket initialization in the case of connected streams.
 	There's no guarantee successive reads or writes to consume 1 byte or more, but only they'll be instant.
 	Sockets not managed by this are ignored.
 	\note If a socket fails while sleeping, it will still provide an activation so outer code can react.
@@ -214,7 +214,7 @@ public:
 	virtual ServiceSocketInterface& NewServiceSocket(aushort port, aushort numPending) = 0;
 
 	virtual void CloseServiceSocket(ServiceSocketInterface &what) = 0;
-	
+
 	/*! Creates a connection by pulling out a connection request from a service socket. Always call this AFTER SleepOn
 	has returned indicating availability of a connection request to handle; other conditions are considered errors. */
 	virtual ConnectedSocketInterface& BeginConnection(ServiceSocketInterface &listener) = 0;
@@ -223,7 +223,7 @@ public:
 
 class WindowsNetwork : public NetworkInterface {
 private:
-	class ConnectedSocket : public ConnectedSocketInterface { 
+	class ConnectedSocket : public ConnectedSocketInterface {
 	public:
 		const std::string host;
 		const std::string port;
@@ -253,7 +253,7 @@ private:
 	};
 
 	void SetBlocking(SOCKET socket, bool blocks);
-	
+
 	//! Maps Win32 error codes to my portable codes.
 	static std::unique_ptr< std::map<int, SockErr> > errMap;
 
@@ -289,7 +289,7 @@ public:
 
 	asizei SleepOn(std::vector<SocketInterface*> &read, std::vector<SocketInterface*> &write, asizei timeoutms);
 	SockErr GetSocketError();
-	
+
 	ServiceSocketInterface& NewServiceSocket(aushort port, aushort numPending);
 	void CloseServiceSocket(ServiceSocketInterface &what);
 	ConnectedSocketInterface& BeginConnection(ServiceSocketInterface &listener);

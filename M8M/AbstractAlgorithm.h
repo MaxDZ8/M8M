@@ -72,7 +72,7 @@ With the new design, there are no more settings objects nor 'algorithm instances
 Also, they're now dumb and set up at build time with full type information. External logic gets to select settings and device to use.
 
 The way work is dispatched is also changed but that's better discussed in a derived class. At last, as OpenCL is very convincing I have decided to drop
-support for other APIs and eventually think at it again in the future: this is really AbstractCLAlgorithm. 
+support for other APIs and eventually think at it again in the future: this is really AbstractCLAlgorithm.
 
 Note the new AbstractAlgorithm is really dumb and does not even know about hashing or anything! It just consumes its inputs when told. Input management
 takes place in "dispatcher objects". \sa StopWaitDispatcher */
@@ -152,7 +152,7 @@ public:
             initialData = imValue;
         }
     };
-    
+
     struct WorkGroupDimensionality {
         auint dimensionality;
         asizei wgs[3]; //!< short for work group size

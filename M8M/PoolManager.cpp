@@ -70,9 +70,9 @@ void PoolManager::FillSleepLists(std::vector<Network::SocketInterface*> &toRead,
     for(const auto &server : pools) {
         if(server.route == nullptr) continue;
         if(server.source->Ready() == false || // still connecting
-            server.source->NeedsToSend()) toWrite.push_back(server.route); 
-		else toRead.push_back(server.route); // that is, I give priority to sending over reading, only one per tick
-	}
+            server.source->NeedsToSend()) toWrite.push_back(server.route);
+        else toRead.push_back(server.route); // that is, I give priority to sending over reading, only one per tick
+    }
 }
 
 
@@ -87,7 +87,7 @@ void PoolManager::Refresh(std::vector<Network::SocketInterface*> &toRead, std::v
         entry->source->Disconnected();
         network.CloseConnection(*entry->route);
         entry->route = nullptr;
-        
+
         auto zero = std::chrono::system_clock::time_point();
         if(entry->activated != zero) {
             auto now(std::chrono::system_clock::now());
@@ -165,7 +165,7 @@ asizei PoolManager::AttemptReconnections() {
     for(auto &entry : pools) {
         if(entry.nextReconnect == zero) continue;
         if(entry.nextReconnect > now) continue;
-        
+
         const char *port = entry.config.explicitPort.length()? entry.config.explicitPort.c_str() : entry.config.service.c_str();
         auto conn(network.BeginConnection(entry.config.host.c_str(), port));
         if(conn.first == nullptr) {

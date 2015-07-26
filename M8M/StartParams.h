@@ -9,12 +9,12 @@
 
 //! Parameters passed from command line.
 struct StartParams {
-    StartParams(const wchar_t *params) { 
+    StartParams(const wchar_t *params) {
         const size_t takes = wcslen(params) + 1;
         parameters.reset(new wchar_t[takes]);
         wcscpy_s(parameters.get(), takes, params);
     }
-    
+
     bool ConsumeParam(std::vector<wchar_t> &value, const wchar_t *name) {
 	    bool found = false;
         size_t begin;
@@ -75,7 +75,7 @@ struct StartParams {
                 else break;
             }
         }
-        
+
         // Consume chars so we can detect if parameters were not completely mangled.
         size_t dst = begin;
         for(size_t src = loop; cmdLine[src]; src++, dst++) cmdLine[dst] = cmdLine[src];

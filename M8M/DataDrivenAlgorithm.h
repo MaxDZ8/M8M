@@ -26,7 +26,7 @@ public:
 
 private:
     /*! Derived classes are expected to call this somewhere in their ctor. It deals with allocating memory and eventually initializing it in a
-    data-driven way. Note special resources cannot be created using this, at least in theory. Just create them in the ctor before PrepareKernels. 
+    data-driven way. Note special resources cannot be created using this, at least in theory. Just create them in the ctor before PrepareKernels.
     While this is allowed to throw, it is suggested to produce a list of errors to be returned by Init(). */
     std::vector<std::string> PrepareResources(const std::vector<ResourceRequest> &resources, const AbstractSpecialValuesProvider &prov) {
         std::vector<std::string> errors;
@@ -151,7 +151,7 @@ private:
         for(asizei loop = 0; loop < kernels.size(); loop++) BindParameters(this->kernels[loop], kernels[loop], special);
         return errors;
     }
-    
+
 
     //! Called at the end of PrepareKernels. Given a cl_kernel and its originating KernelRequest object, generates a stream of clSetKernelArg according
     //! to its internal bindings, resHandles and resRequests (for immediates).

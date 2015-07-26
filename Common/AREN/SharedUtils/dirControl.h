@@ -10,7 +10,7 @@
 #include <memory.h>
 #include <string.h>
 
-#if defined(_WIN32) 
+#if defined(_WIN32)
 #include <WinSock2.h> // not really necessary, but easier than solve the ugly mess that are windows headers
 #include <Windows.h>
 #else
@@ -22,7 +22,7 @@ namespace system {
 
 
 static void GetCurrentDir(std::unique_ptr<wchar_t[]> &current) {
-#if defined(_WIN32) 
+#if defined(_WIN32)
 	// For first, ask the win32 function for dir length.
 	DWORD chars = GetCurrentDirectoryW(0, NULL); // count including teminator char
 	if(chars) {
@@ -45,7 +45,7 @@ was not changed. */
 template<bool PUSH_CWD>
 class AutoGoDir {
 public:
-	AutoGoDir() : changed(false) { 
+	AutoGoDir() : changed(false) {
 		if(PUSH_CWD) GetCurrentDir(prev);
 	}
 	AutoGoDir(const wchar_t *go, bool createOnNeed = false) : changed(false) {

@@ -54,7 +54,7 @@ public:
         auto work(initial);
         auto salsa = [this](auint state[16]) { Salsa(state); }; // that's a bit backwards but I don't like alternatives either.
         auto chacha = [this](auint state[16]) { Chacha(state); };
-    
+
         SequentialWrite(pad.get(), work.data(), salsa);
         IndirectedRead(work.data(), pad.get(), salsa);
         SequentialWrite(pad.get(), initial.data(), chacha);
@@ -66,7 +66,7 @@ public:
         for(asizei cp = 0; cp < arr.size(); cp++) hash[cp] = arr[cp];
         return hash;
     }
-    
+
     virtual bool CanMangle(asizei inputByteCount) const { return inputByteCount == 80; }
     asizei GetHashByteCount() const { return 32; /*LastKDF*/ }
 

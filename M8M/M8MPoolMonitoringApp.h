@@ -21,7 +21,7 @@ private:
 
         explicit TimeLapsePoolStats() : acceptedDiff(0) { }
     };
-    
+
     std::vector<TimeLapsePoolStats> poolShares;
 
     void StratumError(const AbstractWorkSource &owner, asizei i, int errorCode, const std::string &message);
@@ -42,7 +42,7 @@ private:
     3) When an iso suffix can be applied that will consider the highest three digits and work similarly but you'll only get 3 digits total
 	    so, counting the separator they'll still be 5 chars unless the value is still big enough to not require decimals (2) so you'll get 4 chars total. */
     static std::string Suffixed(double value);
-    
+
     // commands::monitor::PoolShares::ValueSourceInterface //////////////////////////////////////////////////
     bool GetPoolShareStats(commands::monitor::PoolStats::ShareStats &out, asizei poolIndex) {
         if(poolIndex >= poolShares.size()) return false;

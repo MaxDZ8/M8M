@@ -60,7 +60,7 @@ public:
         bad |= version.first == 1 && version.second < 2;
         if(bad) ret.push_back("Device must be at least CL1.2, found " + std::to_string(version.first) + '.' + std::to_string(version.second));
         if((Get<cl_device_type>(dev, CL_DEVICE_TYPE, "error probing device type") & CL_DEVICE_TYPE_GPU) == 0) ret.push_back("Device is not a GPU");
-        
+
         const asizei buffBytes = GetBiggestBufferSize(linearIntensity * GetIntensityMultiplier());
         if(buffBytes > Get<aulong>(dev, CL_DEVICE_MAX_MEM_ALLOC_SIZE, "error probing device max buffer size")) ret.push_back("Biggest buffer exceeds max size");
         // Note: no more rejecting non-AMD_GCN devices.

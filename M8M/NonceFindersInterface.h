@@ -10,7 +10,7 @@
 
 /*! A set of devices working to find nonces. All devices must run an algorithm or algorithm implementation compatible with an hash verifier method
 provided by a derived class.
-This base class contains the minimal interface to manage a running set of devices. Building the set is left to a derived class. 
+This base class contains the minimal interface to manage a running set of devices. Building the set is left to a derived class.
 
 Derived classes are expected to be populated by the main thread but once transitioned to a "running" state, they get their own thread.
 Thereby, this interface must be thread safe / locked. */
@@ -39,14 +39,14 @@ public:
         > 0 on returning true. If this does not hold, just return false and update nothing. */
     virtual bool ResultsFound(NonceOriginIdentifier &src, VerifiedNonces &nonces) = 0;
 
-    
+
     enum Status {
         s_created,
         s_running,
         s_sleeping,
         s_unresponsive,
         s_stopped,
-        
+
         s_initFailed,
         s_failed
     };

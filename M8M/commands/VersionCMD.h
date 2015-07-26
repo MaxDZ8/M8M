@@ -10,7 +10,7 @@ namespace commands {
 
 class VersionCMD : public AbstractCommand {
 	PushInterface* Parse(rapidjson::Document &reply, const rapidjson::Value &input) {
-        const char *credits = 
+        const char *credits =
             "M8M is free software, obtain a <a href='https://github.com/MaxDZ8/M8M/releases'>new version of the executable</a> or the <a href='https://github.com/MaxDZ8/M8M/'>source code</a> free of charge.<br>"
             "Makes use of the following libraries:"
             "<ul>"

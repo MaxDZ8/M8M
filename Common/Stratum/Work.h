@@ -26,7 +26,7 @@ struct WorkDiff {
 };
 
 
-//! Work is basically an header to be iterated 4^32 times. 
+//! Work is basically an header to be iterated 4^32 times.
 //! However, to correctly reply we have to keep track of the originating nonce2 and ntime used.
 struct Work {
     std::array<aubyte, 128> header; //!< only first 80 bytes are hashed but I keep it anyway
@@ -72,7 +72,7 @@ public:
 		// vvv I tried to do that using std::copy, but I hate it.
 		if(littleEndianAlgo) memcpy_s(merkleRoot.data(), sizeof(merkleRoot), merkleSHA.data(), sizeof(merkleRoot));
 		else btc::FlipIntegerBytes<8>(merkleRoot.data(), merkleSHA.data()); // most of the time
-		
+
         result.header = blankHeader;
 		aubyte *raw = result.header.data() + merkleOff;
 		memcpy_s(raw, 128 - merkleOff, merkleRoot.data(), sizeof(merkleRoot));

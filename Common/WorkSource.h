@@ -34,13 +34,13 @@ public:
 
     //! This call instead destroys the internal stratum state and gives up the previous socket. From now on, the pool is "inactive" until next Use()
     void Disconnected();
-	
+
 	//! This function gets called by MangleError.
 	std::function<void(const WorkSource &pool, asizei index, int errorCode, const std::string &message)> errorCallback;
-	
+
 	static std::function<void(const WorkSource &pool, asizei index, int errorCode, const std::string &message)> DefaultErrorCallback(bool silent) {
 		if(silent) return [](const WorkSource &pool, asizei i, int errcode, const std::string& message) { };
-		return [](const WorkSource &pool, asizei i, int errcode, const std::string& message) { 
+		return [](const WorkSource &pool, asizei i, int errcode, const std::string& message) {
 			std::string err("Stratum message [");
 			err += std::to_string(i) + "] generated error response by server (code " + std::to_string(errcode) + ").";
 			throw err;
@@ -53,7 +53,7 @@ public:
 private:
 	NetworkInterface::ConnectedSocketInterface *pipe = nullptr; //! this is supposed to be const (in the sense you don't mess up with it), owned by some other code.
     std::vector< std::pair<std::string, std::string> > credentials;
-	
+
 	template<typename Parser>
 	void MangleResult(bool &processed, const char *originally, size_t id, const rapidjson::Value &object, Parser &parser) {
 		if(processed) return;
@@ -63,7 +63,7 @@ private:
 		stratum->Response(id, *dispatch.get());
 		processed = true;
 	}
-	
+
 	template<typename Parser>
 	void MangleRequest(bool &processed, const char *methodName, const string &id, const rapidjson::Value &paramsArray, Parser &parser) {
 		if(processed) return;
@@ -73,7 +73,7 @@ private:
 		stratum->Request(*dispatch.get());
 		processed = true;
 	}
-	
+
 	template<typename Parser>
 	void MangleNotification(bool &processed, const char *methodName, const rapidjson::Value &paramsArray, Parser &parser) {
 		if(processed) return;

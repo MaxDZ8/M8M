@@ -78,7 +78,7 @@ cl_mem_flags DataDrivenAlgoFactory::ParseMemFlags(const rapidjson::Value &string
     if(set(CL_MEM_HOST_WRITE_ONLY) && set(CL_MEM_HOST_READ_ONLY)) throw std::exception("Conflicting host access flags.");
     if(set(CL_MEM_READ_ONLY) && set(CL_MEM_WRITE_ONLY)) throw std::exception("Conflicting device access flags.");
     if(set(CL_MEM_USE_HOST_PTR) && set(CL_MEM_ALLOC_HOST_PTR)) throw std::exception("Conflicting buffer allocation flags.");
-    return ret;        
+    return ret;
 }
 
 
@@ -107,7 +107,7 @@ bool DataDrivenAlgoFactory::ParseImmediate(const rapidjson::Value &arr, std::str
     limit = 0;
     while(name[limit] && name[limit] <= 32) limit++;
     name = name.c_str() + limit;
-    
+
     static std::map<std::string, asizei> footprint;
     if(footprint.empty()) {
         footprint.insert(std::make_pair("uint", 4));

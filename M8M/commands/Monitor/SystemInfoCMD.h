@@ -25,7 +25,7 @@ public:
 	    };
         virtual std::string GetPlatformString(asizei p, PlatformInfoString pis) const = 0;
         virtual asizei GetNumDevices(asizei p) const = 0;
-        
+
 	    enum DeviceInfoString {
 		    dis_chip,
 		    dis_vendor,
@@ -92,7 +92,7 @@ public:
 			GS(version);
 			GS(name);
 			GS(vendor);
-#undef GS	
+#undef GS
 
 			padd.AddMember(StringRef("devices"), Value(kArrayType), build.GetAllocator());
 			Value &devices(padd["devices"]);

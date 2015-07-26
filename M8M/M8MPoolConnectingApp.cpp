@@ -14,13 +14,13 @@ bool M8MPoolConnectingApp::AddPool(const PoolInfo &copy) {
     source.AddCredentials(copy.user, copy.pass);
     source.errorCallback = [this](const AbstractWorkSource &owner, asizei i, int errorCode, const std::string &message) {
         StratumError(owner, i, errorCode, message);
-	};
+    };
     source.shareResponseCallback = [this](const AbstractWorkSource &me, asizei shareID, StratumShareResponse stat) {
         ShareResponse(me, shareID, stat);
     };
     source.workerAuthCallback = [this](const AbstractWorkSource &owner, const std::string &worker, StratumState::AuthStatus status) {
         WorkerAuthorization(owner, worker, status);
-	};
+    };
     return true;
 }
 
@@ -70,9 +70,9 @@ void M8MPoolConnectingApp::FillSleepLists(std::vector<Network::SocketInterface*>
     for(const auto &server : pools) {
         if(server.route == nullptr) continue;
         if(server.source->Ready() == false || // still connecting
-            server.source->NeedsToSend()) toWrite.push_back(server.route); 
-		else toRead.push_back(server.route); // that is, I give priority to sending over reading, only one per tick
-	}
+            server.source->NeedsToSend()) toWrite.push_back(server.route);
+        else toRead.push_back(server.route); // that is, I give priority to sending over reading, only one per tick
+    }
 }
 
 
@@ -88,7 +88,7 @@ void M8MPoolConnectingApp::Refresh(std::vector<Network::SocketInterface*> &toRea
         entry->source->Disconnected();
         network.CloseConnection(*entry->route);
         entry->route = nullptr;
-        
+
         auto zero = std::chrono::system_clock::time_point();
         if(entry->activated != zero) {
             auto now(std::chrono::system_clock::now());
@@ -131,7 +131,7 @@ void M8MPoolConnectingApp::Refresh(std::vector<Network::SocketInterface*> &toRea
     AttemptReconnections();
 }
 
-    
+
 void M8MPoolConnectingApp::SendResults(const NonceOriginIdentifier &from, const VerifiedNonces &sharesFound) {
     AbstractWorkSource *owner = nullptr;
     asizei poolIndex = 0;
@@ -158,7 +158,7 @@ void M8MPoolConnectingApp::SendResults(const NonceOriginIdentifier &from, const 
             fback.shareDiff = result.diff;
             fback.targetDiff = sharesFound.targetDiff;
             fback.gpuIndex = sharesFound.device;
-                        
+
             sentShares.insert(std::make_pair(shareSrc, fback));
             sent++;
         }
@@ -175,7 +175,7 @@ void M8MPoolConnectingApp::AttemptReconnections() {
     for(auto &entry : pools) {
         if(entry.nextReconnect == zero) continue;
         if(entry.nextReconnect > now) continue;
-        
+
         const char *port = entry.config.explicitPort.length()? entry.config.explicitPort.c_str() : entry.config.service.c_str();
         auto conn(network.BeginConnection(entry.config.host.c_str(), port));
         if(conn.first == nullptr) {

@@ -16,7 +16,7 @@ public:
         const rapidjson::Value *specified = nullptr; //!< original json value pulled from config file
         std::vector<std::string> rejectReasons; //!< device-independant reasons for which the object was discarded.
 
-        // Stuff below is only valid when rejectReasons.empty() is true. 
+        // Stuff below is only valid when rejectReasons.empty() is true.
         std::string impl; //!< algorithm implementation being used
         std::vector<auint> devices; //!< might be from different context/platforms. Linear indices.
     };

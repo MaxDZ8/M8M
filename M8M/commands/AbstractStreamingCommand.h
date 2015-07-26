@@ -23,7 +23,7 @@ public:
 		const rapidjson::Value::ConstMemberIterator push = input.FindMember("push");
 		return push != input.MemberEnd() && push->value.IsBool() && push->value.GetBool()? helper.release() : nullptr;
 	}
-	
+
 	asizei GetMaxPushing() const { return 1; }
 
 protected:
@@ -43,12 +43,12 @@ protected:
 			return RefreshAndReply(out, false);
 		}
 
-		/*! Given current state (what to monitor) tick internal logic to refresh your values. If those values changed, produce output. 
+		/*! Given current state (what to monitor) tick internal logic to refresh your values. If those values changed, produce output.
 		Because a reply must always be given when input from user is received, you must consider this a change in itself and give output in that case.
 		This is also called by the command generating this PUSH when replying to a request.
 		To avoid expensive copies, build directly in the result and return false to discard that value. */
 		virtual bool RefreshAndReply(rapidjson::Document &result, bool forcedOutput) = 0;
-	
+
 	protected:
 		//! Parsing original command request, validation should happen here!
 		virtual void SetState(const rapidjson::Value &object) = 0;

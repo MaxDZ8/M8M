@@ -26,12 +26,12 @@ public:
 		build.SetObject();
 		const std::wstring name(config.Filename());
 		GenericStringStream< UTF16<> > source(name.c_str());
-		GenericStringBuffer<UTF8<> > target;								
-		//bool hasError = false; <-- would have failed decoding previously?	
+		GenericStringBuffer<UTF8<> > target;
+		//bool hasError = false; <-- would have failed decoding previously?
 		while (source.Peek() != '\0') {
 			if (!Transcoder< UTF16<>, UTF8<> >::Transcode(source, target)) {
-				//hasError = true;											
-				break;														
+				//hasError = true;
+				break;
 			}
 		}
 		build.AddMember("filename", Value(target.GetString(), rapidjson::SizeType(target.GetSize()), build.GetAllocator()), build.GetAllocator());

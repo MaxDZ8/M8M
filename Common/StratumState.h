@@ -96,7 +96,7 @@ public:
 
     //! Returns unique number identifying the nonce sent to reconstruct info by other code on callbacks.
 	asizei SendWork(const std::string &job, auint ntime, auint nonce2, auint nonce);
-	
+
 	/*! This structure contains an indivisible amount of information to	send the server via socket.
 	The message might be long, and multiple calls to send(...) might be needed. Rather than blocking
 	this thread I keep state about the messages and I send them in order.
@@ -135,7 +135,7 @@ public:
 	void Response(size_t id, const stratum::MiningSubscribeResponse &msg) { subscription = msg; }
 	void Response(asizei id, const stratum::MiningAuthorizeResponse &msg);
 	void Response(asizei id, const stratum::MiningSubmitResponse &msg);
-	
+
 	void Notify(const stratum::MiningSetDifficultyNotify &msg) { difficulty = msg.newDiff; }
 	void Notify(const stratum::MiningNotify &msg);
 
@@ -153,7 +153,7 @@ public:
 		const Worker &w(workers[i]);
 		return std::make_pair(w.name.c_str(), GetAuthenticationStatus(w.name.c_str())); // blergh
 	}
-	
+
 	struct WorkerNonceStats {
 		asizei sent;
 		asizei accepted, rejected;
@@ -168,7 +168,7 @@ private:
 	stratum::MiningSubscribeResponse subscription; //!< comes handy!
 	stratum::MiningNotify block; //!< sent by remote server and stored here
 	double difficulty;
-	
+
 	struct Worker {
 		std::string name; //!< server side login credentials
 		const asizei id; //!< message ID used to request authorization. Not const because I build those after putting the message in queue.

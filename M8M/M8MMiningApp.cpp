@@ -185,19 +185,19 @@ asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value
 
 void M8MMiningApp::Refresh(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
     NonceOriginIdentifier from;
-	VerifiedNonces sharesFound;
+    VerifiedNonces sharesFound;
     using namespace std::chrono;
     static system_clock::time_point nextStatusCheck;
-	if(miner) {
+    if(miner) {
         if(miner->ResultsFound(from, sharesFound)) {
-		    if(firstNonce == system_clock::time_point()) {
-			    firstNonce = system_clock::now();
+            if(firstNonce == system_clock::time_point()) {
+                firstNonce = system_clock::now();
                 std::wstring msg(L"Found my first result!\n");
                 if(sharesFound.wrong) msg = L"GPU produced bad numbers.\nSomething is very wrong!"; //!< \todo blink yellow for a few seconds every time a result is wrong
                 else msg += L"Numbers are getting crunched as expected.";
                 Popup(msg.c_str());
                 ChangeState(sharesFound.wrong? STATE_ERROR : STATE_OK, true);
-		    }
+            }
             else if(this->GetNumActiveServers()) { // As long as mining is going on and producing results, I consider it a win, provided stuff can go somewhere!
                 //! \todo Also consider the amount of rejects - how to? With multiple pools it's not so easy.
                 //! \todo Also consider the amount of HW errors. This is easier than pools but I still have to think about it.
@@ -227,7 +227,7 @@ void M8MMiningApp::Refresh(std::vector<Network::SocketInterface*> &toRead, std::
                 if(slow) Error(L"Some miners are not generating any work!");
             }
         }
-	}
+    }
     if(sources.Flushed() == false) {
         if(miner) {
             using namespace std::chrono;
@@ -351,9 +351,9 @@ std::string M8MMiningApp::GetPlatformString(asizei p, PlatformInfoString prop) c
     const auto &plat(computeNodes[p]);
     cl_int err = clGetPlatformInfo(plat.clid, clProp, avail, text.data(), &avail);
     if(err == CL_INVALID_VALUE) {
-	    text.resize(avail);
-	    err = clGetPlatformInfo(plat.clid, clProp, avail, text.data(), &avail);
-	    if(err != CL_SUCCESS) throw std::exception("Something went very wrong with CL platform properties.");
+        text.resize(avail);
+        err = clGetPlatformInfo(plat.clid, clProp, avail, text.data(), &avail);
+        if(err != CL_SUCCESS) throw std::exception("Something went very wrong with CL platform properties.");
     }
     return std::string(text.data());
 

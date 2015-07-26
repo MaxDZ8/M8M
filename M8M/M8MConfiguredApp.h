@@ -93,7 +93,7 @@ private:
             config.raw = temp.data();
 	    }
     }
-    
+
     static Settings* BuildSettings(std::vector<std::string> &errors, const rapidjson::Value &root, const char *algoSelected) {
 	    unique_ptr<Settings> ret(new Settings);
 	    if(root.IsObject() == false) {

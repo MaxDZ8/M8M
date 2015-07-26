@@ -43,7 +43,7 @@ value here and expect them to be rebound at next dispatch.
 class AbstractSpecialValuesProvider {
 public:
     virtual ~AbstractSpecialValuesProvider() { }
-    
+
     /*! This function returns false if the given name does not identify something recognized.
     Otherwise, it will set desc. You can be sure at this point desc.resource will always be != 0.
     While there are no requirements on the special value names, please follow these guidelines:

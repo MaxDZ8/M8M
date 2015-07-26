@@ -10,7 +10,7 @@
 
 
 /*! Implements an interface to manage a small control in OS notification area whose only task is to spawn
-occasional messages and a popup menu on request. 
+occasional messages and a popup menu on request.
 M8M real UI is supposed to be web based and those commands basically enable/disable web control.
 It does much more than collecting events in fact as it also takes care of estabilishing thread communication. */
 class AbstractNotifyIcon {

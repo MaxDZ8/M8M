@@ -56,7 +56,7 @@ private:
 	Note the vector contains the amount of /allocated/ bytes, not /valid/, comes handy to reallocate even though it's a bit ugly and against the idea of vector. */
 	std::vector<char> header;
 	asizei used;
-	std::string response; //!< Populated by Receive() as soon as 
+	std::string response; //!< Populated by Receive() as soon as
 	std::string key;
 	asizei sent;
 };

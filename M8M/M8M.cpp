@@ -44,21 +44,21 @@ void Parse(std::unique_ptr<OSUniqueChecker> &onlyOne, StartParamsInferredStructs
         }
     }
     else {
-	    /* M8M is super spiffy and so minimalistic I often forgot it's already running.
-	    Running multiple instances might make sense in the future (for example to mine different algos on different cards)
-	    but it's not supported for the time being. Having multiple M8M instances doing the same thing will only cause driver work and GPU I$ to work extra hard. */
+        /* M8M is super spiffy and so minimalistic I often forgot it's already running.
+        Running multiple instances might make sense in the future (for example to mine different algos on different cards)
+        but it's not supported for the time being. Having multiple M8M instances doing the same thing will only cause driver work and GPU I$ to work extra hard. */
         onlyOne.reset(new OSUniqueChecker);
-	    if(onlyOne->CanStart(L"M8M_unique_instance_systemwide_mutex") == false) {
-		    const wchar_t *msg = L"It seems you forgot M8M is already running. Check out your notification area!\n"
-				                    L"Running multiple instances is not a good idea in general and it's not currently supported.\n"
-								    L"This program will now close.";
-		    const wchar_t *title = L"Already running!";
+        if(onlyOne->CanStart(L"M8M_unique_instance_systemwide_mutex") == false) {
+            const wchar_t *msg = L"It seems you forgot M8M is already running. Check out your notification area!\n"
+                                    L"Running multiple instances is not a good idea in general and it's not currently supported.\n"
+                                    L"This program will now close.";
+            const wchar_t *title = L"Already running!";
         #if defined(_WIN32)
-		    MessageBox(NULL, msg, title, MB_ICONINFORMATION | MB_SYSTEMMODAL | MB_SETFOREGROUND);
+            MessageBox(NULL, msg, title, MB_ICONINFORMATION | MB_SYSTEMMODAL | MB_SETFOREGROUND);
         #else
         #error Whoops! Tell the user to not do that!
         #endif
-		    throw (void*)nullptr;
+            throw (void*)nullptr;
         }
     }
 
@@ -72,7 +72,7 @@ void Parse(std::unique_ptr<OSUniqueChecker> &onlyOne, StartParamsInferredStructs
             if(number < 0 || number > auint(~0)) throw std::exception("Invalid value for parameter --console");
             result.handyOutputForDebugging = std::make_unique<sharedUtils::system::AutoConsole<false>>(auint(number));
         }
-	    result.handyOutputForDebugging->Enable();
+        result.handyOutputForDebugging->Enable();
     }
     if(result.ConsumeParam(value, L"config")) {
         result.configFile = value.data();
@@ -125,9 +125,9 @@ int main(int argc, char **argv) {
         MessageBox(NULL, msg, L"Fatal error!", MB_ICONERROR | MB_SYSTEMMODAL | MB_SETFOREGROUND);
     };
     auto fatalAscii = [&fatal](const char *msg) {
-		std::string utfbyte(msg);
-		std::wstring_convert< std::codecvt_utf8_utf16<wchar_t> > convert;
-		auto unicode(convert.from_bytes(utfbyte));
+        std::string utfbyte(msg);
+        std::wstring_convert< std::codecvt_utf8_utf16<wchar_t> > convert;
+        auto unicode(convert.from_bytes(utfbyte));
         fatal(unicode.c_str());
     };
 

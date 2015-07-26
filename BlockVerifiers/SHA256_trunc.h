@@ -5,7 +5,7 @@
 #pragma once
 #include "HashBlocks.h"
 
-/*! A SHA256 missing a few last steps. Used by 
+/*! A SHA256 missing a few last steps. Used by
 - myriadcoin-groestl, which is sha256_trunc(groestl_512(h)).
 
 Some additional documentation from the original myr-grs verifier follows.
@@ -19,7 +19,7 @@ can be partially precomputed... sphlib sha2.c:569 does W12=... it is the first t
 Legacy kernels use a macro called PLAST to signal this. SPHLib does it fully and thus obviously the results cannot converge.
 SPHlib sha2.c:593 is the place where we can think at the computation converging again. Basically the truncated sha hash gets added to the previous.
 
-So basically we skip a whole ABCD EFGH update. 
+So basically we skip a whole ABCD EFGH update.
 Now the big question is: if the two functions are different, how exactly legacy miners can validate with SHA256(GROESTL(h))?
 To be better investigated. */
 struct SHA256_trunc : IntermediateHasherInterface {
@@ -63,7 +63,7 @@ private:
     auint S2(auint x) { return ROL32(x, 30u) ^ ROL32(x, 19u) ^ ROL32(x, 10u); }
     auint S3(auint x) { return ROL32(x, 26u) ^ ROL32(x, 21u) ^ ROL32(x, 7u); }
 
-    
+
     /*! SHA is a combination of various slightly similar rounds.
     As a matter of fact, it's better to think at those as "a standard round preceded by
     some operation". This is the basic round.
@@ -76,7 +76,7 @@ private:
             temp += S3(vals[4]) + F1(vals[4], vals[5], vals[6]);
             vals[3] += temp;
             vals[7] = temp + S2(vals[0]) + F0(vals[0], vals[1], vals[2]);
-        
+
             const auint seven = vals[7];
             for(auint cp = 7; cp; cp--) vals[cp] = vals[cp - 1];
             vals[0] = seven; // hopefully the compiler unrolls this for me
@@ -103,7 +103,7 @@ private:
         }
         for(auint cp = 0; cp < 8; cp++) v[cp] = vals[cp];
     }
-    
+
     /*! In legacy kernels the last steps don't even use Rx macros but rather RDx.
     For us, that's a bit more complicated: for readability reasons we use functions BUT
     in case functions get NOT inlined (not default, but sometimes happens) I cannot just
@@ -137,7 +137,7 @@ private:
         for(auint cp = 0; cp < 8; cp++) v[cp] = vals[cp];
     }
 
-    
+
     /*! Last but not least, there's another round variation where we use known
     constants instead of W values. */
     void SHAHalfRound_Constant(auint *v, const auint *w, const auint *k) {
@@ -155,7 +155,7 @@ private:
         }
         for(auint cp = 0; cp < 8; cp++) v[cp] = vals[cp];
     }
-    
+
     /* Taken directly from the monolithic OpenCL kernel, but I don't need unrolling there, I have plenty of caches */
     void SHA256(auint *hio) {
         const auint IV[8] =  {
@@ -242,7 +242,7 @@ private:
         for(auint el = 0; el < 8; el++) hash[el] += IV[el];
         auint firstHash[8];
         for(auint cp = 0; cp < 8; cp++) firstHash[cp] = hash[cp];
-        
+
         SHAHalfRound_Constant(hash, WK[0], K[0] + 0);
         SHAHalfRound_Constant(hash, WK[1], K[0] + 8);
         SHAHalfRound_Constant(hash, WK[2], K[1] + 0);

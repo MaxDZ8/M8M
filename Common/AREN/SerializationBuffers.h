@@ -81,7 +81,7 @@ private:
 
 	template<class PODType>
 	void WriteImplementation(PODType store) {
-		if(byteCount - consumed < sizeof(store)) throw new std::exception("buffer too small, cannot write required byte count."); 
+		if(byteCount - consumed < sizeof(store)) throw new std::exception("buffer too small, cannot write required byte count.");
 		store = HTON(store); // Differently from AREN, this saves in NETWORK BIG ENDIAN ORDER, not in X86 order.
 		memcpy_s(blob + consumed, byteCount - consumed, &store, sizeof(store));
 		consumed += sizeof(store);
@@ -92,7 +92,7 @@ public:
 	DestinationStream(aushort* arr, const asizei count) : byteCount(count * 2), blob(reinterpret_cast<aubyte*>(arr)), consumed(0) { }
 	DestinationStream(auint* arr, const asizei count) : byteCount(count * 4), blob(reinterpret_cast<aubyte*>(arr)), consumed(0) { }
 	asizei Consumed() const { return consumed; }
-	
+
 	// Stuff here could be templated. But I won't, I want to allow this only for specific types. This is thereby a quite boring file.
 	// AREN has explicit Write calls. They resisted as I rarely touch serialization anymore, but this is really going differently.
 	DestinationStream& operator<<(const aubyte &store)  { WriteImplementation(store);    return *this; }

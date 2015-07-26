@@ -19,7 +19,7 @@ public:
 private:
 	MiningPerformanceWatcherInterface &devices;
 	AbstractInternalPush* NewPusher() { return new Pusher(devices); }
-	
+
 	class Pusher : public AbstractInternalPush {
 		MiningPerformanceWatcherInterface &devices;
 		std::vector<MiningPerformanceWatcherInterface::DevStats> poll;

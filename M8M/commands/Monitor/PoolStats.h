@@ -43,7 +43,7 @@ private:
 	ValueSourceInterface &workers;
 
 	AbstractInternalPush* NewPusher() { return new Pusher(workers); }
-	
+
 	class Pusher : public AbstractInternalPush {
 		ValueSourceInterface &workers;
 		std::vector<ShareStats> sent;
@@ -53,7 +53,7 @@ private:
 		bool MyCommand(const std::string &signature) const { return strcmp(signature.c_str(), "poolStats") == 0; }
 		std::string GetPushName() const { return std::string("poolStats"); }
 		void SetState(const rapidjson::Value &input) {
-			asizei count = 0; 
+			asizei count = 0;
 			ShareStats out;
 			while(workers.GetPoolShareStats(out, count)) count++;
 			sent.resize(count);

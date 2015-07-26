@@ -15,7 +15,7 @@ public:
         virtual asizei GetNumEntries() const = 0; //!< basically number of devices, each device an array of possible reject reasons
         virtual asizei GetNumRejectedConfigs(asizei dev) const = 0; //!< number of failing configs for device dev
         virtual std::vector<std::string> GetRejectionReasons(asizei dev, asizei entry) const = 0; //!< list of rejection description strings
-        virtual auint GetRejectedConfigIndex(asizei dev, asizei entry) const = 0; //!< config index attempted 
+        virtual auint GetRejectedConfigIndex(asizei dev, asizei entry) const = 0; //!< config index attempted
     };
 
 	RejectReasonCMD(RejInfoProviderInterface &why) : rejectReasons(why), AbstractCommand("rejectReason") { }

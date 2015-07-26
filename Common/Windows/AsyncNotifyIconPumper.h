@@ -46,7 +46,7 @@ private:
 		AsyncOwned() : windowHandle(0), contextMenu(0), osIcon(0), removeFromNotificationArea(false), iconGraphics(nullptr) { }
 		// No dtor. Automatically cleared by the other thread!
 	} asyncOwned;
-	
+
     UINT iconIndex;
     NotifyIconThreadShare *shared;
     std::mutex *mutex;
@@ -63,7 +63,7 @@ private:
 
     HMENU GenMenu();
     void UpdateMessage();
-	void UpdateIconNCaption(); 
+	void UpdateIconNCaption();
 	void Update(MenuItem &mi, const MenuItemEvent &mod);
 };
 

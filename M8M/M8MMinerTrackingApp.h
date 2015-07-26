@@ -70,7 +70,7 @@ protected:
     std::vector<std::vector<DeviceRejection>> devRejects;
 
     SyncMiningPerformanceWatcher perfStats;
-    
+
     struct TimeLapseShareStats : commands::monitor::DeviceShares::ShareStats {
         std::chrono::time_point<std::chrono::system_clock> first;
         adouble totalDiff; //!< computing this on long time laps requires care... but fairly accurate up to 16 Mil values so let's take it easy for now.

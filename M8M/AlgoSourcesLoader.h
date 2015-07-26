@@ -71,7 +71,7 @@ private:
             std::string name, version;
             aulong signature = 0;
             const std::string *algo = nullptr;
-            SignedAlgoIdentifier GetAlgoIdentifier() const { 
+            SignedAlgoIdentifier GetAlgoIdentifier() const {
                 SignedAlgoIdentifier ret;
                 ret.algorithm = *algo;
                 ret.implementation = name;
@@ -154,7 +154,7 @@ private:
             return own;
         }
     };
-    
+
     struct TruncateAdapter : AbstractAdapter, IntermediateHasherInterface {
         explicit TruncateAdapter() { name = "truncate"; }
         IntermediateHasherInterface* Generate(IntermediateHasherInterface *own, const rapidjson::Value &obj, bool last) {
@@ -173,7 +173,7 @@ private:
         asizei size = 0;
         std::unique_ptr<IntermediateHasherInterface> hasher;
 
-        
+
         std::vector<aubyte>& Hash(std::vector<aubyte> &hash, const std::vector<aubyte> &input) {
             hasher->Hash(hash, input);
             hash.resize(size);

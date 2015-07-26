@@ -15,7 +15,7 @@
 
 /*! After more than 1 year in the works, I think it's a good idea to recap what AbstractWorkSources were supposed to be and what they really are.
 In the initial design they were supposed to be hubs to groups of pools, with derived classes implementing the policy to decide which pool to use to when getting new work.
-Those hubs were supposed to implement the functionality legacy miners use to distribute work across multiple pools. 
+Those hubs were supposed to implement the functionality legacy miners use to distribute work across multiple pools.
 
 In practice, the only thing I managed to envision was the "WorkSource", according to the idea of derived objects to be set of pools, with this being the simplest
 policy of dropping everything but the first pool.
@@ -39,7 +39,7 @@ public:
     const PoolInfo::MerkleMode merkleMode;
     const PoolInfo::DiffMultipliers diffMul;
     const PoolInfo::DiffMode diffMode;
-	
+
 	std::function<void(const AbstractWorkSource &me, asizei id, StratumShareResponse shareStatus)> shareResponseCallback;
     std::function<void(const AbstractWorkSource &, const std::string &worker, StratumState::AuthStatus status)> workerAuthCallback;
 
@@ -69,7 +69,7 @@ public:
     /*! Blindly send shares. Initially, this filtered the values by "stale" status but it's now just a forwarder, that logic is delegated.
     \return Index of this result in the global stream to the pool. You can use this to reconstruct info from callbacks.
     \note It is assumed this is called only if IsCurrentJob returns true so stratum is assumed to be there. */
-	asizei SendShare(const std::string &job, auint ntime, auint nonce2, auint nonce) { 
+	asizei SendShare(const std::string &job, auint ntime, auint nonce2, auint nonce) {
 		return stratum->SendWork(job, ntime, nonce2, nonce);
 	}
 
@@ -117,7 +117,7 @@ protected:
 	virtual std::pair<bool, asizei> Receive(abyte *storage, asizei rem) throw() = 0;
 
 	std::unique_ptr<StratumState> stratum;
-    
+
     //! Upon creation, AbstractWorkSources can be used in the sense they won't crash if you call their funcs but they don't do anything useful until
     //! some outer code builds a connection to server and initiates stratum handshaking. This is performed by creating a brand new stratum state.
     typedef std::vector< std::pair<const char*, const char*> > Credentials;
@@ -146,7 +146,7 @@ private:
 			data.reset(bigger);
 			allocated += 2048;
 		}
-		RecvBuffer() : used(0), data(new char[4096]), allocated(4096)  { 
+		RecvBuffer() : used(0), data(new char[4096]), allocated(4096)  {
 			#if _DEBUG
 				memset(data.get(), 0, 4096);
 			#endif
@@ -187,7 +187,7 @@ private:
 		    if(littleEndianAlgo) {
 			    aulong blob = BETOH(*src) & 0xFFFFFF00;
 			    blob <<= 8;
-			    blob = 
+			    blob =
 			    diff = SWAP_BYTES(blob);
 			    numerator = static_cast<double>(algoDiffNumerator);
 		    }
@@ -201,7 +201,7 @@ private:
 		    networkDiff = numerator / double(diff);
 	    }
     };
-    
+
 
 
     /*! Build the "target string", a more accurate representation of the real 256-bit difficulty.

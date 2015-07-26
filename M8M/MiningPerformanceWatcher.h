@@ -94,7 +94,7 @@ public:
             collect.iterations = 0;
         }
     }
-    
+
     // base class
     size_t GetNumDevices() const { return stats.size(); }
     bool GetPerformance(DevStats &out, size_t dev) const {

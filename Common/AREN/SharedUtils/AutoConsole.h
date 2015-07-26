@@ -47,7 +47,7 @@ public:
         if(owner == auint(~0)) owner = ATTACH_PARENT_PROCESS;
         if(!AttachConsole(owner)) throw "Failed to attach console!";
     }
-	~AutoConsole() { 
+	~AutoConsole() {
 		if(prevIn) std::cin.rdbuf(prevIn);
 		if(prevErr) std::cerr.rdbuf(prevErr);
 		if(prevOut) std::cout.rdbuf(prevOut);

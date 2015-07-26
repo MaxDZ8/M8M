@@ -106,7 +106,7 @@ private:
             exitedThreads++; // not quite yet but what can possibly go wrong at this point? It's the best we can do.
         };
     }
-    
+
     //! In this function I mostly take care of the work to mangle. Once decided what to do PumpDispatcher is the real deal.
     void MiningPump(Miner &self, ThreadResources &heap) {
         bool newWork = false, newDiff = false;
@@ -225,7 +225,7 @@ private:
         }
     }
 
-    
+
     void TickStatus(Miner &self) {
         std::unique_lock<std::mutex> lock(self.sync);
         self.lastUpdate = std::chrono::system_clock::now();

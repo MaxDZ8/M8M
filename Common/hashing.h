@@ -9,12 +9,12 @@
 
 namespace hashing {
 
-	
+
 
 /*! A bit of warning about the LenType parameter.
 The SHA standard mandates the use of a 64-bit length and SHA blocks must be sized according to that length.
 However, some implementation only use 32bit length. They still reserve 8 bytes, but only use 4.
-Because of bit order packing, I cannot just write a 64-bit because for example, 
+Because of bit order packing, I cannot just write a 64-bit because for example,
 len=0x1234ABCD					len=0x000000001234ABCD
 written as (last eight bytes), big endian
 CDAB4312						CDAB431200000000
@@ -138,7 +138,7 @@ public:
 		auint g = h[6],  hp = h[7];
 		for(size_t inner = 0; inner < 64; inner++) {
 			auint t1 = hp + SumI(e) + Ch(e, f, g) + K[inner] + w[inner];
-			auint t2 = SumO(a) + Maj(a, b, c);			
+			auint t2 = SumO(a) + Maj(a, b, c);
 			hp = g;
 			g = f;
 			f = e;
@@ -308,7 +308,7 @@ void PBKDF2(std::array<auint, 32> &output, const std::array<auint, 20> &passwd)
 	HASHER::Digest ihashDWORD;
 	tstate.GetHashLE(ihashDWORD);
 	const auint *ihash = reinterpret_cast<const auint*>(ihashDWORD.data());
-	
+
 	HASHER hi;
 	for (auint i = 0; i <  8; i++) pad[i] = ihash[i] ^ 0x36363636;
 	for (auint i = 8; i < 16; i++) pad[i] = 0x36363636;
@@ -333,8 +333,8 @@ void PBKDF2(std::array<auint, 32> &output, const std::array<auint, 20> &passwd)
 	ho.BlockProcessing(reinterpret_cast<const aubyte*>(pad));
 	auint hobuf[16];
 	for(auint cp = 8; cp < 16; cp++) hobuf[cp] = outerpad[cp - 8];
-	
-	for(auint block = 0; block < 4; block++) {		
+
+	for(auint block = 0; block < 4; block++) {
 		HASHER istate(hi), ostate(ho);
 		hibuf[4] = block + 1;
 		auint endian[16];

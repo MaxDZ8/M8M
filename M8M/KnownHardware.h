@@ -59,7 +59,7 @@ struct KnownHardware {
 					if(mlen == limit - begin) {
 						if(!strncmp(match, begin, mlen)) return arch_gcn_1_x;
 					}
-					begin = limit + 1;					
+					begin = limit + 1;
 				}
 			}
 

@@ -17,7 +17,7 @@ class OSUniqueChecker {
 #if _WIN32
 	/* A unique mutex to be named. This technique is noted in PSDK WinMain function documentation it is noted that
 	"... a malicious user may ... prevent your application from starting..."
-	however, the required machinery to avoid this issue doesn't seem worth it. 
+	however, the required machinery to avoid this issue doesn't seem worth it.
 	Perhaps it would be just a better idea to use a temporary file in user's %APPDATA */
 	HANDLE mutex;
 #else

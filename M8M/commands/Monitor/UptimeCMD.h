@@ -17,21 +17,21 @@ public:
         st_firstNonce
     };
 
-	class StartTimeProvider {
-	public:
-		virtual ~StartTimeProvider() { }
+    class StartTimeProvider {
+    public:
+        virtual ~StartTimeProvider() { }
         /*! Return the number of seconds elapsed since epoch. If zero is returned, the specific event didn't happen yet.
         Of course st_program always returns nonzero. */
         virtual std::chrono::seconds GetStartTime(StartTime st) const = 0;
-	};
+    };
 
-	UptimeCMD(const StartTimeProvider &src) : timings(src), AbstractCommand("uptime") { }
+    UptimeCMD(const StartTimeProvider &src) : timings(src), AbstractCommand("uptime") { }
 
 
 private:
-	const StartTimeProvider &timings;
-    
-	PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
+    const StartTimeProvider &timings;
+
+    PushInterface* Parse(rapidjson::Document &build, const rapidjson::Value &input) {
         build.SetObject();
         StartTime key[] = { st_program, st_hashing, st_firstNonce };
         const char *keyName[] = { "program", "hashing", "nonce", nullptr };
@@ -40,7 +40,7 @@ private:
             if(value) build.AddMember(rapidjson::StringRef(keyName[loop]), value, build.GetAllocator());
         }
         return nullptr;
-	}
+    }
 };
 
 
