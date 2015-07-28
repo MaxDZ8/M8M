@@ -28,11 +28,11 @@ var preferredImplementation = {
     neoScrypt: "smooth"
 };
 
-        
+
 window.onload = function() {
     window.keepUntilConnect = document.getElementById("administration");
     window.keepUntilConnect.parentNode.removeChild(window.keepUntilConnect);
-    
+
     var wzSteps = document.getElementById("easyConfigSteps");
     for(var loop = 0; loop < wzSteps.childNodes.length; loop++) {
         if(wzSteps.childNodes[loop].tagName !== "DIV") continue;
@@ -50,11 +50,11 @@ window.onload = function() {
     };
     var target = document.getElementById("hostname");
     target.textContent = "localhost";
-    
+
     var callbacks = { };
     callbacks.fail = failure;
     callbacks.close = function() { alert("socket close"); };
-    
+
     var serverHost = "localhost";
     var serverPort = 31001;
     callbacks.success = function() {
@@ -66,7 +66,7 @@ window.onload = function() {
     };
     callbacks.pingTimeFunc = function(time) { presentation.showReplyTime(time); };
     window.minerMonitor = new MinerMonitor(serverHost, serverPort, "admin", callbacks);
-    
+
     function mangleConfigFile(obj) {
         var where = document.getElementById("configure");
         var msg;
@@ -83,7 +83,7 @@ window.onload = function() {
         where.innerHTML = msg;
         minerMonitor.requestSimple("getRawConfig", mangleConfigProbing);
     }
-    
+
     function startEasyConfigWizard() {
         // For the easy config wizard, I take it easy! I remove everything which is not really necessary.
         minerMonitor.callbacks.pingTimeFunc = undefined;
@@ -142,7 +142,7 @@ window.onload = function() {
         where.innerHTML += msg;
         if(btn) where.appendChild(btn);
     }
-    
+
     function normalChar(c) {
         switch(c) {
         case ' ': return "&nbsp;";
@@ -151,7 +151,7 @@ window.onload = function() {
         }
         return c;
     }
-    
+
     function startModifyConfig() {
         minerMonitor.callbacks.pingTimeFunc = undefined;
         document.body.removeChild(document.getElementById("administration"));
@@ -171,7 +171,7 @@ window.onload = function() {
             minerMonitor.requestSimple("getRawConfig", getCurrentConfigValues);
         });
     }
-    
+
     function getCurrentConfigValues(reply) {
         window.server.currentConfig = reply.configuration;
         getOptionIndex(document.getElementById("modAlgo"), reply.configuration.algo).selected = true;
@@ -199,8 +199,8 @@ window.onload = function() {
         }
         destroy.parentNode.removeChild(destroy);
     }
-    
-    
+
+
     function getOptionIndex(sel, value) {
         for(var loop = 0; loop < sel.length; loop++) {
             if(sel.item(loop).tagName === "OPTION") { // sel[loop]
@@ -209,7 +209,7 @@ window.onload = function() {
         }
         throw "Option having value \"" + value + "\" not present in passed " + sel.tagName + " control.";
     }
-    
+
     // This will have to go in the future! Main problem is objects don't guarantee order.
     // To be switched back to array, most likely to be used on top.
     function singlePoolRequired(allp) {
@@ -234,7 +234,7 @@ function eligibleGPUListFromPlatformArray(plat) {
             if(device.type !== "GPU") continue;
             var cmp = "Graphics Core Next 1.";
             if(device.arch.substr(0, cmp.length) !== cmp) continue;
-            gpu.push(device);                
+            gpu.push(device);
         }
     }
     return gpu;

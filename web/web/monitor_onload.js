@@ -25,7 +25,7 @@ window.onload = function() {
             if(bar) bar.parentNode.removeChild(bar);
         }
         else /*if(monitoring) guaranteed to be here */ {
-            
+
         }
     };
     var serverHost = "localhost";
@@ -46,21 +46,21 @@ window.onload = function() {
     var target = document.getElementById("hostname");
     target.textContent = "localhost";
     window.minerMonitor = new MinerMonitor(serverHost, serverPort, "monitor", callbacks);
-    
+
     function version_callback(gotVer) {
         var wanted = 4;
         if(gotVer.protocol !== wanted) {
             failure("Version mismatch. Got " + gotVer + " but must be " + wanted);
             window.minerMonitor.socket.close();
             delete window.minerMonitor;
-        
+
             minerMonitor.requestSimple('uptime', uptime_callback);
             return;
         }
         document.body.removeChild(document.getElementById("initializing"));
         document.body.appendChild(window.keepUntilConnect);
         delete window.keepUntilConnect;
-        
+
         document.getElementById("server").textContent = serverHost + ":" + serverPort;
         window.miner.compiled = gotVer.build.date + ' (' + gotVer.build.time + ')';
         window.miner.msg = gotVer.build.msg;
@@ -73,16 +73,16 @@ window.onload = function() {
         algoTable += '</tr></thead><tbody id="algoTable"></tbody></table>';
         div.innerHTML = '<h3>Miner informations</h2>Compiled ' + window.miner.compiled + '<br>' +
             (window.miner.msg.length? '<br>' + window.miner.msg : '') + algoTable +
-            "<h3>Run time</h2>" + 
+            "<h3>Run time</h2>" +
             "Since program initialized: <span id='progElapsed'></span><br>" +
             "Since hashing started: <span id='hashElapsed'></span><br>" +
             "First nonce found: <span id='firstNonceTime'></span><br>";
         div.appendChild(window.appHelp.makeDetailShowHideButton(div, "Close"));
         document.getElementById('perfMode').onchange = refreshPerformanceCells;
-        
+
         minerMonitor.requestSimple('uptime', uptime_callback);
     }
-    
+
     function uptime_callback(obj) {
         window.miner.programStart = new Date(obj.program * 1000);
         window.miner.hashingStart = obj.hashing? new Date(obj.hashing * 1000) : false;
@@ -99,10 +99,10 @@ window.onload = function() {
 			if(window.miner.hashingStart) he.textContent = window.appHelp.readableHHHHMMSS(now - window.miner.hashingStart);
 			else he.innerHTML = '<em>Not started (yet?).</em>';
         }, 1000);
-        
+
         minerMonitor.requestSimple('algos', algos_callback);
     }
-    
+
     function algos_callback(algos) {
         window.miner.algos = algos;
         for(var key in algos) {
@@ -127,14 +127,14 @@ window.onload = function() {
                 algoTable.appendChild(tr);
             }
         }
-        
+
         minerMonitor.requestSimple('systemInfo', systemInfo_callback);
     }
-    
+
     function systemInfo_callback(reply) {
         miner.api = reply.API;
         miner.platforms = reply.platforms;
-        
+
         document.getElementById('M8M_API').innerHTML = miner.api;
         var linearIndex = 0;
         var tbody = document.getElementById('sysInfoDevices');
@@ -155,7 +155,7 @@ window.onload = function() {
                 var device = miner.platforms[pi].devices[di];
                 var tr = document.createElement('tr');
                 if(di == 0) appHelp.appendCell(tr, platDesc, miner.platforms[pi].devices.length);
-                
+
                 var chip = device.type + ', ' + (device.arch? '<strong>' + device.arch + '</strong>' : '');
                 chip += '<br><em>';
                 chip += device.chip.replace("(tm)", "\u2122").replace("(TM)", "\u2122")
@@ -164,7 +164,7 @@ window.onload = function() {
                 chip += '</em>'; // + ' (0x' + device.vendorID.toString(16) + ')';
                 chip += '<br>' + device.clusters + ' cores @ ' + device.coreClock + ' Mhz';
                 appHelp.appendCell(tr, chip);
-                
+
                 var global = "RAM: " + Math.floor(device.globalMemBytes / 1024 / 1024) + " MiB";
                 var cache = "Cache: " + Math.floor(device.globalMemCacheBytes / 1024) + " KiB";
                 var lds = "";
@@ -174,20 +174,20 @@ window.onload = function() {
                     if(device.ldsType == "global") lds += "(emu)";
                 }
                 appHelp.appendCell(tr, global + '<br>' + cache + '<br>' + lds);
-                
+
                 // Configuration cell. I temporarely (and very inappropriately) store an handle
                 // in the miner representation structure. I will remove it later after being populated.
                 device.configCell = appHelp.appendCell(tr, '...');
-                
+
                 appHelp.appendCell(tr, '' + linearIndex);
-                
+
                 tbody.appendChild(tr);
                 miner.platforms[pi].devices[di].linearIndex = linearIndex++;
             }
-            
+
             minerMonitor.requestSimple('configInfo', configInfo_callback);
         }
-        
+
         function quirkyColCount(tbody) {
             var table = tbody.parentNode;
             var count = 5; // because it counts 5 now
@@ -201,17 +201,17 @@ window.onload = function() {
             return count;
         }
     }
-    
+
     var numConfigs = 0;
     function configInfo_callback(reply) {
         // "system information" table, "configuration" column
         // put used configs in place and device pattern canvas
         configInfo_deviceMapping(reply);
         minerMonitor.requestSimple('rejectReason', rejectReason_callback);
-		
+
 		// configInfo_deviceMapping also sets the algo being mined. This allows me to filter the pools a bit.
 		minerMonitor.requestSimple('pools', pools_callback);
-        
+
         // In the meanwhile, let's build the rows of the performance table.
         var tbody = document.getElementById('performance');
         for(var loop = 0; loop < monitorState.usedDevices.length; loop++) {
@@ -247,7 +247,7 @@ window.onload = function() {
 			minerMonitor.requestStream('scanTime', scanTime_callback);
 			minerMonitor.requestStream('deviceShares', deviceShares_callback);
         }
-		
+
         function genTDAppend(container, arr) {
             var ret = {};
             for(var loop = 0; loop < arr.length; loop++) {
@@ -259,7 +259,7 @@ window.onload = function() {
             return ret;
         }
     };
-    
+
     var LEGEND_CANVAS_SIZE_PX = 16;
     function configInfo_deviceMapping(reply) {
         if(reply === null) {
@@ -340,7 +340,7 @@ window.onload = function() {
                 // not deleted yet, we delete it on probing device reject reasons
             }
         }
-        
+
         function byDeviceIndex(linearDeviceIndex) {
             for(var check = 0; check < reply.selected.length; check++) {
                 for(var innerCheck = 0; innerCheck < reply.selected[check].active.length; innerCheck++) {
@@ -351,7 +351,7 @@ window.onload = function() {
             }
             return '[ERROR - impossible]';
         }
-        
+
         function getAlgoImpl(linearDeviceIndex) {
             for(var check = 0; check < reply.selected.length; check++) {
                 for(var innerCheck = 0; innerCheck < reply.selected[check].active.length; innerCheck++) {
@@ -363,10 +363,10 @@ window.onload = function() {
             return '[ERROR - impossible]';
         }
     }
-    
+
 	var FAINT_GREEN = '#EEFFEE';
 	var FAINT_RED = '#FFEEEE';
-	
+
     function rejectReason_callback(reply) {
         var linearDevices = [];
         var localIndex = [];
@@ -400,12 +400,12 @@ window.onload = function() {
                     inner += describe(find, cfg); // d3 here? This is easy...
                 }
                 table.innerHTML = inner + '</tbody>';
-                div.appendChild(table);                
+                div.appendChild(table);
             //}
             div.appendChild(window.appHelp.makeDetailShowHideButton(div, "Close"));
             delete linearDevices[loop].configCell;
         }
-        
+
         function describe(reasons, cfgIndex) {
             var ret = '<tr style="background-color: ';
             ret += reasons === undefined? FAINT_GREEN : FAINT_RED;
@@ -419,7 +419,7 @@ window.onload = function() {
             return ret + '</td></tr>';
         }
     }
-    
+
     function scanTime_callback(msg) {
         document.getElementById('twindow').textContent = msg.twindow;
         var dev = 0;
@@ -447,7 +447,7 @@ window.onload = function() {
 				canvas.width = container.clientWidth - 20;
 				canvas.height = 300;
 				var ctx = canvas.getContext('2d');
-				
+
 				monitorState.perfSamples = [];
 				monitorState.perfSamples.length = canvas.width; // one pixel, one entry.
 				var now = Date.now();
@@ -458,22 +458,22 @@ window.onload = function() {
 					obj.y.length = monitorState.usedDevices.length;
 					for(var clear = 0; clear < monitorState.usedDevices.length; clear++) obj.y[clear] = NaN;
 					// I want zeros, not undefined-s
-					//for(var clear = 0; clear < monitorState.usedDevices.length; clear++) obj.y[clear] = (Math.sin(clear * Math.PI * .15 + init * .0125 * (clear + 1)) * 1234 + 1234)*500;	
+					//for(var clear = 0; clear < monitorState.usedDevices.length; clear++) obj.y[clear] = (Math.sin(clear * Math.PI * .15 + init * .0125 * (clear + 1)) * 1234 + 1234)*500;
 					now -= 1000;
 					monitorState.perfSamples[init] = obj;
 				}
-				
+
 				var pattern = [];
 				pattern.length = monitorState.usedDevices.length;
 				for(var d = 0; d < monitorState.usedDevices.length; d++) {
 					pattern[d] = window.monitorState.getDevicePattern(monitorState.usedDevices[d].device.linearIndex);
 				}
-				
+
 				var hoveringSample = null;
 				monitorState.grapher = new StackedSampleChart(monitorState.perfSamples, canvas);
 				monitorState.grapher.areaFillStyle = pattern;
 				monitorState.grapher.draw();
-				
+
 				window.setInterval(function() {
 					var obj = {};
 					obj.x = new Date();
@@ -495,7 +495,7 @@ window.onload = function() {
 			}
 		}
     }
-    
+
     function refreshPerformanceCells() {
         var hrTotal = 0;
         var byHashRate = document.getElementById('perfMode').value === 'Hashrate';
@@ -516,7 +516,7 @@ window.onload = function() {
                 if(sub === 2) hrTotal += hr;
 				/* ^ 'last' varies the most, but avg_short is more reliable, especially when
 				multiple work queues are dispatched to the same device. */
-                var iso = window.appHelp.base10Divisor(hr);            
+                var iso = window.appHelp.base10Divisor(hr);
                 var ms = mangle.value;
                 if(byHashRate === false) mangle.cell.textContent = ms;
                 else if(hr > biggest.hr) {
@@ -549,7 +549,7 @@ window.onload = function() {
 		iso.hrTotal = hrTotal;
 		return iso;
     }
-    
+
     function deviceShares_callback(msg) {
         // Quirk: update nonce time if we connected before one was found.
         // The correct way to do this would be to send another 'runtime' command but it's not like this is very useful after all.
@@ -582,7 +582,7 @@ window.onload = function() {
             udev.dspsCell.textContent = msg.dsps[udev.device.linearIndex].toFixed(3);
         }
     }
-	
+
 	function pools_callback(arr) {
 		monitorState.configuredPools.length = arr.length;
 		var container = document.getElementById('configuredPools');
@@ -610,15 +610,15 @@ window.onload = function() {
                     activated: null,
                     numActivations: 0,
                     cumulatedTime: 0,
-					
+
 					sent: 0,
                     accepted: 0,
                     rejected: 0,
                     daps: .0,
-					
+
                     lastSubmitReply: null,
                     lastActivity: null,
-					
+
 					table: {
 						status: null, // yes/no, toggled depending if currently connected or not.
 						detailsDiv: null, // I need to update this bgcolor and contents on connect/disconnect of each pool
@@ -631,7 +631,7 @@ window.onload = function() {
 						activated: null, // child of detailsDiv
 						numActivations: null, // child of detailsDiv
 						cumulatedTime: null, // child of detailsDiv
-						
+
 						connLogBody: null, // child of a table child of detailsDiv, we put in a <tr> each observed new connection
 						connRow: null // will be object containing handles to 'td' to populate when a connection goes off.
 					}
@@ -640,7 +640,7 @@ window.onload = function() {
 			else monitorState.configuredPools[loop] = null;
 			container.appendChild(tr);
 		}
-		
+
 		var container = document.getElementById('enabledPools');
 		var divParent = container.parentNode.parentNode;
 		for(var loop = 0; loop < arr.length; loop++) {
@@ -657,15 +657,15 @@ window.onload = function() {
 			entry.table.detailsDiv = appHelp.makeFloatingDetailsDiv();
 			initConnDetailsDiv(entry.table.detailsDiv, name, entry.table);
 			divParent.appendChild(entry.table.detailsDiv);
-			cell.appendChild(appHelp.makeDetailShowHideButton(entry.table.detailsDiv, 'Connection log'));	
+			cell.appendChild(appHelp.makeDetailShowHideButton(entry.table.detailsDiv, 'Connection log'));
 			entry.table.sent = appHelp.appendCell(tr, null);
 			entry.table.accepted = appHelp.appendCell(tr, null);
 			entry.table.rejected = appHelp.appendCell(tr, null);
-			entry.table.daps = appHelp.appendCell(tr, null);		
+			entry.table.daps = appHelp.appendCell(tr, null);
 			container.appendChild(tr);
 		}
 		minerMonitor.requestStream('poolStats', poolStats_callback);
-		
+
 		function initConnDetailsDiv(div, name, handles) {
 			div.innerHTML = '<h3>Observed connection status</h3><strong>For pool "' + name + '"</strong><br>';
 			var table = document.createElement('table');
@@ -684,14 +684,14 @@ window.onload = function() {
 				table.appendChild(tr);
 			}
 			var tconn = document.createElement('table');
-			tconn.innerHTML = '<caption>Observed sessions</caption>' + 
+			tconn.innerHTML = '<caption>Observed sessions</caption>' +
 			                  '<thead><tr><th>Estabilished</th><th>Disconnected</th><th>Duration</th></tr></thead>'
 			handles.connLogBody = document.createElement('tbody');
 			tconn.appendChild(handles.connLogBody);
 			div.appendChild(table);
 			div.appendChild(tconn);
 			div.appendChild(appHelp.makeDetailShowHideButton(div, 'Close'));
-			
+
 			function addSpan(container, text, br) {
 				var span = document.createElement('span');
 				span.textContent = text;
@@ -701,7 +701,7 @@ window.onload = function() {
 			}
 		}
 	}
-	
+
 	function describeWorkerAuth(workerData) {
 		var ret = '<span class="minerLogin">' + workerData.login + '</span> - ';
 		switch(workerData.authorized) {
@@ -715,7 +715,7 @@ window.onload = function() {
 		}
 		return ret;
 	}
-	
+
 	function poolStats_callback(arr) {
 		for(var loop = 0; loop < arr.length; loop++) {
 			if(arr[loop] === null) continue; // no changes till previous
@@ -760,12 +760,12 @@ window.onload = function() {
 			//	return appHelp.readableHHHHMMSS(value * 1000) + ' (' + value + ' seconds)';
 			//});
 			if(arr[loop].cumulatedTime !== undefined && arr[loop].cumulatedTime !== entry.cumulatedTime) entry.cumulatedTime = +arr[loop].cumulatedTime;
-			
+
 			rememberSession(previously, entry);
 		}
-		
+
 		window.setInterval(refreshCumulated, 1000);
-		
+
 		function cupdate(src, state, key, func) {
 			if(src[key] === undefined) return;
 			var newValue = +src[key];
@@ -773,12 +773,12 @@ window.onload = function() {
 			state[key] = newValue;
 			state.table[key].innerHTML = func? func(newValue) : newValue;
 		}
-		
+
 		function fromSeconds(seconds) {
 			var date = new Date(seconds * 1000);
 			return date.toLocaleString();
 		}
-		
+
 		/* What this does. It monitors connection state from activated and keeps a list of connections around
 		which are used to populate a table listing the connections... */
 		function rememberSession(was, now) {
@@ -798,7 +798,7 @@ window.onload = function() {
 				else {
 					if(was.activated === null) return;
 					//^ this happens when I connect to a miner while the pool is offline.
-					
+
 					if(now.table.connRow === null)
 						alert("Inconsistent pool going down but no cells to update."); // "impossible" (emphasis added)
 					var estabilished = new Date(was.activated * 1000); // I'm pretty positive the logic calling this mantains the value
@@ -813,7 +813,7 @@ window.onload = function() {
 			//else if(was.lastConnDown !== now.lastConnDown) {
 			//}
 		}
-		
+
 		function refreshCumulated() {
 			for(var loop = 0; loop < monitorState.configuredPools.length; loop++) {
 				var entry = monitorState.configuredPools[loop];
