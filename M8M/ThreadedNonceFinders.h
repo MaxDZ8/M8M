@@ -152,8 +152,7 @@ private:
             else { // I must get another one; easiest way is to just give up and the policy will get me one next time but handle the ref counting
                 auto factory(std::find(usedFactories.begin(), usedFactories.end(), heap.myWork));
                 self.dispatcher->Cancel(heap.waiting);
-                heap.algoStarted = true;
-                QueryPerformanceCounter(&heap.startTick);
+                heap.algoStarted = false;
                 heap.myWork = nullptr;
                 RemFactory(factory->res.get());
                 return;
