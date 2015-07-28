@@ -5,9 +5,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="AlgoImplementations">
-      <UniqueIdentifier>{10749c18-2b41-4e69-8643-1b363bcac4cc}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Commands">
       <UniqueIdentifier>{82047d60-ca08-4102-ba50-a2c1c0b85ac9}</UniqueIdentifier>
     </Filter>
@@ -43,22 +40,13 @@
     <ClInclude Include="commands\VersionCMD.h">
       <Filter>Commands</Filter>
     </ClInclude>
-    <ClInclude Include="commands\Monitor\AlgoCMD.h">
-      <Filter>Commands\Monitor</Filter>
-    </ClInclude>
     <ClInclude Include="commands\Monitor\ConfigInfoCMD.h">
-      <Filter>Commands\Monitor</Filter>
-    </ClInclude>
-    <ClInclude Include="commands\Monitor\DeviceConfigCMD.h">
       <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\DeviceShares.h">
       <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\PoolCMD.h">
-      <Filter>Commands\Monitor</Filter>
-    </ClInclude>
-    <ClInclude Include="commands\Monitor\PoolShares.h">
       <Filter>Commands\Monitor</Filter>
     </ClInclude>
     <ClInclude Include="commands\Monitor\RejectReasonCMD.h">
@@ -85,18 +73,6 @@
     <ClInclude Include="commands\Admin\ConfigFileCMD.h">
       <Filter>Commands\Admin</Filter>
     </ClInclude>
-    <ClInclude Include="AlgoImplementations\FreshWarmCL12.h">
-      <Filter>AlgoImplementations</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoImplementations\MYRGRSMonolithicCL12.h">
-      <Filter>AlgoImplementations</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoImplementations\NeoscryptSmoothCL12.h">
-      <Filter>AlgoImplementations</Filter>
-    </ClInclude>
-    <ClInclude Include="AlgoImplementations\QubitFiveStepsCL12.h">
-      <Filter>AlgoImplementations</Filter>
-    </ClInclude>
     <ClInclude Include="AbstractAlgorithm.h" />
     <ClInclude Include="AbstractNonceFindersBuild.h" />
     <ClInclude Include="AbstractSpecialValuesProvider.h" />
@@ -115,6 +91,23 @@
     <ClInclude Include="StartParams.h" />
     <ClInclude Include="StopWaitDispatcher.h" />
     <ClInclude Include="ThreadedNonceFinders.h" />
+    <ClInclude Include="commands\Monitor\AlgosCMD.h">
+      <Filter>Commands\Monitor</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\Monitor\PoolStats.h">
+      <Filter>Commands\Monitor</Filter>
+    </ClInclude>
+    <ClInclude Include="AlgoImplUserTracker.h" />
+    <ClInclude Include="AlgoSourcesLoader.h" />
+    <ClInclude Include="DataDrivenAlgoFactory.h" />
+    <ClInclude Include="DataDrivenAlgorithm.h" />
+    <ClInclude Include="M8MConfiguredApp.h" />
+    <ClInclude Include="M8MIconApp.h" />
+    <ClInclude Include="M8MMiningApp.h" />
+    <ClInclude Include="M8MMinerTrackingApp.h" />
+    <ClInclude Include="M8MPoolConnectingApp.h" />
+    <ClInclude Include="M8MPoolMonitoringApp.h" />
+    <ClInclude Include="M8MWebServingApp.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc">

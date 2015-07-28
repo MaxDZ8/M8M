@@ -53,15 +53,15 @@
     <ClInclude Include="AREN\ScopedFuncCall.h">
       <Filter>AREN</Filter>
     </ClInclude>
-    <ClInclude Include="AREN\SharedUtils\AutoCommandLine.h">
-      <Filter>AREN\SharedUtils</Filter>
-    </ClInclude>
     <ClInclude Include="Stratum\Work.h">
       <Filter>Stratum</Filter>
     </ClInclude>
     <ClInclude Include="PoolInfo.h" />
     <ClInclude Include="AbstractNotifyIcon.h" />
     <ClInclude Include="WorkSource.h" />
+    <ClInclude Include="AREN\SharedUtils\dirControl.h">
+      <Filter>AREN\SharedUtils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="aes.cpp" />

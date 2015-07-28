@@ -17,8 +17,8 @@
     <ClInclude Include="AREN\ArenDataTypes.h" />
     <ClInclude Include="AREN\ScopedFuncCall.h" />
     <ClInclude Include="AREN\SerializationBuffers.h" />
-    <ClInclude Include="AREN\SharedUtils\AutoCommandLine.h" />
     <ClInclude Include="AREN\SharedUtils\AutoConsole.h" />
+    <ClInclude Include="AREN\SharedUtils\dirControl.h" />
     <ClInclude Include="AREN\SharedUtils\OSUniqueChecker.h" />
     <ClInclude Include="BTC\Funcs.h" />
     <ClInclude Include="BTC\structs.h" />
