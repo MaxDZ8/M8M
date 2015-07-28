@@ -35,10 +35,15 @@ protected:
         }
     } psPolicy;
 
+
 private:
     struct ThreadResources : Miner::HeapResourcesInterface {
         std::chrono::milliseconds sleepInterval, workValidationInterval;
-        std::chrono::system_clock::time_point workValidated, algoStarted;
+        std::chrono::system_clock::time_point workValidated;
+#if defined _WIN32
+        bool algoStarted = false;
+        LARGE_INTEGER startTick; //!< in theory, QPC might return 0 as value so guard this
+#endif
 
         stratum::AbstractWorkFactory *myWork = nullptr;
         const void *owner = nullptr;
@@ -147,7 +152,8 @@ private:
             else { // I must get another one; easiest way is to just give up and the policy will get me one next time but handle the ref counting
                 auto factory(std::find(usedFactories.begin(), usedFactories.end(), heap.myWork));
                 self.dispatcher->Cancel(heap.waiting);
-                heap.algoStarted = std::chrono::system_clock::time_point();
+                heap.algoStarted = true;
+                QueryPerformanceCounter(&heap.startTick);
                 heap.myWork = nullptr;
                 RemFactory(factory->res.get());
                 return;
@@ -159,14 +165,25 @@ private:
         PumpDispatcher(self, heap, newWork, newDiff);
     }
 
+
     void PumpDispatcher(Miner &self, ThreadResources &heap, bool newWork, bool newDiff) {
+        static LARGE_INTEGER counterFrequency = { 0 };
+        if(!counterFrequency.QuadPart) {
+            if(!QueryPerformanceFrequency(&counterFrequency)) {
+                throw "Pre-XP OS, not supported"; // oh cmon, that won't really happen!
+            }
+        }
+
         using namespace std::chrono;
         auto &dispatcher(*self.dispatcher);
-        if(heap.algoStarted == system_clock::time_point()) Feed(self, heap, newWork, newDiff);
+        if(!heap.algoStarted) Feed(self, heap, newWork, newDiff);
 
         auto what = dispatcher.Tick(heap.waiting);
         switch(what) {
-            case AlgoEvent::dispatched: heap.algoStarted = std::chrono::system_clock::now();    break;
+            case AlgoEvent::dispatched: 
+                heap.algoStarted = true;
+                QueryPerformanceCounter(&heap.startTick);
+                break;
             case AlgoEvent::exhausted: Feed(self, heap, true, newDiff);    break;
             case AlgoEvent::working: {
                 dispatcher.GetEvents(heap.waiting);
@@ -185,9 +202,13 @@ private:
                 TickStatus(self);
                 auto produced(dispatcher.GetResults()); // we know header already!
                 const auto devLinear(GetDeviceLinearIndex(dispatcher));
-                auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - heap.algoStarted);
+                LARGE_INTEGER now;
+                QueryPerformanceCounter(&now);
+                auto elapsedus = now.QuadPart - heap.startTick.QuadPart;
+                elapsedus *= 1000000;
+                elapsedus /= counterFrequency.QuadPart;
                 if(heap.iterations < 16) heap.iterations++;
-                else if(onIterationCompleted) onIterationCompleted(devLinear, produced.nonces.size() != 0, elapsed);
+                else if(onIterationCompleted) onIterationCompleted(devLinear, produced.nonces.size() != 0, microseconds(elapsedus));
                 if(produced.nonces.empty()) break;
                 auto matchPred = [&produced](const NonceValidation &test) { return test.header == produced.from; };
                 auto dispatch(*std::find_if(heap.flying.cbegin(), heap.flying.cend(), matchPred));
@@ -195,7 +216,7 @@ private:
                 verified.device = devLinear;
                 verified.nonce2 = dispatch.nonce2;
                 if(verified.Total()) Found(dispatch.generator, verified);
-                heap.algoStarted = system_clock::time_point();
+                heap.algoStarted = false;
             } break;
         }
 
