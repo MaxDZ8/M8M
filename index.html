@@ -10,7 +10,9 @@
 	<img src="M8M-normal-states.gif" alt="M8M icon and state colors" /><br>
 	<em>A minimalistic, hopefully educational cryptocurrency miner.</em>
 	<p>
-		Those pages serve as an online help for users looking to configure or run the program.<br>
+		<strong>Those pages serve as an online help</strong> for users looking to configure or run the program. They were last updated at release of version <strong>0.1.896 Beta</strong>
+	</p>
+	<p>
 		You can also find there information about the various concepts involved in development of M8M.
 		Hopefully those things will be elaborated to the point of becoming a decent source explanations regarding the cryptocurrency mining process.<br>
 		For more information about the design rationale and the history of the program, refer to <a href="https://github.com/MaxDZ8/M8M/blob/master/README.md">project readme</a>.<br>
@@ -18,11 +20,11 @@
 	<h2>System requirements</h2>
 	<ul>
 		<li><strong>Windows 7 or later.</strong></li>
-		<li>At least one OpenCL-enabled card. For the time being, this must based on <strong>Graphics Core Next</strong> architecture.
+		<li>At least one OpenCL-enabled card. I suggest to use <strong>Graphics Core Next</strong> architecture based cards.
 			<ul>
 				<li>Discrete cards branded Radeon 7000 or later (some mobile parts are effectively series 6000);</li>
 				<li>Radeon R series;</li>
-				<li>Recent APUs featuring GCN graphics, either <em>Kaveri</em> or <em>Kabini</em></li>
+				<li>Recent APUs featuring GCN graphics, either <em>Kaveri</em> or <em>Kabini</em> (again, those often sport an 'R' graphics adapter);</li>
 				<li>If not sure, you can find this information on the <a href="using/webmon.html">web interface</a>.</li>
 			</ul>
 			</li>
@@ -30,11 +32,14 @@
 	<h2>Usage</h2>
 	<ul>
 		<li>Performing a manual install is super simple: just extract to a folder of your choice.</li>
+		<li>There's a single executable which by default needs no parameters.</li>
 		<li>The <a href="using/firstrun.html">first run</a> is the most critical phase as you need to set your miner settings. To keep it easy, use the <a href="using/firstrun.html#configWizard">init config wizard</a>.</li>
-		<li>Daily use is as simple as double clicking the executable (have a shortcut if you're super lazy). You'll probably just want to play with the <a href="using/webmon.html">web monitor</a>.</li>
+		<li>Daily use is as simple as double clicking the executable (have a shortcut for lazyness or extra control). You'll probably just want to play with the <a href="using/webmon.html">web monitor</a>.</li>
 		<li>How to use <a href="using/multiconfig.html">multiple configuration</a> settings?</li>
-		<li><a href="using/webconf.html">Web administration</a> for easy changes and some troubleshooting.</li>
+		<li>Web administration is currently not there, besides the initial configuration. It will hopefully be provided as the machinery stabilizes.</li>
 		<li>What do <a href="https://docs.google.com/document/d/1wSefDj3mheZ7t0QyTTc1snTKX777zH5ZQgJ7oRpXAvI/edit?usp=sharing">the icons</a> mean?</li>
+		<li><a href='using/cmdLine.html'>Command line parameters</a></li>
+		<li>An overlook of the <a href='using/cfgStruct.html'>configuration file</a></li>
 	</ul>
 	<h2>Builds and releases</h2>
 	<p>
@@ -137,7 +142,22 @@
 		Some releases (regardless they get triple-version or not) will be tested with a certain driver. If you're not running that you're basically on your own.
 	</p>	
 	<h3>How can I avoid using a particular card? What about card-specific settings?</em></h3>
-	As of <a href="https://github.com/MaxDZ8/M8M/commit/3dca11c571eb2aeac8b069f578501cf33d43ab04">last commit to master branch</a> this is not possible. This feature will <em>not</em> be introduced as long as the basic functionality isn't proven to work.
+	As of <a href="https://github.com/MaxDZ8/M8M/commit/0ec53db45b648a55e440e091a568799f99b8590d">last commit to master branch</a> this is not yet possible however, some steps have been made in the direction.<br>
+	The current plan involves assigning a set of <em>requirements</em> to each <em>configuration</em> the devices will be tested against those configuration requirements and a list of configurations will be produced for each device. The first configuration satisfying requirements will be used.<br>
+	Note this is considerably different from legacy miners. Due to various quirks in the programming interfaces there's no reliable and widespread method of mapping devices coherently and persistently. Therefore, I will side-step the problem completely.<br>
+	
+	This of course doesn't change the fact having a single card I have very little interest in providing this functionality even though I already deployed hooks to support that.
+	
+	<h3>If I donate &lt;x&gt; of some crypto, will you do &lt;task-y&gt;?</h3>
+	Probably not. As a start, this is not what 'donation' means. When you donate something, you give away something expecting nothing back.<br>
+	When you give out something hoping to get something else back you're not donating. In this case what you're doing is to pay me or, in some cases, "offering a bounty".<br>
+	Most likely I won't be interested in the offer, you can still try if you know what are you talking about.<br>
+	<br>
+	In particular, I won't develop a higher-perf kernel for .1BTC.
+	
+	<h3>If I pay &lt;x&gt; of some crypto, will you give me the optimized kernels?</h3>
+	Nope. Because of reasons I don't want to explain here, I have interest in keeping them open source. You will get them for free when everyone else does. Don't worry, this means you'll easily get &gt;4 months of benefits.<br>
+	If you're referring to the faster Qubit kernel you'll be disappointed to know the thing does not currently exist - I only speculated a realistic upper bound of improvement, assuming no other bottleneck is hit.
 	
 	<h2>Algorithms</h2>
 	<ul>

@@ -15,3 +15,15 @@ h3:before {
 td {
 	background: rgb(240, 240, 240);
 }
+
+.specificText {
+    font-family: monospace;
+}
+
+
+.code {
+	font-family: monospace;
+	font-size: 85%;
+	border-left: 3px solid gray;
+	padding-left: .5em;
+}

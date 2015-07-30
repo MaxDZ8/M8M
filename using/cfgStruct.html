@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>M8M configuration file</title>
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>Configuration file structure</h1>
+	Let's start by giving an example of a fairly more advanced config file, demonstrating some/most of the functionalities.
+	<div class='code'>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"pools": [<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"url": "stratum-eu1.hashlink.eu:13031",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"user": "Login.worker",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"pass": "XYZ",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"diffMultipliers": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"stratum": 1,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"one": 256,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"share": 256<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"algo": "fresh",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"protocol": "stratum",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"name": "FRESH-hashlink"<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"url": "birdspool.no-ip.org:3333/",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"user": "omissis",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"pass": "irrelevant",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"diffMultipliers": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"stratum": 1,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"one": 1,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"share": 1<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"algo": "grsmyr",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"protocol": "stratum",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"name": "MYR-grsmyr-birdspool"<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"url": "tanukifu.ddns.net:5567",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"user": "wallet+0.0075",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"pass": "meh",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"diffMultipliers": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"stratum": 256,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"one": 256,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"share": 256<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"algo": "qubit",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"protocol": "stratum",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"name": "MYR-qubit-USA_E"<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"url": "stratum.ftc.theblocksfactory.com:3333",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"user": "login.worker",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"pass": "password",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"diffMultipliers": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"stratum": 1,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"one": 65536,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"share": 65536<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"algo": "neoScrypt",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"protocol": "stratum",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"diffMode": "neoScrypt",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"name": "FTC-TheBlocksFactory"<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"algo": "qubit",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"driver": "OCL",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"implParams": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"qubit": [<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"impl": "fiveSteps",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"linearIntensity": 384<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"fresh": [<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"impl": "warm",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"linearIntensity": 256<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"grsmyr": [<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"impl": "monolithic",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"linearIntensity": 384<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"neoScrypt": [<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"impl": "smooth",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"linearIntensity": 64<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;]<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+	}
+	</div>
+	Or, a more compact, yet complete form
+	<div class='code'>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"pools": [ ... ],<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"algo": "qubit",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"driver": "OCL",<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"reconnectDelay": 120,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"implParams": { ... }<br>
+	}<br>
+	</div>
+	Differently from legacy miners, settings in M8M are hierarchical in nature. It means that stuff goes inside other stuff rather than having a big blob. Let's took at the simple settings first.
+	<ul>
+	<li><code>driver</code>: a string; this is not really used for the time being however it must be specified; for future compatibility, its value must be "OCL";</li>
+	<li><code>reconnectDelay</code>: a positive, non-zero integer; number of seconds to wait after pool disconnect before attempting a reconnect;</li>
+	<li><code>algo</code>: a string; default algorithm to mine when <code>--algo</code> is not used.</li>
+	</ul>
+	
+	<h2>The <code>pools</code> array</h2>
+	Must contain a sequence of objects in the following form:<br>
+	<div class='code'>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"url": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"user": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"pass": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"algo": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"diffMultipliers": {<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"stratum": &lt;number-greater-than-0&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"share": &lt;number-greater-than-0&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"one": &lt;number-greater-than-0&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;},<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;// optional below<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"name": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"protocol": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"merkleMode": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"diffMode": &lt;string&gt;,<br>
+	}
+	</div>
+	Let's start by considering the <strong>must have</strong> parameters.
+	<ul>
+	<li><code>url &lt;string&gt;</code>: how to reach the server. This is the hostname with no protocol specifications (in particular no 'http' or 'stratum+'), usually followed by a port. See above for some examples. Specifying a protocol is technically incorrect and often overriden anyway. Some machinery has been deployed to allow that be a bit more resilient to input errors. Note (from the example above) you can leave the trailing '/' now, M8M will not bail out anymore because of it.</li>
+	<li><code>user &lt;string&gt;</code>: 'login' to server; many pools right now don't require any special login anymore but a valid wallet address to send coins. Sometimes additional server parameters are put there e.g. P2Pool allows you to do WALLET+number to specify explicit difficulty in case the default difficulty is too high for you.</li>
+	<li><code>pass &lt;string&gt;</code>: self explanatory; often unused but you need to specify one anyway!</li>
+	<li><code>algo &lt;string&gt;</code>: this allows M8M to activate only pools giving/expecting work using the algorithm specified by either config or <code>--algo</code>.</li>
+	<li><code>diffMultipliers &lt;object&gt;</code>: the object must contain at least three positive values <em>stratum</em>, <em>share</em> and <em>one</em>, they are all positive nonzero numbers, usually integers.
+		<ul>
+		<li>Most of the time you'll only be concerned about <em>stratum</em>, it is a special value to interpret the "difficulty" numbers sent by pool server. In general, there's a standard setting but some pools operators think they know better and went for their own setting.</li>
+		<li><em>one</em> and <em>share</em> values are per-coin settings; you usually don't need to mess up with those however they must be specified in the config file as M8M by itself has no knowledge of them, only how to use them.<br>
+		  This is in contrast to legacy miners, which include this information in their own source code and select them usually according to algorithm specified.</li>
+		</ul></li>
+	</ul>
+	Failing to specify one of the above values or specifying it in the wrong format will cause the whole pool setting to be considered invalid.<br>
+	In contrast, <strong>optional</strong> parameters have a default value so when they are missing everything will just carry on but <strong>if you specify them, they must be in the correct format</strong>.
+	<ul>
+	<li><code>name &lt;string&gt;</code>: default value is "[i]", where &lt;i&gt; is the index of the pool settings object in the pool array so, first object is [0], second is [1] and so on. It is used for presentation purposes when console output is used.</li>
+	<li><code>protocol &lt;string&gt;</code>: for future compatibility; must be <code>"stratum"</code> (which is also default). You usually don't need to mess with this.</li>
+	<li><code>merkleMode &lt;string&gt;</code>: default value is <em>SHA256D</em>, this is a per-coin property. Choose between <code>"SHA256D"</code> and <code>"singleSHA256"</code>; those are various ways to produce the header to hash.</li>
+	<li><code>diffMode &lt;string&gt;</code>: default value is <em>btc</em>, per-coin property. One of <code>"btc"</code> or <code>"neoscrypt"</code>; it affects the way network difficulty is extracted from the produced header to hash.</li>
+	</ul>
+	
+	<h2>The <code>implParams</code> object</h2>
+	This is a bit more complicated. What it needs to do: after launch, the miner will hash according to a certain algorithm. This object tells the miner the settings to use for each algorithm. So, for each algorithm you want to use (either by config or by <code>--algo</code>) you need to have a corresponding value inside this object. The value corresponding to the algorithm being mined is extracted and it must be an array.<br>
+	Each element of this array is then a <strong>configuration</strong> instructing the miner on how to use the devices.<br>
+	As of 0.1896 beta this is quite stupid and there's no such point in using more than one configuration each algorithm nonetheless the format of each object is the following:
+	<div class='code'>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"impl": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;...<br>
+	}
+	</div>
+	<p>
+		As a start, M8M selects an <em>algorithm implementation</em> according to the value of the <code>impl</code> key. For valid values, refer to source code.
+		The <a href='webmon.html'>web monitor</a> also enumerates the possible values for each algorithm.
+	</p>
+	<p>
+		After an algorithm implementation has been selected, it is possible to consume additional configuration parameters.
+		In theory every algorithm implementation is free to define its own parameters; in practice the only parameter available (as of 0.1.896 beta) is <code>linearIntensity</code> which value is an positive not-zero integer.
+		You can find example values for <code>linearIntensity</code> at the <a href='https://github.com/MaxDZ8/M8M/releases'>releases page</a>.
+		In practice those values will be "big" (128 and up) for mathematically-intensive algorithms and "small" (starting from 16) for "memory hard" algorithms.
+	</p>
+	So in practice, objects will look like
+	<div class='code'>
+	{<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"impl": &lt;string&gt;,<br>
+	&nbsp;&nbsp;&nbsp;&nbsp;"linearIntensity": &lt;integer-greater-than-0&gt;<br>
+	}
+	</div>
+	In the future, there will be an additional entry in this object: <code>require</code>. Its goal <strong>will be</strong> to restrict the configuration to specific sets of devices.
+</body>
+</html>

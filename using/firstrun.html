@@ -3,28 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <title>M8M first run</title>
-<link rel="stylesheet" href="styles.css" type="text/css" media="screen">		
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
 </head>
 <body>
 	<h1>First run</h1>
-	Go to the folder where you just extracted files.<br>
-	<img src="findExecutable.png" alt="run miner/M8M.exe" /><br>
-	Double click on the "miner" folder.<br>
-	Double click on "M8M.exe".<br>
+	Go to the folder where you just extracted files. Double click on "M8M.exe".<br>
+	<img src="findExecutable.png" alt="run M8M.exe" /><br>
 	You will immediately see in windows notification area:<br>
 	<img src="noConfigs.png"/><br>
+	This is normal as M8M comes with no default configuration.
 	Additionally, your antivirus might complain about a program trying to access the internet. Allow.<br>
-	This is normal.<br>
 	It is very likely the icon will soon disappear. You can find it in the hidden notifications by clicking on the triangle pointing up. You can leave the icon there or drag it back to the notification area as shown.<br>
 	<img src="dragginBackToVisible.png" /><br>
 	Note clicking the icon does nothing.<br>
-	Right-click to open a menu. Click on "Enable web administration".<br>
-	<img src="enableWebAdmin.png" /><br>
+	Right-click to open a context menu. Click on "Open and connect web admin".<br>
+	<img src="connectAdmin.png" /><br>
 	Windows will complain again about the program trying to access the network. Allow.<br>
 	Your antivirus might do the same (or not, if it feels like it).<br>
 	Note the icon is now green - this means the miner is <em>listening</em> to connections for either monitoring or setup.<br>
 	Right click again and click on "Connect to web administration".<br>
-	<img src="connectAdmin.png" /><br>
 	Your browser should now start and show the following:<br>
 	<img src="ff-starting.png" /><br>
 	Click on the button to continue.<br>
@@ -34,29 +31,39 @@
 	Be careful when this happens. If you're not connected then someone else is. Try to always leave M8M in the default state with grey icon and no open ports. Opening ports is a security risk albeit we accept that for ease of use.
 	<a id="configWizard"><h2>The configuration wizard</h2></a>
 	<p>
-		Sets up a very basic configuration: a single algorithm on a single pool. In general you should use at least two pools, in case your primary one goes down but that's still a great way to have your setup kickstarted.
+		The goal is to kickstart you with a very basic configuration: a single algorithm on a single pool.<br>
+		In general you should use at least two pools and you most likely need more than that, especially if you mine a multi-algo coin.<br>
+		However, the plan to write an advanced editor has been scrapped; more advanced users will have to edit the config file manually.
 	</p>
-	It is a three-step process. In the first, you are asked to select an algorithm to use from the supported ones. The second step requires some additional explanation.<br>
+	<p>
+	It is a three(+1)-step process. In the first, you are asked to select an algorithm to use from the supported ones.
+	In the second step you'll be asked about "difficulty multipliers". This is something I'd rather not bother you about; unfortunately some server admins appear to be too lazy to do their homework and some don't even bother you informing that. When it comes to difficulty multipliers, you're unfortunately on your own.
+	</p>
+	<p>
+	The third step requires some additional explanation.<br>
 	<img src="wizard-2.png" /><br>
 	The first line is perhaps the most problematic. A sure way to get the <em>URL</em> right is to copy-paste server address from a legacy miner command line. Some examples could be:
 	<ol>
 		<li>somepool.com:3333 - minimal and correct;</li>
 		<li>http://somepool.com:3525 - works but it's technically incorrect (stratum pools are not HTTP);</li>
 		<li>stratum+http://somepool.com:3525 - equivalent to (2), you don't need to specify protocol in M8M;</li>
-		<li>somepool.com:3333/ - does not work in 0.0.520 due to the trailing /, be careful with copy-paste.</li>
+		<li>somepool.com:3333/</li>
 	</ol>
 	<p>
 		Be careful about the <em>login</em>: the most straightforward way to start is by using p2pool. You just copy there your wallet address and you're set.<br>
 		Some other pools require you to register first: if you register as <em>this_is_me</em> then your worker <em>wrkr</em> will have <tt>this_is_me.wrkr</tt> as login.<br>
 		Some other pools ask about wallets like p2pool but they really are not.<br>
-		In general workers don't need to be registered: they get created on the fly on first login. In case of issues, try creating the worker in pool' setting.
+		In general workers don't need to be registered: they get created on the fly on first login. In case of issues, try creating the worker in pool' setting.<br>
+		If your p2pool node sets your diff too high, you can request a specific diff, eg: YOUR_WALLET+0.0075 is an adeguate setting to mine Qubit ~2MHs.
 	</p>
 	<p>
-		The third step is perhaps the most peculiar.<br>
+		The fourth step is perhaps the most peculiar.<br>
 		<img src="wizard-3.png" /><br>
 		At this point you would have to consider a few things to squeeze your hardware to the max.<br>
 		By contrast, M8M wants to be something you launch and forget in the background while you work. It doesn't ask how fast you want your mining. It asks how smooth you want your system to be (so you can get along with your business) and tries to figure out an appropriate setting.<br>
-		This adjusts automatically to your hardware power so you don't have to think about anything! Slide all the way to the left and you might even forget M8M is running!
+		This adjusts automatically to your hardware power so you don't have to think about anything! Slide all the way to the left and you might even forget M8M is running!<br>
+		
+		In general, both extremes are sub optimal. Some users have reported moving the slider fully to the right produces less hashrate than leaving it a couple ticks to the left. Moving the slider all to the left gives easily one half or even less of the hashrate; it is intended to be used together with graphical intensive applications (such as games).
 	</p>
 	<p>
 		At last, you will be requested to apply changes. Click on the button to have some magic happen.<br>

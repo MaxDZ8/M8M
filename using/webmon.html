@@ -3,74 +3,99 @@
 <head>
 <meta charset="UTF-8">
 <title>M8M web monitor</title>
-<link rel="stylesheet" href="styles.css" type="text/css" media="screen">		
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
 </head>
 <body>
 	<h1>Web monitor</h1>
 	Is mining set up correctly? How many errors do I have?<br>
 	<strong>Internet Explorer is not supported.</strong> The suggested browser is <a href="http://mozilla.org/firefox">Mozilla Firefox</a>.
-	To access the web monitor, right click on the icon and select "Enable web monitor". The icon will turn green. Try to leave M8M in this situation as little as possible.<br>
-	Right click on the icon again and select "Connect to web monitor". Your browser will open. If everything is working fine, it will look like:<br>
+	To access the web monitor, right click on the icon and select "Open and connect to web monitor". The icon will turn green and then gold. Try to leave M8M in this situation as little as possible.<br>
+	The web monitor has been considerably overhauled in 0.1.896 [Beta]. If everything is working fine, it will look like:<br>
 	<img src="monitor-working.png" /><br>
+	The "Miner informations" button is probably going to be seldom used. It shows various statistics not belonging anywhere else and some license information.
+	Here you can find when the current executable was compiled, links to the repositories and releases, some credits to used libraries and a list of all algorithms supported and their implementations.
+	It also contains uptime information.
+	
+	<h2>System information</h2>
 	<p>
-		The first section holds informations about the system, the computing devices, whatever they are used or not. If a device is not used, the program will tell you why.<br>
-		All devices, regardless being used or not, are identified by a unique index you can see on the right.<br>
-		Each used device is mapped to a configuration (identified by a number between square brackets). To help you track the various devices, each used device is given a color as well.<br>
-		This section is mostly useful for troubleshooting. If your card is not working, you'll find useful information there.<br>
+		Holds <em>static</em> informations about the system, the computing devices, whatever they are used or not. If a device is not used, the program will tell you why.
+		All devices, regardless being used or not, are identified by a unique index you can see on the right.
+		Each used device is mapped to a configuration (identified by a number between square brackets). To help you track the various devices, each used device is given a color as well.
 	</p>
 	<p>
-		In the lower section, you can see the algorithm being hashed, as well as the aggregated hashrate from all devices. This is probably the number you really care about.<br>
-		The following two lines should be pretty self-explicative, while the numbers in the tables might require some explanation.
+		Once a device is mapped to a configuration, resources can be allocated. This is also a static property which can be inspected here; hitting the "Memory usage details" button will provide more detailed information. The reported information depends on the algorithm used; for example, see a report for <a href='memres-qubit.png'>qubit</a>, <a href='memres-grsmyr.png'>grsmyr</a>, <a href='memres-fresh.png'>fresh</a>, <a href='memres-neoscrypt.png'>neoscrypt</a>.
 	</p>
 	<p>
-		In general, if you want to measure how much time it takes you to make something, you just take a stopwatch and measure the time taken to do the thing. This is the approach used in this table. You can revert to the more classical hashrate-oriented approach but I suggest to not do so.<br>
+		Clicking on 'reject reasons' button isn't much useful right now as there is no support for <em>configuration requirements</em> yet. In the future, this will help you in understanding why a certain configuration was used instead of another.
+		For the time being working devices will look like left box, while the non-working ones will look like the right one.
+		<img src='rejConf.png'>
+	</p>
+	
+	<h2>Pool configuration and status</h2>
+	<p>
+	This section was added in 0.1.896 [Beta] in preparation for future improvements. The goal is to aggregate information on both a per-device and a per-pool basis, with this section focusing on the latter.
+	</p>
+	<p>
+		The first table gives a one line overlook for each pool specified in the configuration file. Each active pool will be marked with a light green background. For a slightly more useful configuration, it could look like:<br>
+		<img src='poolsAuthTab.png'><br>
+		So you have the algorithm a pool is using, where all the pools whose algorithm matches the one you selected should be light green.<br>
+		You then have the name, which is used below, the server URL and a quick overview of authorization status where login data (pixelated) is followed by result of authorization.
+		This information is <em>almost</em> static. It is possible to launch the web monitor before authorization takes place, in the case the data would be presented in incomplete state. Just reload.
+	</p>
+	<p>
+		The second table lists only selected pools (algo matches). In the second column, a green tick or a red X mark will signal if a pool is currently connected or not.<br>
+		The <em>sent</em> column counts the amount of magic numbers sent by your miner to the pool: those are only a part of the found solutions - see mining performance for more info. If the pool considers those numbers valid it will count you a part of reward. Otherwise your contribution is rejected and counts nothing.<br>
+	</p>
+	<p>
+		Let's talk about the <em>Diff accepted per second</em> column. With this, I am attempting to present you an estimation of net mining efficiency including all effects, approximating the amount of reward from the pool.<br>
+		Pools will ask the miner to work at a certain difficulty. They want results with a difficulty at least 2, at least 8, at least 16.123. When a result has a <em>value</em> (sometimes called <em>share difficulty</em>) at least as high as requested, it is sent to the pool.<br>
+		Here's the catch: the pool rewards the miner by adding the <em>requested</em> difficulty, not the true result difficulty. If pool requests values with difficulty at least 8 and you send a result which value is 42.123 you still get <em>8 rewards</em>. Of course, if the pool fails to verify the number you get nothing.<br>
+		When a block is found the pool considers those accumulated result difficulties and decides how much of block reward to distribute to each miner accordingly.<br>
+		So basically, this number is the sum of requested difficulty for all <strong>accepted</strong> results. This is in contrast with the so called <em>work utility</em> used in legacy miners which increments whatever the result is accepted or not. <em>Work utility</em> was possibly introduced as a measurement of device mining efficiency but it just doesn't make much sense to me and I claim M8M to do this better.
+	</p>
+	<aside>
+		The aforementioned "value" of a result is what some pools use to estimate your hashrate. They take for granted difficult results are found by fast miners while slow miners produce low difficulty results. This isn't quite the thing, and that's why some pools give you a misunderstimated hashrate. The thing is particularly apparent in P2P hashrate graphs.
+	</aside>
+	<p>
+		I've left the "Connection Log" button last as this is seldom used. <strong>The miner monitor collects</strong> various information about connection status and puts them here so you can inspect connection quality and runtime. When your connection is stable and everything works, the contents are not quite interesting but as soon as the connection goes down the situation changes to something like:<br>
+		<img src='poolConnDown.png'><br>
+		As this information is <strong>tracked by the miner monitor</strong> and not the miner itself there could be slight mismatches between the cumulated activity time (tracked by miner) and duration of the connection, as the latter is inferred by the monitor. It also means the connection log is gone if the miner monitor is closed.<br>
+		This is the situation when a pool connection has failed. M8M will automatically attempt to reconnect after a few minutes and the whole thing will hopefully result to this:<br>
+		<img src='poolConnWorksAgain.png'><br>
+		This looks pretty much like a pool which never failed. Each connection just adds a line to the table.<br>
+		The delay before attempting reconnect is adjustable by config file.
+	</p>
+	
+	<h2>Mining performance</h2>
+	<p>
+		That's what everybody cares about! As pool information has been moved out, this is now streamlined. It contains information about raw mining performance from the devices.<br>
+		As a start, you get to see the currently running algorithm and the total aggregated hash rate from all (used) devices. This is probably the number you really care about.<br>
+		Starting from 0.1.896 [Beta] this section also includes a crude stacked area graph scrolling 1 pixel each second so you can monitor performance stability. Again, this information is <strong>collected by the monitor</strong> so if you close it, it'll be gone.
+	</p>
+	<p>
+		The table contains a row for each used device. There isn't much to say about the columns <em>Min</em> and <em>Max</em>.<br>
+		The difference between the <em>Last</em> and the <em>Avg</em> columns: when a result is found, the <em>Last</em> measurement is updated by the time required to run that specific iteration of the algorithm. It is an <em>instant</em> measurement, a single performance sample. The <em>Avg</em> column instead is updated every few seconds by just counting the amount of the iterations completed in the time frame, with no specific information about each one.<br>		
+	</p>
+	<p>
+		In general, if you want to measure how much time it takes you to make something, you just take a stopwatch and measure the time taken to do the thing. Since 0.1.896 [Beta] this table reports hash rates by default instead. You can revert to the stopwatch-like approach by using the combo box below the table. Why should you do that?<br>
 		Measuring hashrate has two issues: first, it produces big numbers depending on the amount of hashes computed per pass. This is not particularly important and we could get along with it.<br>
-		Most importantly, measuring performance in terms of "how much times I can do <em>this thing</em> in a second" is a non-linear property. Consider a task like above, taking 62ms. This results in ~16.130 iterations per second.<br>
-		Now, let's make this ~20% faster, let's say it takes 50ms. This would be 20 iterations per second. Note this is more than 16.130 + 20% (19.356). The division involved has somewhat "amplified" the difference.<br>
-		Because of this reason, M8M uses the "correct" approach of measuring iteration times instead of hashrates by default.<br>
-		Hashrate is still used for aggregated performance as hashrate can be added while iteration times cannot so you hopefully have both accurancy and easiness of use.
+		Most importantly, measuring performance in terms of "how much times I can do <em>this thing</em> in a second" is a non-linear property. Consider a task taking 1 ms. This results in 1000 iterations per second.<br>
+		Let's make this ~20% faster, let's say it takes 0.8 ms. That's 1250 iterations per second. Note this is more than 1000 * 1.20. The division involved has somewhat "amplified" the difference.<br>
+		Because of this reason, performance tools typically measure time taken plus the produced numbers usually have a nicer range.<br>
+		Nonetheless, hashrate is used for aggregated performance as it can be added while iteration times cannot plus everyone loves it you get both accurancy and easiness of use.
 	</p>
 	<p>
-		The columns regarding performance (scan time or hashrate) are as follows:
-		<ol>
-			<li>
-				Last: time taken to execute the algorithm for the last produced result, including time required by data transfer.<br>
-			    This is the most reliable measurement of performance and will naturally fluctuate (sometimes even abruptly) depending on various factors.
-			</li>
-			<li>Average<sub>short</sub>: average time spent by all iterations between successive results.</li>
-			<li>Average<sub>15</sub>: average time spent by all iterations in 15 minutes. This is currently not computed on the iterations but rather only on the iterations which found a result.</li>
-			<li>Min and max are the best and worse performance ever measured (when using timings) or worse and best (when using hashrates).</li>
-		</ol>
-		Take averages with some salt. Neither is particularly reliable. Avg<sub>s</sub> cannot really be better than the best and it's still there mostly because I'm lazy.  Avg<sub>15</sub> can be better than the best because the way it's computed gets affected by luck.
+		The <em>Nonces</em> columns keep a count of "magic numbers" identified as potential solutions by the hashing process. When an OpenCL kernel computes something <em>looking like</em> a good result they send it back to CPU for validation, when the CPU picks it up, it counts it as <em>found</em>.<br>
+		At this point, the CPU recomputes the magic number and checks the computed hash matches the one produced by GPU. If a mismatch is detected the result is considered <em>wrong</em>. This in theory never happens and is an indicator of some malfunction.<br>
+		After the CPU matched the hashes, it computes difficulty and compares it to requested difficulty. As GPU only considers "a slice" of the hash it is possible and perfectly normal the true hash to be lower diff than expected. In this case, the pool won't reward it so it is discarded as <em>low</em>.<br>
+		Then the CPU checks if the pool is still interested in results for the processed set of parameters. As of 0.1.896 [Beta] this is considered the case if the pool has not set any new parameters. This is cutting it a bit short as some pools (notably P2Pool) seem to be more permissive in terms of accepting result.<br>
+		At the end of the day, results passing all those tests will be <strong><em>sent</em> to a certain pool</strong> so <em>sent = found - bad - low - stales</em>.
 	</p>
 	<p>
-		The <em>Nonces</em> columns keep a count of "magic numbers" identified as potential solutions by the hashing process. The way it works is not currently very informative, albeit the numbers presented are accurate.<br>
-		The first column is the number of good numbers produced by the computing device. After this number is indentified it is validated (in theory: validation is not currently implemented so the Bad! column is always 0). The column "stale" is the count of numbers which were discarded before being sent as the remote server sent a new work before we had a chance of sending our numbers. In theory, the miner will send <tt>good-stale</tt> magic numbers. In practice those counts can be slightly off.
+		Lastly, let's take a look at <em>Diff solved per second</em>. The problem is we want to measure device mining performance but as pools will send us difficulty adjustments we cannot just count the number of results.<br>
+		This is in fact similar to the pool measurement <em>Diff accepted per second</em> but it counts the real computed "value" of each result considered valid and truly having high enough share difficulty. Whatever the result will be sent to pool or not is not very relevant by the point of view of the device, much less if accepted or not.<br>
+		Nonetheless, as this counts the real difficulty produced it does not match legacy <em>work utility</em> either.<br>
 	</p>
-	
-	<h2>The "details" buttons</h2>
-	Produce a floating box with seldom useful data.<br>
-	<p>
-		The topmost gives information about how much time since the program started and since hashing started.
-		This can be two different values if you restart hashing or switch algo.
-	</p>
-	<p>
-		The button near aggregated hashrate is perhaps the most interesting.<br>
-		<img src="AlgoDetails.png" /><br>
-		You can drag those dialogs around if you want.<br>
-		Differently from legacy miners, M8M allows different <em>implementations</em> of a <em>single algorithm</em>. Consider the algorithm as "the idea" while the implementation is the specific program making the idea work in practice.<br>
-		The most important thing here is the <strong>version signature</strong>: it is a magic number hopefully identifying the specific instructions being run. This includes the algorithm, the implementation and even specific variations in the same version. It would be a good idea to include this in benchmarks.
-	</p>
-	<p>
-		<img src="ConnDetails.png" /><br>
-		The connection details are usually not very interesting. You will likely want to check this if you get a lot of rejects just to make sure connection details are fine.<br>
-		There are plans to expand this functionality in the future but for the time being, that's it.
-	</p>
-	<p>
-		The "details" button included in the table will pour out information about the <strong>OpenCL resources</strong> used for computing. This is a part of the used memory. There are different types of memory and different ways to use it. This is mostly for the people who wants to get their hands dirty.<br>
-		The only interesting thing for the others is to note how memory resources can be different (or not!) depending on what's being computed. Compare resources used by <a href="memres-qubit.png">qubit</a>, <a href="memres-grsmyr.png">gr&oslash;estl-myriad</a>, <a href="memres-fresh.png">fresh</a>.
-	</p>
-	
 	<h2>Troubleshooting with the web monitor</h2>
 	<p>
 		If you cannot connect to the web monitor first check out your antivirus. One particular vendor is known to be incredibly stupid in blocking connections with no notifications.<br>
@@ -79,22 +104,22 @@
 	
 	<h3>Missing or corrupted configuration file</h3>
 	<img src="wm-err-badConfig.png" /><br>
-	You will get plenty of flashing red errors. Yes, I know this looks ugly on Chrome.<br>
+	Will attempt to be as ugly as possible, plenty of flashing red errors.<br>
 	This is a relatively safe situation: your PC is doing nothing, including not wasting electricity.<br>
 	The <a href="firstrun.html#configWizard">configuration wizard</a> can help you identify the problem in this case but odds are you'll have to delete your configuration file.
 	
 	<h3>Bad worker password</h3>
 	<img src="badlogin.png" /><br>
-	This is a relatively dangerous situation as you're wasting electricity for no benefit.<br>
-	You'd expect M8M to signal this but for a reason or the other, it doesn't (as of 0.0.520). It does not even spend so much effort in letting you know.<br>
-	This will probably be improved in the future but for the time being that's it.
+	This is a relatively dangerous situation as you're wasting electricity for no benefit (even in 0.1.896 Beta).<br>
+	As of Beta, it will also pop a transient warning:<br>
+	<img src="authFailed.png" /><br>
+	And it doesn't even bother transitioning the icon to a state red. This will be improved in the future but for the time being that's it.
 	
 	<h3>I cannot even get to the monitor...</h3>
 	
 	<h4>... something regarding "getaddr failed"</h3>
 	<img src="bad-pooladdr.png" /><br>
-	This is a known issue. Most of the time this happens because you have a '/' at the end of your server URL.<br>
-	It has not been fixed in a long time and made it to alpha. It is another thing which will have to be improved in the future.<br>
+	This used to happen as you had a '/' at the end of your server URL. As of Beta, this is fixed. Should it happen anyway it would be something I'd like to be informed about.<br>
 
 	<h4>... failed send, socket reset</h4>
 	<img src="bad-connection.png" /><br>
@@ -104,7 +129,8 @@
 	</p>
 	<p>
 		This can also happen every once in a while. It is known antivirus software has a part in it, but there are likely other causes as well.<br>
-		As of 0.0.520, it is being investigated.
+		Investigations started in 0.0.520 (Alpha) but were inconclusive; as of 0.1.896 (Beta) the issue should have been mitigated as a few quirks have been ironed out.<br>
+		My first suspect is still AV/firewall software.
 	</p>
 </body>
 </html>

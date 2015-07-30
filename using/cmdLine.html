@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>M8M command line parameters</title>
+<link rel="stylesheet" href="../styles.css" type="text/css" media="screen">		
+</head>
+<body>
+	<h1>Command line parameters</h1>
+	Parameters can have a value or not. Parameters always begin with '--', the parameter name follows up to the first space or the '=' character. Everything after this limit is considered parameter value.
+	<h2>--alreadyRunning</h2>
+	By default, M8M checks if another instance of itself is already running on the same system. Running multiple instances is bad for performance, especially if mining on the same algorithm.<br>
+	This tells the miner "yes, I know I'm mining already, just trust me I know what I'm doing". The most valid reason to do that is to run algorithms consuming different resources. Most kernels in M8M are relatively compact (compared to the ones used by legacy miners) so it is effectively possible to fit more than one algorithm in instruction cache. This allows a mathematically intensive kernel (e.g. qubit) to fill the 'execution gaps' in other less intensive ones (such as yescrypt, the day it will be available).<br>
+	<h2>--console=...</h2>
+	<div class='code'>
+		--console=new<br>
+		--console=parent<br>
+		--console=1234<br>
+	</div>
+	<br>
+	The console was provided mostly as means of interfacing with the myriadcoin algorithm switcher but there were requests of providing it independantly as well.
+	When using <code>--console new</code>, a new console will pop up displaying output from M8M in a way similar to legacy miners. It looks like:<br>
+	<div class='code'>
+	Pool "MYR-qubit-USA_E" connecting.<br>
+	Pool "MYR-qubit-USA_E" worker "WALLET"<br>
+	&nbsp;&nbsp;waiting for authorization.<br>
+	Pool "MYR-qubit-USA_E" connected.<br>
+	Pool "MYR-qubit-USA_E" worker "WALLET"<br>
+	&nbsp;&nbsp;seems to not need authorization.<br>
+	[06:07:59] Accepted 6f3a0167 Diff 2.302/1.920 GPU 0<br>
+	[06:08:36] Accepted 7dee8039 Diff 2.033/1.920 GPU 0<br>
+	[06:08:47] Accepted 20e0be74 Diff 7.786/1.920 GPU 0<br>
+	[06:09:38] Accepted 3ab5c2a4 Diff 4.360/1.920 GPU 0<br>
+	[06:09:57] Accepted 3cdff03d Diff 4.205/1.920 GPU 0<br>
+	[06:09:57] Accepted 41d67140 Diff 3.888/1.920 GPU 0<br>
+	[06:10:00] Accepted 73694aaf Diff 2.218/1.920 GPU 0<br>
+	[06:10:32] Accepted 01880993 Diff 167/1.920 GPU 0<br>
+	[06:10:43] Accepted 622ba6d9 Diff 2.608/1.920 GPU 0<br>
+	[06:11:02] Accepted 4b6e3eef Diff 3.394/1.920 GPU 0<br>
+	[06:11:08] Accepted 7fd3eb9f Diff 2.003/1.920 GPU 0<br>
+	[06:11:16] Accepted 3290fde4 Diff 5.063/1.920 GPU 0<br>
+	[06:11:43] Rejected 75ebdf6f Diff 2.171/1.920 GPU 0<br>
+	[06:11:47] Accepted 70f42ff9 Diff 2.266/1.920 GPU 0<br>
+	[06:12:09] Accepted 62c61791 Diff 2.592/1.920 GPU 0<br>
+	</div>
+	For those who think terminal emulation is still trendy, <a href='consoleScreenshot.png'>here's a screenshot</a>.<br>
+	<p>
+		If you are already in a console or (more in general) you want M8M to pour information to current program console, run with <code>--console parent</code>.<br>
+		Note that M8M does not block the console. After the application is run it returns immediately so you cannot just write a script like "if exit assume dead and execute again". Hopefully you don't need to do that.
+	</p>
+	<p>
+		An user also requested the ability to attach console output to arbitrary already-running programs. Do this by <code>--console 1234</code>, where '1234' is replaced by the PID of the process you want to attach to. Caveats apply; this has not been tested.
+	</p>
+	<h2>--config=another config file.json</h2>
+	<p>
+		Load configuration from <code>another config file.json</code> instead of <code>init.json</code>. This will also prevent the loaded file to further redirect configuration.
+	</p>
+	<p>
+		In the past, the main reason to do that was to switch algorithms easily without messing up with the configuration files. This is no more necessary as you can now put everything you need in a single config and override algorithm selection through a proper parameter.<br>
+		This functionality will stay as it's an easy way to plug with arbitrary external functionality.
+	</p>
+	<h2>--invisible</h2>
+	This was requested for better integration with the MyriadCoin algorithm switcher. It's admittedly fairly dangerous. What it does: when specified, M8M will <strong>not</strong> create a notification icon. This means you'll get no notifications and no way to control it (as it starts with monitor and admin ports closed).<br>
+	At this point, the only way to terminate it will be by using the Task Manager.
+	<h2>--algo=blah</h2>
+	Will mine with the specified algorithm. This is equivalent to editing the config file and overwriting the <code>algo</code> value but no persistent modifications are made.<br>
+	It is suggested to try pack everything in a single config file and switch behaviour using this parameter. 
+</body>
+</html>
