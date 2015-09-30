@@ -54,12 +54,13 @@ public:
                 ) {
         miners.push_back(std::move(std::unique_ptr<Miner>(new Miner)));
         ScopedFuncCall clear([this]() { miners.pop_back(); });
-        auto miningThreadFunc = GetMiningMain();
-        miners.back()->worker = std::thread(miningThreadFunc, std::ref(*miners.back()), miners.size() - 1, loader, own
+        MiningThreadParams boo(miners.size() - 1, *miners.back(), own
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
-                , devLinearIndex
+            , devLinearIndex      
 #endif
-        );
+            );
+        boo.sourceGetter = loader;
+        miners.back()->worker = std::thread(GetMiningMain(), boo);
         miners.back()->worker.detach();
         clear.Dont();
     }
@@ -223,16 +224,25 @@ protected:
     std::atomic<bool> keepRunning = true;
     std::atomic<auint> exitedThreads = 0; //!< This is used after a while to check how many threads exited before we destroy resources.
 
-    typedef std::function<void(Miner&, asizei slot, AbstractAlgorithm::SourceCodeBufferGetterFunc, AlgoBuild &build
+    struct MiningThreadParams { // resolve VC2015 bailing out for names too long
+        Miner &miner;
+        const asizei slot;
+        AbstractAlgorithm::SourceCodeBufferGetterFunc sourceGetter;
+        AlgoBuild &build;
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
-                , asizei devLinearIndex
+        const asizei devLinearIndex;
 #endif
-        )> MiningMain;
+        MiningThreadParams(asizei index, Miner &m, AlgoBuild &b
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+                           , asizei linear
+#endif
+                           ) : slot(index), miner(m), build(b), devLinearIndex(linear) { }
+    };
 
     /*! Spawn a detached thread which will populate the passed structure and work on it, as well as the shared state.
     The threads need to generate all resources but don't need to clean them up, the caller thread takes care of doing that.
     The miner structure is passed in an guaranteed to be persistent at the index passed in our management pool but it's basically empty with no algo nor dispatcher. */
-    virtual MiningMain GetMiningMain() = 0;
+    virtual std::function<void(MiningThreadParams)> GetMiningMain() = 0;
 
     void RemFactory(stratum::AbstractWorkFactory *old) {
         auto match(std::find_if(usedFactories.begin(), usedFactories.end(), [old](const RefCounted<stratum::AbstractWorkFactory> &test) {

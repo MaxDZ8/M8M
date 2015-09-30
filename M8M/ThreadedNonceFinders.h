@@ -57,12 +57,15 @@ private:
         asizei iterations = 0;
     };
 
-    MiningMain GetMiningMain() {
-        return [this](Miner &self, asizei index, AbstractAlgorithm::SourceCodeBufferGetterFunc loader, AlgoBuild &build
+    std::function<void(MiningThreadParams)> GetMiningMain() {
+        return [this](MiningThreadParams meh) {
+            auto &self(meh.miner);
+            auto &build(meh.build);
+            const auto index(meh.slot);
+            const auto loader(meh.sourceGetter);
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
-                , asizei devLinearIndex
+            const auto devLinearIndex(meh.devLinearIndex);
 #endif
-        ) {
             {
                 std::unique_lock<std::mutex> lock(self.sync);
                 self.lastUpdate = std::chrono::system_clock::now();
