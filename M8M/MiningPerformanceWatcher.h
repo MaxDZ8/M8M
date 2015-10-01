@@ -59,7 +59,7 @@ public:
         using namespace std::chrono;
         auto &dev(stats[devIndex]);
         auto &collect(info[devIndex]);
-        const std::chrono::microseconds zero;
+        const std::chrono::microseconds zero(0);
         bool wasActive = collect.used && collect.sleeping == false;
         collect.used = true;
         if(elapsed == zero) {
