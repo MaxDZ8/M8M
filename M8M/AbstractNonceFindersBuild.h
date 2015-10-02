@@ -47,14 +47,14 @@ public:
     };
 
     /*! Initialize a mining thread using the passed device. Contents of the own parameter will be moved to internal memory. */
-    void GenQueue(AlgoBuild &own, AbstractAlgorithm::SourceCodeBufferGetterFunc loader
+    void GenQueue(AlgoBuild &&own, AbstractAlgorithm::SourceCodeBufferGetterFunc loader
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
                 , asizei devLinearIndex
 #endif
                 ) {
         miners.push_back(std::move(std::unique_ptr<Miner>(new Miner)));
         ScopedFuncCall clear([this]() { miners.pop_back(); });
-        MiningThreadParams boo(miners.size() - 1, *miners.back(), own
+        MiningThreadParams boo(miners.size() - 1, *miners.back(), std::move(own)
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
             , devLinearIndex      
 #endif
@@ -228,15 +228,19 @@ protected:
         Miner &miner;
         const asizei slot;
         AbstractAlgorithm::SourceCodeBufferGetterFunc sourceGetter;
-        AlgoBuild &build;
+        AlgoBuild build;
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
         const asizei devLinearIndex;
 #endif
-        MiningThreadParams(asizei index, Miner &m, AlgoBuild &b
+        MiningThreadParams(asizei index, Miner &m, AlgoBuild &&b
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
                            , asizei linear
 #endif
-                           ) : slot(index), miner(m), build(b), devLinearIndex(linear) { }
+                           ) : slot(index), miner(m), build(std::move(b))
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+                                                              , devLinearIndex(linear)
+#endif
+        { }
     };
 
     /*! Spawn a detached thread which will populate the passed structure and work on it, as well as the shared state.
