@@ -4,9 +4,7 @@
  */
 #include "M8MPoolConnectingApp.h"
 
-bool M8MPoolConnectingApp::AddPool(const PoolInfo &copy) {
-    auto algoInfo(AbstractWorkSource::GetCanonicalAlgoInfo(copy.algo.c_str()));
-    if(algoInfo.name.empty()) return false;
+bool M8MPoolConnectingApp::AddPool(const PoolInfo &copy, const CanonicalInfo &algoInfo) {
     pools.push_back(Pool());
     pools.back().config = copy;
     pools.back().source = std::make_unique<WorkSource>(copy.name, algoInfo, std::make_pair(copy.diffMode, copy.diffMul), copy.merkleMode);
@@ -28,7 +26,7 @@ bool M8MPoolConnectingApp::AddPool(const PoolInfo &copy) {
 asizei M8MPoolConnectingApp::BeginPoolActivation(const char *algo) {
     asizei activated = 0;
     for(auto &entry : pools) {
-        if(_stricmp(entry.source->algo.name.c_str(), algo)) { // different algos get disabled.
+        if(_stricmp(entry.config.algo.c_str(), algo)) { // different algos get disabled.
             if(entry.route) {
                 entry.source->Shutdown();
                 network.CloseConnection(*entry.route);

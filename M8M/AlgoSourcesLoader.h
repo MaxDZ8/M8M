@@ -20,6 +20,8 @@
 #include "../BlockVerifiers/HashBlocks.h"
 #include "../BlockVerifiers/SHA256_trunc.h"
 #include "../BlockVerifiers/NeoScrypt.h"
+#include "../BlockVerifiers/Yescrypt.h"
+#include "../Common/PoolInfo.h"
 
 
 class AlgoSourcesLoader : public AlgoImplUserTracker, public commands::monitor::AlgosCMD::AlgoEnumeratorInterface {
@@ -35,7 +37,8 @@ public:
     bool Flushed() const { return loadedSources.size() == 0; } //!< of course only makes sense after Load has been called.
 
     std::pair<const char*, asizei> GetSourceBuffer(std::vector<std::string> &errors, const std::string &kernFile) const;
-
+    
+    CanonicalInfo GetCanon(asizei algo) const { return chains[algo]->canon; }
     const char* GetPersistentImplName(asizei algo, asizei impl) const {
         return chains[algo]->impl[impl]->name.c_str();
     }
@@ -45,6 +48,7 @@ public:
     AbstractAlgoFactory* GetFactory(asizei algo, asizei impl) const {
         return chains[algo]->impl[impl].get();
     }
+    
 
     // AlgoEnumeratorInterface -------------------------------------------------------------
     asizei GetNumAlgos() const { return chains.size(); }
@@ -80,6 +84,7 @@ private:
                 return ret;
             }
         };
+        CanonicalInfo canon;
         std::vector< std::unique_ptr<Implementation> > impl;
         std::unique_ptr<BlockVerifierInterface> verifier;
     };
@@ -208,4 +213,6 @@ private:
         Type *gen = new Type;
         return StagePair(gen, gen);
     }
+
+    static CanonicalInfo ParseCanonicalInfo(const rapidjson::Value &desc);
 };

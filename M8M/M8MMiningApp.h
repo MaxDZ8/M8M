@@ -46,6 +46,13 @@ public:
             if(el.ctx) clReleaseContext(el.ctx);
         }
     }
+    
+    CanonicalInfo GetCanonicalAlgoInfo(const std::string &algo) const {
+        for(asizei test = 0; test < sources.GetNumAlgos(); test++) {
+            if(_stricmp(algo.c_str(), sources.GetAlgoName(test).c_str()) == 0) return sources.GetCanon(test);
+        }
+        throw "GetCanonicalALgoInfo(" + algo + "), failed to match.";
+    }
 
 private:
     bool validConfigSelected = false;

@@ -244,21 +244,7 @@ void AbstractWorkSource::GetUserNames(std::vector< std::pair<const char*, Stratu
 }
 
 
-auto AbstractWorkSource::GetCanonicalAlgoInfo(const char *algo) -> AlgoInfo {
-    AlgoInfo known[] = {
-        { "qubit",     true,  0x0000000000FFFFFFull },
-        { "grsmyr",    true,  0x000000000000FFFFull },
-        { "neoScrypt", false, 0xFFFF000000000000ull },
-        { "fresh",     true,  0x000000000000FFFFull }
-    };
-    for(const auto &test : known) {
-        if(_stricmp(test.name.c_str(), algo) == 0) return test;
-    }
-    return AlgoInfo();
-}
-
-
-AbstractWorkSource::AbstractWorkSource(const char *poolName, const AlgoInfo &algorithm, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm)
+AbstractWorkSource::AbstractWorkSource(const char *poolName, const CanonicalInfo &algorithm, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm)
 	: diffMode(diffDesc.first), diffMul(diffDesc.second), algo(algorithm), name(poolName), merkleMode(mm) {
 }
 

@@ -169,7 +169,8 @@ asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value
             build.identifier = factory->GetAlgoIdentifier();
             AbstractAlgorithm::DescribeResources(dev.resources.memUsage, build.res);
             // At this point we used to init this work queue. This is now just matters of adding an entry and spawning a thread.
-            miner->GenQueue(build, loader
+            const std::string algoFamily(factory->GetAlgoIdentifier().algorithm);
+            miner->GenQueue(std::move(build), loader, GetCanonicalAlgoInfo(algoFamily)
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
                 , dev.linearIndex
 #endif

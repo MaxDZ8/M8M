@@ -20,11 +20,16 @@ void AlgoSourcesLoader::Load(const std::wstring &algoDescFile, const std::string
     // ^ That's not really supposed to happen. Really. Just do your homework or leave it alone.
     std::vector<std::string> uniqueFiles;
     Value *verification = nullptr;
+    Value *canon = nullptr;
     for(auto algo = algos.MemberBegin(); algo != algos.MemberEnd(); ++algo) {
         for(auto impl = algo->value.MemberBegin(); impl != algo->value.MemberEnd(); ++impl) {
             const std::string implName(impl->name.GetString(), impl->name.GetStringLength());
             if(implName == "$verification") {
                 verification = &impl->value;
+                continue;
+            }
+            if(implName == "$canon") {
+                canon = &impl->value;
                 continue;
             }
             auto kernels = impl->value.FindMember("kernels");
@@ -40,9 +45,9 @@ void AlgoSourcesLoader::Load(const std::wstring &algoDescFile, const std::string
             std::string verString(ver->value.GetString(), ver->value.GetStringLength());
             if(verString.empty()) throw std::exception("Algorithm-implementation versioning string is empty!");
         }
-        if(!verification) {
+        if(!verification || !canon) {
             const std::string name(algo->value.GetString(), algo->value.GetStringLength());
-            throw "Algorithm " + name + " is missing nonce validator.";
+            throw "Algorithm " + name + " is missing " + (verification? "canonical informations" : "nonce validator") + '.';
         }
     }
 
@@ -99,6 +104,10 @@ void AlgoSourcesLoader::Load(const std::wstring &algoDescFile, const std::string
             std::string implName(impl->name.GetString(), impl->name.GetStringLength());
             if(implName == "$verification") {
                 container->get()->verifier.reset(NewVerifier(impl->value));
+                continue;
+            }
+            if(implName == "$canon") {
+                container->get()->canon = ParseCanonicalInfo(impl->value);
                 continue;
             }
             auto kernels = impl->value.FindMember("kernels");
@@ -224,10 +233,11 @@ BlockVerifierInterface* AlgoSourcesLoader::NewVerifier(const rapidjson::Value &d
         std::function<RetType()> generate;
     };
     std::vector<Head> heads {
-        { "luffa512",   []() { return MakePair<HLuffa512>(); } },
-        { "shavite512", []() { return MakePair<HShaVite512>(); } },
-        { "groestl512", []() { return MakePair<HGroestl512>(); } },
-        { "neoscrypt",  []() { return MakePair<NeoScrypt<256, 32, 10, 128>>(); } }
+        { "luffa512",      []() { return MakePair<HLuffa512>(); } },
+        { "shavite512",    []() { return MakePair<HShaVite512>(); } },
+        { "groestl512",    []() { return MakePair<HGroestl512>(); } },
+        { "neoscrypt",     []() { return MakePair<NeoScrypt<256, 32, 10, 128>>(); } },
+        { "BSTYYescrypt",  []() { return MakePair<BSTYYescrypt>(); } }
     };
 
     struct Intermediate {
@@ -267,4 +277,44 @@ BlockVerifierInterface* AlgoSourcesLoader::NewVerifier(const rapidjson::Value &d
     }
     if(build->chained.back()->GetHashByteCount() != 32) throw std::exception("Final hash stage does not produce 32 bytes, not supported.");
     return build.release();
+}
+
+
+CanonicalInfo AlgoSourcesLoader::ParseCanonicalInfo(const rapidjson::Value &desc) {
+    CanonicalInfo result;
+    auto be = desc.FindMember("bigEndian");
+    if(be == desc.MemberEnd()) throw "Algorithm canonical info missing \"bigEndian\" field.";
+    else if(be->value.IsBool() == false) throw "Algorithm canonical info \"bigEndian\" field must be a boolean.";
+    result.bigEndian = be->value.GetBool();
+    auto diffNum = desc.FindMember("diffNumerator");
+    if(diffNum == desc.MemberEnd()) throw "Algorithm canonical info missing \"diffNumerator\" field.";
+    else if(diffNum->value.IsUint()) result.diffNumerator = diffNum->value.GetUint();
+    else if(diffNum->value.IsUint64()) result.diffNumerator = diffNum->value.GetUint64();
+    else if(diffNum->value.IsString()) {
+        if(diffNum->value.GetStringLength() != 2 + 16) throw "Algorithm canonical info; \"diffNumerator\" is a string, must count 18 characters.";
+        const char *hex = diffNum->value.GetString();
+        if(hex[0] != '0' && (hex[1] == 'x' || hex[2] == 'X') == false) hex = nullptr;
+        else {
+            for(asizei check = 2; check < diffNum->value.GetStringLength(); check++) {
+                const char c(tolower(hex[check]));
+                const bool digit = c >= '0' && c <= '9';
+                const bool alpha = c >= 'a' && c <= 'f';
+                if(!digit && !alpha) {
+                    hex = nullptr;
+                    break;
+                }
+            }
+        }
+        if(hex == nullptr) throw "Algorithm canonical info; \"diffNumerator\" is a string, does not look like an hex ulong.";
+        hex = hex + 2 + 16 - 1;
+        for(asizei i = 0; i < 16; i++) {
+            char c = tolower(*hex);
+            if(c >= '0' && c <= '9') c -= '0';
+            else if(c >= 'a' && c <= 'f') c = c - 'a' + 10;
+            result.diffNumerator |= aulong(c) << 4 * i;
+            hex--;
+        }
+    }
+    else throw "Algorithm canonical info missing \"diffNumerator\" field must be unsigned integer or hex string counting 18 characters.";
+    return result;
 }

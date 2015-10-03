@@ -17,7 +17,7 @@ one of those objects. Period. Those objects are always there.
 Whatever they're also working is another problem. Some other component will take care of building those and providing them with a TCP connection to use. */
 class WorkSource : public AbstractWorkSource {
 public:
-	WorkSource(const std::string &name, const AlgoInfo &algoParams, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> &diff, PoolInfo::MerkleMode mm)
+	WorkSource(const std::string &name, const CanonicalInfo &algoParams, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> &diff, PoolInfo::MerkleMode mm)
         : AbstractWorkSource(name.c_str(), algoParams, diff, mm), errorCallback(DefaultErrorCallback(false)) {
     }
 

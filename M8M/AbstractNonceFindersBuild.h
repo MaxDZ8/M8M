@@ -47,12 +47,12 @@ public:
     };
 
     /*! Initialize a mining thread using the passed device. Contents of the own parameter will be moved to internal memory. */
-    void GenQueue(AlgoBuild &&own, AbstractAlgorithm::SourceCodeBufferGetterFunc loader
+    void GenQueue(AlgoBuild &&own, AbstractAlgorithm::SourceCodeBufferGetterFunc loader, const CanonicalInfo &canon
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
                 , asizei devLinearIndex
 #endif
                 ) {
-        miners.push_back(std::move(std::unique_ptr<Miner>(new Miner)));
+        miners.push_back(std::make_unique<Miner>(canon));
         ScopedFuncCall clear([this]() { miners.pop_back(); });
         MiningThreadParams boo(miners.size() - 1, *miners.back(), std::move(own)
 #if defined REPLICATE_CLDEVICE_LINEARINDEX
@@ -204,13 +204,15 @@ protected:
     /*! One of those structs is generated for each thread so the objects themselves don't need to be thread-protected.
     In theory. In practice we still want to inquiry status of each thread to inspect for termination and whatever. */
     struct Miner {
+        const CanonicalInfo canon;
+        Miner(const CanonicalInfo &info) : canon(info) { }
         std::unique_ptr<AbstractAlgorithm> algo; //!< driven by this->dispatcher...
         std::unique_ptr<StopWaitDispatcher> dispatcher; //!< being run on this->worker...
         std::thread worker; //!< this is not really required but it's a good idea to keep those around
         struct HeapResourcesInterface {
             virtual ~HeapResourcesInterface() { }
         };
-        std::unique_ptr<HeapResourcesInterface> heapResources; //!< this allows the main thread to release some stuff even for unresponsive threadsp
+        std::unique_ptr<HeapResourcesInterface> heapResources; //!< this allows the main thread to release some stuff even for unresponsive threads.
 
         // Those are rarely used but since each thread has its own, I cannot just sync on this->guard or I'll serialize everything, and they are hi-frequency
         std::mutex sync;

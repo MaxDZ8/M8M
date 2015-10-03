@@ -55,3 +55,14 @@ struct PoolInfo {
     MerkleMode merkleMode;
     DiffMode diffMode;
 };
+
+/*! \note This could be better located in AlgoSourcesLoader but it ended here for the lack of a better candidate.
+Those are supposed to be inferred from other systems as a function of PoolInfo::algo.
+In particular, this data was going with AbstractWorkSource and its derived class WorkSource. This is no more the case,
+as this information is useful MOSTLY at mining time only and does not really affect anything else... except Work Unit creation
+so... pretty much basic information. */
+struct CanonicalInfo {
+    bool bigEndian;
+    aulong diffNumerator;
+    explicit CanonicalInfo() : bigEndian(false), diffNumerator(0) { }
+};

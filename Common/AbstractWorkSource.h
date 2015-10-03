@@ -29,12 +29,7 @@ manual dtor calling and placement new but this would just be hiding the problem.
 It's easy as this has fairly contained state: it's either the recv buffer or the stratum state. */
 class AbstractWorkSource {
 public:
-    struct AlgoInfo {
-        std::string name;
-        bool bigEndian;
-        aulong diffNumerator;
-    };
-    const AlgoInfo algo;
+    const CanonicalInfo algo;
 	const std::string name;
     const PoolInfo::MerkleMode merkleMode;
     const PoolInfo::DiffMultipliers diffMul;
@@ -92,11 +87,8 @@ public:
 
     bool Ready() const { return stratum != nullptr; } //!< A pool is ready if it is going to produce work. Not necessarily already producing or accepting.
 
-    //! Contains a static array with difficulty numerator and endianess info for all known algos.
-    static AlgoInfo GetCanonicalAlgoInfo(const char *algo);
-
 protected:
-	AbstractWorkSource(const char *name, const AlgoInfo &algo, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm);
+	AbstractWorkSource(const char *name, const CanonicalInfo &algo, std::pair<PoolInfo::DiffMode, PoolInfo::DiffMultipliers> diffDesc, PoolInfo::MerkleMode mm);
 
 	virtual void MangleReplyFromServer(size_t id, const rapidjson::Value &result, const rapidjson::Value &error) = 0;
 

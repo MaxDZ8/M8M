@@ -23,7 +23,7 @@ void LaunchBrowser(const wchar_t *what) {
 	exe.nShow = SW_SHOWNORMAL;
 	//exe.lpClass = L"http";
 	ShellExecuteEx(&exe);	
-	if(reinterpret_cast<int>(exe.hInstApp) < 32) throw std::exception("Could not run browser.");
+	if(reinterpret_cast<UINT_PTR>(exe.hInstApp) < 32) throw std::exception("Could not run browser.");
 #else
 #error what to do here?
 #endif
@@ -58,7 +58,7 @@ void OpenFileExplorer(const wchar_t *folder) {
 	exe.nShow = SW_SHOWNORMAL;
 	//exe.lpClass = L"http";
 	ShellExecuteEx(&exe);	
-	if(reinterpret_cast<int>(exe.hInstApp) < 32) throw std::exception("Could not run file explorer!");
+	if(reinterpret_cast<UINT_PTR>(exe.hInstApp) < 32) throw std::exception("Could not run file explorer!");
 #else
 #error what to do here?
 #endif

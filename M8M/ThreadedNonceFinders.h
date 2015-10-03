@@ -229,8 +229,7 @@ private:
         adouble netDiff = heap.myWork->GetNetworkDiff();
         bool generated = false;
         if(newWork) {
-            auto info(AbstractWorkSource::GetCanonicalAlgoInfo(self.algo->Identify().algorithm.c_str()));
-            heap.current = heap.myWork->MakeNoncedHeader(info.bigEndian == false, info.diffNumerator);
+            heap.current = heap.myWork->MakeNoncedHeader(self.canon.bigEndian == false, self.canon.diffNumerator);
             for(asizei cp = 0; cp < heap.header.size(); cp++) heap.header[cp] = heap.current.header[cp];
 
             self.lastWUGen = std::chrono::system_clock::now();

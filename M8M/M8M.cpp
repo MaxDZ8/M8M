@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
             if(config) { // pool setup
                 application.SetReconnectDelay(config->reconnDelay);
                 for(asizei init = 0; init < config->pools.size(); init++) {
-                    if(application.AddPool(*config->pools[init]) == false) {
+                    if(application.AddPool(*config->pools[init], application.GetCanonicalAlgoInfo(config->pools[init]->algo)) == false) {
                         application.Error(L"Unknown pool[" + std::to_wstring(init) + L"] algorithm");
                         config.reset();
                         break;

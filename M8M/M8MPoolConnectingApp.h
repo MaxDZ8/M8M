@@ -22,7 +22,7 @@ public:
     M8MPoolConnectingApp(NetworkInterface &factory) : network(factory) { }
     /*! Takes ownership of pointer and generates persistent state about the pool.
     \returns False if pool uses an unknown algorithm. */
-    bool AddPool(const PoolInfo &copy);
+    bool AddPool(const PoolInfo &copy, const CanonicalInfo &algoInfo);
 
     /*! Activating a pool involves pulling up a TCP connection to it. It's a non-blocking operation.
     After the TCP connection comes up, a proper stratum object will be created and handshake will take place.

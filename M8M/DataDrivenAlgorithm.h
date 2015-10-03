@@ -148,14 +148,14 @@ private:
             this->kernels.push_back(KernelDriver(kernels[loop].groupSize, kern));
         }
         if(errors.size()) return errors;
-        for(asizei loop = 0; loop < kernels.size(); loop++) BindParameters(this->kernels[loop], kernels[loop], special);
+        for(asizei loop = 0; loop < kernels.size(); loop++) BindParameters(this->kernels[loop], kernels[loop], special, loop);
         return errors;
     }
 
 
     //! Called at the end of PrepareKernels. Given a cl_kernel and its originating KernelRequest object, generates a stream of clSetKernelArg according
     //! to its internal bindings, resHandles and resRequests (for immediates).
-    void BindParameters(KernelDriver &kdesc, const KernelRequest &bindings, AbstractSpecialValuesProvider &disp) {
+    void BindParameters(KernelDriver &kdesc, const KernelRequest &bindings, AbstractSpecialValuesProvider &disp, asizei kernelIndex) {
         // First split out the bindings.
         std::vector<std::string> params;
         asizei comma = 0, prev = 0;
@@ -186,6 +186,13 @@ private:
         }
         kdesc.dtBindings.resize(lateBound); // .reserve also good
         lateBound = 0;
+        auto paramError = [this, kernelIndex](cl_uint paramIndex, const std::string &name, cl_int err) -> std::string {
+            std::string ret("OpenCL error " + std::to_string(err) + " returned by clSetKernelArg(), attepting to statically bind ");
+            auto identifier(Identify());
+            ret += identifier.algorithm + '.' + identifier.implementation;
+            ret += '[' + std::to_string(kernelIndex) + "], parameter [" + std::to_string(paramIndex) + ", " + name + ']';
+            throw ret;
+        };
         for(cl_uint loop = 0; loop < params.size(); loop++) {
             const auto &name(params[loop]);
             SpecialValueBinding desc;
@@ -200,7 +207,8 @@ private:
             }
             auto bound = resHandles.find(name);
             if(bound != resHandles.cend()) {
-                clSetKernelArg(kdesc.clk, loop, sizeof(cl_mem), &bound->second);
+                cl_int err = clSetKernelArg(kdesc.clk, loop, sizeof(cl_mem), &bound->second);
+                if(err != CL_SUCCESS) throw paramError(loop, name, err);
                 continue;
             }
             // immediate, maybe
@@ -208,7 +216,8 @@ private:
                 return rr.immediate && rr.name == name;
             });
             if(imm == resRequests.cend()) throw std::string("Could not find parameter \"") + name + '"';
-            clSetKernelArg(kdesc.clk, loop, imm->bytes, imm->initialData);
+            cl_int err = clSetKernelArg(kdesc.clk, loop, imm->bytes, imm->initialData);
+            if(err != CL_SUCCESS) throw paramError(loop, name, err);
         }
     }
 };
