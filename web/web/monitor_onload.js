@@ -539,7 +539,8 @@ window.onload = function() {
                     var src = cells[sub];
                     if(src === 'max') src = 'min';
                     else if(src === 'min') src = 'max';
-                    window.monitorState.usedDevices[loop].scanTime[src].cell.textContent = Math.floor(hr);
+                    if(hr > 10 && biggest.iso.divisor > 1) hr = Math.floor(hr); // just in case someone invents a hash so slow, don't truncate
+                    window.monitorState.usedDevices[loop].scanTime[src].cell.textContent = hr;
                 }
             }
         }

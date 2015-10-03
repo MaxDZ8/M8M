@@ -23,22 +23,27 @@
     function isoDivisors(accurate, prefix, increment) {
         var ret = {};
         var divisor = 1;
-        var diff, loop = 0;
-        do {
-            var value = Math.floor(accurate / divisor);
-            diff = Math.abs(accurate - value);
+        var loop = 0;
+        while(accurate > divisor) {
             divisor *= increment;
             loop++;
-            
-        } while(diff < accurate * .01);
-        divisor /= increment;
-        loop--;
+        };
+        if(loop) {
+            divisor /= increment;
+            loop--;
+        }
+		var error = Math.floor(accurate / divisor);
+		error = accurate / error;
+		if(error > 1.01 && loop) {
+			divisor /= increment;
+			loop--;
+		}
         ret.divisor = divisor;
         ret.prefix = prefix[loop];
         return ret;
     }
-	
-	
+    
+    
     function hue(numColors, mode, seed) {
         var distance = 360.0 / (numColors + 1);
         var ret = [];
@@ -179,7 +184,7 @@
             canvas.width = canvas.height = sizepx;
             var paint = canvas.getContext("2d");
             //paint.save();
-			paint.fillStyle = pattern;
+            paint.fillStyle = pattern;
             paint.fillRect(0, 0, sizepx, sizepx);
             //paint.restore();
             canvas.className = 'devicePattern';
@@ -229,12 +234,12 @@
             if(func === undefined) func = 'floor';
             return Math[func](accurate / div.divisor) + ' ' + div.prefix;
         },
-		
-		glyphs: function() {
-			var original = "\u25a0\u25b2\u25cf\u2660\u2663\u2665\u2666\u266a\u266b\u263c\u25ca\u25ac\u2605\u2668";
-			return original.substr(0);
-		},
-	
+        
+        glyphs: function() {
+            var original = "\u25a0\u25b2\u25cf\u2660\u2663\u2665\u2666\u266a\u266b\u263c\u25ca\u25ac\u2605\u2668";
+            return original.substr(0);
+        },
+    
         patterns: function(size, count, options) {
             if(options === undefined) options = {};
             if(options.colors === undefined) {
@@ -243,9 +248,9 @@
                 for(var loop = 0; loop < count; loop++) options.colors[loop] = hsl(temp[loop]);
             }
             var ret = [];
-			var canvas = document.createElement("canvas");
-			canvas.width = canvas.height = size;
-			var paint = canvas.getContext("2d");
+            var canvas = document.createElement("canvas");
+            canvas.width = canvas.height = size;
+            var paint = canvas.getContext("2d");
             for(var loop = 0; loop < count; loop++) {
                 paint.save();
                 paint.fillStyle = options.colors[loop];
