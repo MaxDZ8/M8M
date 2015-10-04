@@ -163,7 +163,6 @@ int main(int argc, char **argv) {
             if(config) { // pulling up the miner.
                 if(application.StartMining(config->algo, config->implParams)) application.startTime.hashing = std::chrono::system_clock::now();
             }
-            config.reset();
             while(run = application.KeepRunning()) {
                 std::vector<Network::SocketInterface*> toRead, toWrite;
                 application.FillSleepLists(toRead, toWrite);

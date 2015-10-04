@@ -35,7 +35,9 @@ public:
 
     /*! The big deal. I could break this in multiple external steps but I'm not really sure it's a good idea.
     After all, temporary information should not go out of its scope in theory.
-    \returns Number of queues successfully created. */
+    \returns Number of queues successfully created.
+    \note Retains references to the varios objects contained by allConfigs. Back when I considered making this multi-step I remember considering a more flexible solution
+    but - surprise - it just isn't worth it. */
     asizei StartMining(const std::string &algo, const rapidjson::Value &allConfigs);
 
     void Refresh(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite);
@@ -51,7 +53,7 @@ public:
         for(asizei test = 0; test < sources.GetNumAlgos(); test++) {
             if(_stricmp(algo.c_str(), sources.GetAlgoName(test).c_str()) == 0) return sources.GetCanon(test);
         }
-        throw "GetCanonicalALgoInfo(" + algo + "), failed to match.";
+        throw "GetCanonicalAlgoInfo(" + algo + "), failed to match.";
     }
 
 private:
