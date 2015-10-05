@@ -76,6 +76,9 @@ asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value
             break;
         }
     }
+    // For the purpose of 'configInfo' command, as long as a mining algorithm is matched against the known algorithm families, it is to be output.
+    // The rationale is: the more important a mistake is, the sooner we give up on providing informations.
+    miningAlgorithm = algo;
     if(useful == nullptr) {
         const std::string meh("Missing configs for the algo \"" + algo + "\".");
         std::wstring unicode;
@@ -179,7 +182,6 @@ asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value
         }
     }
     this->miner = std::move(miner);
-    miningAlgorithm = algo;
     return launched;
 }
 

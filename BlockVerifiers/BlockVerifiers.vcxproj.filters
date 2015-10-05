@@ -8,8 +8,31 @@
     <ClInclude Include="HashBlocks.h" />
     <ClInclude Include="NeoScrypt.h" />
     <ClInclude Include="SHA256_trunc.h" />
+    <ClInclude Include="bsty_miner\sha256_Y.h">
+      <Filter>bsty_miner</Filter>
+    </ClInclude>
+    <ClInclude Include="bsty_miner\sysendian.h">
+      <Filter>bsty_miner</Filter>
+    </ClInclude>
+    <ClInclude Include="bsty_miner\yescrypt.h">
+      <Filter>bsty_miner</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="NeoScrypt.cpp" />
+    <ClCompile Include="bsty_miner\sha256_Y.c">
+      <Filter>bsty_miner</Filter>
+    </ClCompile>
+    <ClCompile Include="bsty_miner\yescryptcommon.c">
+      <Filter>bsty_miner</Filter>
+    </ClCompile>
+    <ClCompile Include="bsty_miner\yescrypt-opt.c">
+      <Filter>bsty_miner</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="bsty_miner">
+      <UniqueIdentifier>{ca5d9bc9-c49d-4e68-bdbf-b636f5099ad9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

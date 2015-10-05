@@ -25,7 +25,8 @@ var preferredImplementation = {
     qubit: "fiveSteps",
     grsmyr: "monolithic",
     fresh: "warm",
-    neoScrypt: "smooth"
+    neoScrypt: "smooth",
+    BSTY_YEScrypt: "gcnFriendly"
 };
 
 
@@ -249,6 +250,9 @@ function reference_parallelGPUClocks() {
 
 
 function reference_linearIntensity() {
-    if(window.wizConfig.algo === "neoScrypt") return 64;
+	switch(window.wizConfig.algo) {
+	case "neoScrypt": return 64;
+	case "BSTY_YEScrypt": return 4;
+	}
     return 512; // Fairly smooth
 }

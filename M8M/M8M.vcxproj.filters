@@ -86,7 +86,6 @@
     <ClInclude Include="MiningPerformanceWatcher.h" />
     <ClInclude Include="NonceFindersInterface.h" />
     <ClInclude Include="NonceStructs.h" />
-    <ClInclude Include="PoolManager.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="StartParams.h" />
     <ClInclude Include="StopWaitDispatcher.h" />
@@ -123,7 +122,6 @@
     <ClCompile Include="AbstractAlgorithm.cpp" />
     <ClCompile Include="AbstractWSServer.cpp" />
     <ClCompile Include="M8M.cpp" />
-    <ClCompile Include="PoolManager.cpp" />
     <ClCompile Include="M8MPoolConnectingApp.cpp" />
     <ClCompile Include="M8MPoolMonitoringApp.cpp" />
     <ClCompile Include="M8MWebServingApp.cpp" />

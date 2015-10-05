@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug CLD0_REPLICATED|x64">
       <Configuration>Debug CLD0_REPLICATED</Configuration>
@@ -27,26 +27,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug CLD0_REPLICATED|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Console|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -141,7 +141,8 @@ copy $(TargetPath) $(SolutionDir)deploy\M8M\
 mkdir $(SolutionDir)deploy\M8M\kernels
 xcopy $(ProjectDir)kernels\*.* $(SolutionDir)deploy\M8M\kernels
 xcopy /S $(SolutionDir)web\*.* $(SolutionDir)deploy\M8M
-copy $(ProjectDir)algorithms.json $(SolutionDir)deploy\M8M\</Command>
+copy $(ProjectDir)algorithms.json $(SolutionDir)deploy\M8M\
+copy $(SolutionDir)license_dependancies.txt $(SolutionDir)deploy\M8M\license.txt</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist $(SolutionDir)deploy rd /S /Q $(SolutionDir)deploy
@@ -213,7 +214,6 @@ copy $(ProjectDir)algorithms.json $(SolutionDir)deploy\M8M\</Command>
     <ClInclude Include="MiningPerformanceWatcher.h" />
     <ClInclude Include="NonceFindersInterface.h" />
     <ClInclude Include="NonceStructs.h" />
-    <ClInclude Include="PoolManager.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="StartParams.h" />
     <ClInclude Include="StopWaitDispatcher.h" />
@@ -246,7 +246,6 @@ copy $(ProjectDir)algorithms.json $(SolutionDir)deploy\M8M\</Command>
     <ClCompile Include="M8MPoolConnectingApp.cpp" />
     <ClCompile Include="M8MPoolMonitoringApp.cpp" />
     <ClCompile Include="M8MWebServingApp.cpp" />
-    <ClCompile Include="PoolManager.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

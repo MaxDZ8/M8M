@@ -184,9 +184,8 @@ window.onload = function() {
                 tbody.appendChild(tr);
                 miner.platforms[pi].devices[di].linearIndex = linearIndex++;
             }
-
-            minerMonitor.requestSimple('configInfo', configInfo_callback);
         }
+        minerMonitor.requestSimple('configInfo', configInfo_callback);
 
         function quirkyColCount(tbody) {
             var table = tbody.parentNode;
@@ -539,7 +538,7 @@ window.onload = function() {
                     var src = cells[sub];
                     if(src === 'max') src = 'min';
                     else if(src === 'min') src = 'max';
-                    if(hr > 10 && biggest.iso.divisor > 1) hr = Math.floor(hr); // just in case someone invents a hash so slow, don't truncate
+                    if(hr > 10 || biggest.iso.divisor > 1) hr = Math.floor(hr); // just in case someone invents a hash so slow, don't truncate
                     window.monitorState.usedDevices[loop].scanTime[src].cell.textContent = hr;
                 }
             }

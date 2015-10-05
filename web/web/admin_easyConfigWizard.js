@@ -219,7 +219,8 @@ function coinDiffByAlgo(algo) {
         fresh:     { stratum:   1, one:   256, share:   256 },
         grsmyr:    { stratum:   1, one:     1, share:     1 },
         neoScrypt: { stratum:   1, one: 65536, share: 65536 },
-        lyra2RE:   { stratum:   1, one:   128, share:   128 }
+        lyra2RE:   { stratum:   1, one:   128, share:   128 },
+        BSTY_YEScrypt:  { stratum:   1, one: 65536, share: 65536 }
     };            // ^ can be overriden by pool settings
     var diff = diffMul[algo];
     if(diff === undefined) throw "Unrecognized algorithm: \"" + algo + "\".";

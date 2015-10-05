@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -19,13 +19,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -77,11 +77,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BlockVerifierInterface.h" />
+    <ClInclude Include="bsty_miner\sha256_Y.h" />
+    <ClInclude Include="bsty_miner\sysendian.h" />
+    <ClInclude Include="bsty_miner\yescrypt.h" />
     <ClInclude Include="HashBlocks.h" />
     <ClInclude Include="NeoScrypt.h" />
     <ClInclude Include="SHA256_trunc.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bsty_miner\sha256_Y.c" />
+    <ClCompile Include="bsty_miner\yescrypt-opt.c" />
+    <ClCompile Include="bsty_miner\yescryptcommon.c" />
     <ClCompile Include="NeoScrypt.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
