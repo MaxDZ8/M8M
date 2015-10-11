@@ -71,8 +71,8 @@ void Block_pwxform(local ulong *slice, global ulong *valS, local ulong *gather) 
 	slice += (get_local_id(0) / 16) * YESCRYPT_S_SIMD;
 	gather += (get_local_id(0) / 16) * YESCRYPT_S_SIMD * 2;
 	{
-		ulong xo = slice[0];  // Bank conflict
-		ulong xi = slice[1];  // Bank conflict
+		ulong xo = slice[0];
+		ulong xi = slice[1];
 		for(uint round = 0; round < YESCRYPT_S_ROUNDS; round++) {
 			const uint YESCRYPT_S_MASK = (YESCRYPT_S_SIZE1 - 1) * YESCRYPT_S_SIMD * 8;
 			const ulong YESCRYPT_S_MASK2 = ((ulong)YESCRYPT_S_MASK << 32) | YESCRYPT_S_MASK;
@@ -82,17 +82,17 @@ void Block_pwxform(local ulong *slice, global ulong *valS, local ulong *gather) 
 				local uchar *ubyte = (local uchar*)(gather);
 				ubyte[teamwork] = so[(uint)(x) + teamwork];
 				ubyte[teamwork + 16] = si[(uint)(x >> 32) + teamwork];
-				barrier(CLK_LOCAL_MEM_FENCE);
 			}
 			xo = (ulong)(xo >> 32) * (uint)xo;
-			xo += gather[0 + 0];
-			xo ^= gather[2 + 0]; // do this uint for slightly improved perf?
 			xi = (ulong)(xi >> 32) * (uint)xi;
+			barrier(CLK_LOCAL_MEM_FENCE); // allowing the above 2= was a specific design decision
+			xo += gather[0 + 0];
+			xo ^= gather[2 + 0];
 			xi += gather[0 + 1];
 			xi ^= gather[2 + 1];
 		}
-		slice[0] = xo;  // Bank conflict
-		slice[1] = xi;  // Bank conflict
+		slice[0] = xo;
+		slice[1] = xi;
 	}
 }
 
