@@ -102,27 +102,19 @@ public:
 	this thread I keep state about the messages and I send them in order.
 	Scheduling is easier and performed at higher level. */
 	struct Blob {
-		__int8 *data;
+		std::vector<__int8> data;
 		const size_t total;
 		const size_t id;
 		size_t sent;
 		Blob(const __int8 *msg, size_t count, size_t msgID)
-			: total(count), sent(0), data(nullptr), id(msgID) {
-			data = new __int8[total];
-			memcpy_s(data, total, msg, total);
+            : total(count), sent(0), id(msgID) {
+            data.resize(total);
+            std::copy(msg, msg + count, data.begin());
 		}
 		// note no destructor --> leak. I destruct those when the pool is destroyed so copy
 		// is easy and no need for unique_ptr
 	};
 	std::queue<Blob> pending;
-
-	~StratumState() {
-		while(pending.size()) {
-			Blob &blob(pending.front());
-			delete[] pending.front().data;
-			pending.pop();
-		}
-	}
 
 	// .id and .method --> Request \sa RequestReplyReceived
 	void Request(const stratum::ClientGetVersionRequest &msg);

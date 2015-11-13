@@ -14,13 +14,11 @@ asizei StratumState::PushMethod(const char *method, const string &pairs) {
 	idstr += "\", ";
 	idstr += pairs + "}\n";
 	Blob add(idstr.c_str(), idstr.length(), used);
-	ScopedFuncCall release([&add]() { delete[] add.data; });
 	pendingRequests.insert(std::make_pair(used, method));
 	ScopedFuncCall pullout([used, this] { pendingRequests.erase(used); });
-	pending.push(add);
+	pending.push(std::move(add));
 
 	pullout.Dont();
-	release.Dont(); // now it'll be released by this dtor
 	if(!nextRequestID) nextRequestID++; // we must have been running like one hundred years I guess
 	/* this was the initialization message. Regardless of when the server will
 	send the message, consider this to be initialization time. */
@@ -33,9 +31,7 @@ void StratumState::PushResponse(const string &serverid, const string &pairs) {
 	idstr += "\"id\": \"" + serverid + "\",";
 	idstr += pairs + "}\n";
 	Blob add(idstr.c_str(), idstr.length(), 0); // we don't need to track responses so just give them id 0
-	ScopedFuncCall release([&add]() { delete[] add.data; });
-	pending.push(add);
-	release.Dont();
+	pending.push(std::move(add));
 }
 
 

@@ -57,7 +57,7 @@ std::function<void()> AsyncNotifyIconPumper::GetUIManglingThreadFunc(NotifyIconT
 				DestroyWindow(this->asyncOwned.windowHandle);
 				this->asyncOwned.windowHandle = 0;
 			}
-			if(this->asyncOwned.iconGraphics) delete this->asyncOwned.iconGraphics; // this must happen before GDI+ shutdown or it will be considered an incomplete type
+			this->asyncOwned.iconGraphics.reset(); // this must happen before GDI+ shutdown or it will be considered an incomplete type
 	        if(this->shared) this->shared->guiTerminated = true;
 		});
         try {
@@ -244,19 +244,18 @@ void AsyncNotifyIconPumper::UpdateIconNCaption() {
 	using namespace Gdiplus;
 	std::unique_ptr<Bitmap> newBitmap;
 	HICON newIcon = 0, prevIcon = 0;
-	Bitmap *prevBitmap = nullptr;
+	std::unique_ptr<Gdiplus::Bitmap> prevBitmap;
 	if(shared->updateIcon) {
 		newBitmap.reset(new Bitmap(w, h, 4 * w, PixelFormat32bppARGB, reinterpret_cast<BYTE*>(words)));
 		Status result = newBitmap->GetHICON(&newIcon);
 		if(result != Ok) throw std::string("GetHICON failed, error ") + std::to_string(result);
 		prevIcon = asyncOwned.osIcon;
-		prevBitmap = asyncOwned.iconGraphics;
-		asyncOwned.iconGraphics = newBitmap.release();
+		prevBitmap = std::move(asyncOwned.iconGraphics);
+		asyncOwned.iconGraphics = std::move(newBitmap);
 		asyncOwned.osIcon = newIcon;
 	}
-	ScopedFuncCall clearPrev([prevIcon, prevBitmap]() {
+	ScopedFuncCall clearPrev([prevIcon]() {
 		if(prevIcon) DestroyIcon(prevIcon);
-		if(prevBitmap) delete prevBitmap;
 	});
 
 	const DWORD ACTION = prevIcon? NIM_MODIFY : NIM_ADD;

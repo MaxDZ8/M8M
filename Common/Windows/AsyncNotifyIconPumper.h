@@ -39,11 +39,11 @@ private:
     struct AsyncOwned { // the other thread spawns real OS resources here and kills them on exit.
 		HWND windowHandle;
 		HMENU contextMenu;
-		Gdiplus::Bitmap *iconGraphics;
+		std::unique_ptr<Gdiplus::Bitmap> iconGraphics;
 		HICON osIcon;
 		bool removeFromNotificationArea;
 
-		AsyncOwned() : windowHandle(0), contextMenu(0), osIcon(0), removeFromNotificationArea(false), iconGraphics(nullptr) { }
+		AsyncOwned() : windowHandle(0), contextMenu(0), osIcon(0), removeFromNotificationArea(false) { }
 		// No dtor. Automatically cleared by the other thread!
 	} asyncOwned;
 

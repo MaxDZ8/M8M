@@ -118,7 +118,7 @@ private:
             for(asizei cp = 0; cp < temp.size(); cp++) temp[cp] = around[cp];
             return temp;
         }
-        ~ModularBlockVerifier() { if(delHead && head) delete head; }
+        ~ModularBlockVerifier() { if(delHead) delete head; }
     };
 
     template<typename Leaf>

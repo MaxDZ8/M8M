@@ -22,7 +22,7 @@ AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWri
         asizei count = 1;
         while(count && stratum->pending.size()) {
 			StratumState::Blob &msg(stratum->pending.front());
-            auto sent(Send(msg.data + msg.sent, msg.total - msg.sent));
+            auto sent(Send(msg.data.data() + msg.sent, msg.total - msg.sent));
             if(sent.first == false) {
                 Events ohno;
                 ohno.connFailed = true;
