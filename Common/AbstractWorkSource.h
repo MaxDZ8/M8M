@@ -216,4 +216,7 @@ private:
             if(this->workerAuthCallback) this->workerAuthCallback(*this, worker, status);
         };
     }
+
+    bool SendChunk();
+    void ProcessLine(rapidjson::Document &parser, char *pos, asizei len);
 };

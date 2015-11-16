@@ -18,28 +18,11 @@ AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWri
     // initiate connection with a mining.subscribe. Each tick, we send as many bytes as we can until
     // write buffer is exhausted.
 	const time_t PREV_WORK_STAMP(stratum->LastNotifyTimestamp());
-    if(stratum->pending.size() && canWrite) {
-        asizei count = 1;
-        while(count && stratum->pending.size()) {
-			StratumState::Blob &msg(stratum->pending.front());
-            auto sent(Send(msg.data.data() + msg.sent, msg.total - msg.sent));
-            if(sent.first == false) {
-                Events ohno;
-                ohno.connFailed = true;
-                return ohno;
-            }
-            count = sent.second;
-            msg.sent += count;
-            if(msg.sent == msg.total) {
-#if STRATUM_DUMPTRAFFIC
-				stratumDump<<">>sent to server:"<<std::endl;
-				for(asizei i = 0; i < msg.total; i++) stratumDump<<msg.data[i];
-				stratumDump<<std::endl;
-#endif
-				stratum->pending.pop();
-			}
-		}
-	}
+    if(canWrite && !SendChunk()) {
+        Events ohno;
+        ohno.connFailed = true;
+        return ohno;
+    }
     Events ret;
 	if(canRead == false) return ret; // sends are still considered nops, as they don't really change the hi-level state
     auto received(Receive(recvBuffer.NextBytes(), recvBuffer.Remaining()));
@@ -61,53 +44,12 @@ AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWri
 	while(pos < recvBuffer.NextBytes()) {
 		char *limit = std::find(pos, recvBuffer.NextBytes(), '\n');
 		if(limit >= recvBuffer.NextBytes()) pos = limit;
-		else { // I process one line at time
-#if STRATUM_DUMPTRAFFIC
-			stratumDump<<">>from server:";
-			for(asizei i = 0; pos + i < limit; i++) stratumDump<<pos[i];
-			stratumDump<<std::endl;
-#endif
-			lastEndl = limit;
-			ScopedFuncCall restoreChar([limit]() { *limit = '\n'; }); // not really necessary but I like the idea
-			*limit = 0;
-			object.ParseInsitu(pos);
-			const Value::ConstMemberIterator &id(object.FindMember("id"));
-			const Value::ConstMemberIterator &method(object.FindMember("method"));
-			// There was a time in which stratum had "notifications" and "requests". They were the same thing basically but requests had an id 
-			// to be used for confirmations. Besides some idiot wanted to use 0 as an ID, P2Pool servers always attach an ID even to notifications,
-			// which is a less brain-damaged thing but still mandated some changes here.
-			std::string idstr;
-			aulong idvalue = 0;
-			if(id != object.MemberEnd()) {
-				switch(id->value.GetType()) {
-				case kNumberType: {
-					if(id->value.IsUint()) idvalue = id->value.GetUint();
-					else if(id->value.IsInt()) idvalue = id->value.GetInt();
-					else if(id->value.IsUint64()) idvalue = id->value.GetUint64();
-					else if(id->value.IsInt64()) idvalue = id->value.GetInt64();
-					idstr = std::to_string(idvalue);
-					break;
-				}
-				case kStringType: 
-					idstr.assign(id->value.GetString(), id->value.GetStringLength());
-					for(size_t check = 0; check < idstr.length(); check++) {
-						char c = idstr[check];
-						if(c < '0' || c > '9') throw std::exception("All my ids are naturals>0, this should be a natural>0 number!");
-					}
-					idvalue = strtoul(idstr.c_str(), NULL, 10);
-					break;
-				}
-			}
-			/* If you read the minimalistic documentation of stratum you get the idea you can trust on some things.
-			No, you don't. The only real thing you can do is figure out if something is a request from the server or a reply. */
-			if(method != object.MemberEnd() && method->value.IsString()) {
-				if(method->value.GetString()) MangleMessageFromServer(idstr, method->value.GetString(), object["params"]);
-			}
-			else { // I consider it a reply. Then it has .result or .error... MAYBE. P2Pool for example sends .result=.error=null as AUTH replies to say it doesn't care about who's logging in!
-				MangleReplyFromServer(idvalue, object["result"], object["error"]);
-			}
-			pos = lastEndl + 1;
-		}
+		else {
+            ProcessLine(object, pos, limit - pos);
+            pos = limit;
+            lastEndl = pos++;
+
+        }
 	}
 	if(lastEndl) { // at least a line has been mangled
 		const char *src = lastEndl + 1;
@@ -315,4 +257,74 @@ std::array<aulong, 4> AbstractWorkSource::MakeTargetBits_NeoScrypt(adouble diff,
 		dwords[div + 1] = auint(slice >> 32);
 	}
 	return ret;
+}
+
+
+bool AbstractWorkSource::SendChunk() {
+    if(stratum->pending.empty()) return true;
+    asizei count = 1;
+    while(count && stratum->pending.size()) {
+		StratumState::Blob &msg(stratum->pending.front());
+        auto sent(Send(msg.data.data() + msg.sent, msg.total - msg.sent));
+        if(sent.first == false) return false;
+        count = sent.second;
+        msg.sent += count;
+        if(msg.sent == msg.total) {
+#if STRATUM_DUMPTRAFFIC
+			stratumDump<<">>sent to server:"<<std::endl;
+			for(asizei i = 0; i < msg.total; i++) stratumDump<<msg.data[i];
+			stratumDump<<std::endl;
+#endif
+			stratum->pending.pop();
+		}
+	}
+    return true;
+}
+
+
+void AbstractWorkSource::ProcessLine(rapidjson::Document &json, char *pos, asizei len) {
+#if STRATUM_DUMPTRAFFIC
+	stratumDump<<">>from server:";
+	for(asizei i = 0; i < len; i++) stratumDump<<pos[i];
+	stratumDump<<std::endl;
+#endif
+	ScopedFuncCall restoreChar([pos, len]() { pos[len] = '\n'; }); // not really necessary but I like the idea
+	pos[len] = 0;
+	json.ParseInsitu(pos);
+    using namespace rapidjson;
+	const Value::ConstMemberIterator &id(json.FindMember("id"));
+	const Value::ConstMemberIterator &method(json.FindMember("method"));
+	// There was a time in which stratum had "notifications" and "requests". They were the same thing basically but requests had an id 
+	// to be used for confirmations. Besides some idiot wanted to use 0 as an ID, P2Pool servers always attach an ID even to notifications,
+	// which is a less brain-damaged thing but still mandated some changes here.
+	std::string idstr;
+	aulong idvalue = 0;
+	if(id != json.MemberEnd()) {
+		switch(id->value.GetType()) {
+		case kNumberType: {
+			if(id->value.IsUint()) idvalue = id->value.GetUint();
+			else if(id->value.IsInt()) idvalue = id->value.GetInt();
+			else if(id->value.IsUint64()) idvalue = id->value.GetUint64();
+			else if(id->value.IsInt64()) idvalue = id->value.GetInt64();
+			idstr = std::to_string(idvalue);
+			break;
+		}
+		case kStringType: 
+			idstr.assign(id->value.GetString(), id->value.GetStringLength());
+			for(size_t check = 0; check < idstr.length(); check++) {
+				char c = idstr[check];
+				if(c < '0' || c > '9') throw std::exception("All my ids are naturals>0, this should be a natural>0 number!");
+			}
+			idvalue = strtoul(idstr.c_str(), NULL, 10);
+			break;
+		}
+	}
+	/* If you read the minimalistic documentation of stratum you get the idea you can trust on some things.
+	No, you don't. The only real thing you can do is figure out if something is a request from the server or a reply. */
+	if(method != json.MemberEnd() && method->value.IsString()) {
+		if(method->value.GetString()) MangleMessageFromServer(idstr, method->value.GetString(), json["params"]);
+	}
+	else { // I consider it a reply. Then it has .result or .error... MAYBE. P2Pool for example sends .result=.error=null as AUTH replies to say it doesn't care about who's logging in!
+		MangleReplyFromServer(idvalue, json["result"], json["error"]);
+	}
 }

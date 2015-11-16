@@ -128,5 +128,7 @@
     <ClCompile Include="M8MMiningApp.cpp" />
     <ClCompile Include="AlgoSourcesLoader.cpp" />
     <ClCompile Include="DataDrivenAlgoFactory.cpp" />
+    <ClCompile Include="M8MConfiguredApp.cpp" />
+    <ClCompile Include="ThreadedNonceFinders.cpp" />
   </ItemGroup>
 </Project>

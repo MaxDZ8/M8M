@@ -98,76 +98,80 @@ public:
 			Value &devices(padd["devices"]);
 			devices.Reserve(rapidjson::SizeType(procs.GetNumDevices(plat)), build.GetAllocator());
 			for(asizei dev = 0; dev < procs.GetNumDevices(plat); dev++) {
-				Value add(kObjectType);
-#define GDSTR(x) { \
-	const std::string temp(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::dis_##x)); \
-	add.AddMember(#x, Value(temp.c_str(), rapidjson::SizeType(temp.length()), build.GetAllocator()), build.GetAllocator()); \
-}
-#define GDUI(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diu_##x)), build.GetAllocator());
-#define GDUL(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diul_##x)), build.GetAllocator());
-#define GDB(x)   add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::dib_##x)), build.GetAllocator());
-				GDSTR(chip);
-				GDSTR(vendor);
-				GDSTR(driverVersion);
-				GDSTR(profile);
-				GDSTR(apiVersion);
-				GDSTR(extensions);
-				GDUI(vendorID);
-				GDUI(clusters);
-				GDUI(coreClock);
-				GDUL(maxMemAlloc);
-				GDUL(globalMemBytes);
-				GDUL(globalMemCacheBytes);
-				GDUL(cbufferBytes);
-				GDB(ecc);
-				GDB(huma);
-				GDB(littleEndian);
-				GDB(compiler);
-				GDB(linker);
-#undef GDB
-#undef GDUL
-#undef GDUI
-#undef GDSTR
-				{
-					aulong ldsBytes = procs.GetDeviceInfo(plat, dev, procs.diul_ldsBytes);
-					add.AddMember(StringRef("ldsBytes"), ldsBytes, build.GetAllocator());
-					ProcessingNodesEnumeratorInterface::LDSType ldst = procs.GetDeviceLDSType(plat, dev);
-					switch(ldst) {
-					case ProcessingNodesEnumeratorInterface::ldsType_dedicated: add.AddMember("ldsType", Value("dedicated"), build.GetAllocator()); break;
-					case ProcessingNodesEnumeratorInterface::ldsType_none: add.AddMember("ldsType", Value("none"), build.GetAllocator()); break;
-					case ProcessingNodesEnumeratorInterface::ldsType_global: add.AddMember("ldsType", Value("global"), build.GetAllocator()); break;
-					}
-				}
-                auto device(procs.GetDeviceType(plat, dev));
-				{
-					std::string type;
-					if(device.defaultDevice) type = "default";
-					auto append = [&type](const char *text) {
-						if(type.size()) type += ',';
-						type += text;
-					};
-					if(device.gpu) append("GPU");
-					if(device.accelerator) append("Accelerator");
-					if(device.cpu) append("CPU");
-					add.AddMember("type", Value(type.c_str(), rapidjson::SizeType(type.length()), build.GetAllocator()), build.GetAllocator());
-				}
-				{
-					const auint vendor = procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diu_vendorID);
-					const std::string chipName(procs.GetDeviceInfo(plat, dev, procs.dis_chip));
-					const std::string extensions(procs.GetDeviceInfo(plat, dev, procs.dis_extensions));
-					auto chipType = device.gpu? KnownHardware::ct_gpu : KnownHardware::ct_cpu;
-					KnownHardware::Architecture arch = KnownHardware::GetArchitecture(vendor, chipName.c_str(), chipType, extensions.c_str());
-					const char *hw = KnownHardware::GetArchPresentationString(arch, false);
-					if(hw && strlen(hw)) add.AddMember("arch", Value(hw, rapidjson::SizeType(strlen(hw)), build.GetAllocator()), build.GetAllocator());
-				}
-				devices.PushBack(add, build.GetAllocator());
-			}
+                devices.PushBack(Populate(plat, dev, build.GetAllocator()), build.GetAllocator());
+            }
 			platforms.PushBack(padd, build.GetAllocator());
 		}
 		return nullptr;
 	}
 private:
     ProcessingNodesEnumeratorInterface &procs;
+
+    rapidjson::Value Populate(asizei plat, asizei dev, rapidjson::MemoryPoolAllocator<> &alloc) {
+        using namespace rapidjson;
+        Value add(kObjectType);
+#define GDSTR(x) { \
+	const std::string temp(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::dis_##x)); \
+	add.AddMember(#x, Value(temp.c_str(), rapidjson::SizeType(temp.length()), alloc), alloc); \
+}
+#define GDUI(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diu_##x)), alloc);
+#define GDUL(x)  add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diul_##x)), alloc);
+#define GDB(x)   add.AddMember(#x, Value(procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::dib_##x)), alloc);
+		GDSTR(chip);
+		GDSTR(vendor);
+		GDSTR(driverVersion);
+		GDSTR(profile);
+		GDSTR(apiVersion);
+		GDSTR(extensions);
+		GDUI(vendorID);
+		GDUI(clusters);
+		GDUI(coreClock);
+		GDUL(maxMemAlloc);
+		GDUL(globalMemBytes);
+		GDUL(globalMemCacheBytes);
+		GDUL(cbufferBytes);
+		GDB(ecc);
+		GDB(huma);
+		GDB(littleEndian);
+		GDB(compiler);
+		GDB(linker);
+#undef GDB
+#undef GDUL
+#undef GDUI
+#undef GDSTR
+		{
+			aulong ldsBytes = procs.GetDeviceInfo(plat, dev, procs.diul_ldsBytes);
+			add.AddMember(StringRef("ldsBytes"), ldsBytes, alloc);
+			ProcessingNodesEnumeratorInterface::LDSType ldst = procs.GetDeviceLDSType(plat, dev);
+			switch(ldst) {
+			case ProcessingNodesEnumeratorInterface::ldsType_dedicated: add.AddMember("ldsType", Value("dedicated"), alloc); break;
+			case ProcessingNodesEnumeratorInterface::ldsType_none: add.AddMember("ldsType", Value("none"), alloc); break;
+			case ProcessingNodesEnumeratorInterface::ldsType_global: add.AddMember("ldsType", Value("global"), alloc); break;
+			}
+		}
+        auto device(procs.GetDeviceType(plat, dev));
+		{
+			std::string type;
+			if(device.defaultDevice) type = "default";
+			auto append = [&type](const char *text) {
+				if(type.size()) type += ',';
+				type += text;
+			};
+			if(device.gpu) append("GPU");
+			if(device.accelerator) append("Accelerator");
+			if(device.cpu) append("CPU");
+			add.AddMember("type", Value(type.c_str(), rapidjson::SizeType(type.length()), alloc), alloc);
+		}
+		{
+			const auint vendor = procs.GetDeviceInfo(plat, dev, ProcessingNodesEnumeratorInterface::diu_vendorID);
+			const std::string chipName(procs.GetDeviceInfo(plat, dev, procs.dis_chip));
+			const std::string extensions(procs.GetDeviceInfo(plat, dev, procs.dis_extensions));
+			const bool cpu { device.gpu == false };
+			auto hw = knownHardware::GetArch(vendor, cpu, device.gpu, chipName, extensions.c_str()).GetPresentationString(false);
+			if(hw && strlen(hw)) add.AddMember("arch", Value(hw, rapidjson::SizeType(strlen(hw)), alloc), alloc);
+		}
+       return add;
+    }
 };
 
 

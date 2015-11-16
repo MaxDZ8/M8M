@@ -6,6 +6,7 @@
 #include "../Common/AbstractWorkSource.h"
 #include "NonceStructs.h"
 #include "../Common/Stratum/Work.h"
+#include <chrono>
 
 
 /*! A set of devices working to find nonces. All devices must run an algorithm or algorithm implementation compatible with an hash verifier method

@@ -23,29 +23,9 @@ struct StartParams {
 	    for(loop = 0; cmdLine[loop]; loop++) {
             begin = loop;
             if(cmdLine[loop] <= 32) { }
-            else if(wcsncmp(cmdLine + loop, L"--", 2) == 0) {
-                loop += 2;
-                if(_wcsnicmp(cmdLine + loop, name, wcslen(name)) == 0) {
-                    loop += wcslen(name);
-                    if(cmdLine[loop] <= 32 || cmdLine[loop] == '=') {
-                        found = true;
-                        break;
-                    }
-                }
-                else { // not the parameter I'm looking for. Go to a param init following a blank.
-                    bool blank = false;
-                    while(cmdLine[loop]) {
-                        if(cmdLine[loop] <= 32) blank = true;
-                        else if(blank) {
-                            blank = false;
-                            if(wcsncmp(cmdLine + loop, L"--", 2) == 0) {
-                                loop--;
-                                break;
-                            }
-                        }
-                        loop++;
-                    }
-                }
+            else if(MatchParam(cmdLine, loop, name)) {
+                found = true; 
+                break;
             }
             else { // parameters always follow a blank
                 while(cmdLine[loop] && cmdLine[loop] > 32) loop++; // there are really more blanks in unicode but I don't care.
@@ -88,4 +68,26 @@ struct StartParams {
 
 private:
     std::unique_ptr<wchar_t[]> parameters;
+    bool MatchParam(const wchar_t *cmdLine, size_t &index, const wchar_t *name) {
+        if(wcsncmp(cmdLine + index, L"--", 2)) return false;
+        index += 2;
+        if(_wcsnicmp(cmdLine + index, name, wcslen(name)) == 0) {
+            index += wcslen(name);
+            if(cmdLine[index] <= 32 || cmdLine[index] == '=') return true;
+        }
+        // not the parameter I'm looking for. Go to a param init following a blank.
+        bool blank = false;
+        while(cmdLine[index]) {
+            if(cmdLine[index] <= 32) blank = true;
+            else if(blank) {
+                blank = false;
+                if(wcsncmp(cmdLine + index, L"--", 2) == 0) {
+                    index--;
+                    break;
+                }
+            }
+            index++;
+        }
+        return false;
+    }
 };

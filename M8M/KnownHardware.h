@@ -5,68 +5,58 @@
 #pragma once
 #include <string.h>
 
-//! This ugly thing is there so I can just put a stupid hardware list here and goodbye.
-struct KnownHardware {
-	enum Architecture {
-		arch_unknown,
-		arch_gcn_first,
-		arch_gcn_1_x,
-		arch_gcn_1_0,
-		arch_gcn_1_1,
-		arch_gcn_last
-	};
+namespace knownHardware {
+    struct Architecture {
+        constexpr explicit Architecture(const char *userName, bool CPU, bool GPU)
+            : presentationString(userName), cpu(CPU), gpu(GPU) { }
+        constexpr const char* GetPresentationString(bool forceNonNull) const {
+            return presentationString == nullptr && forceNonNull? "Unknown" : presentationString;
+        }
+        const bool cpu, gpu;
+    private:
+        const char* presentationString;
+    };
 
-	enum ChipType {
-		ct_cpu,
-		ct_gpu
-	};
+    constexpr Architecture arch_unknown { nullptr, false, false }; 
+    constexpr Architecture arch_gcn_1_0 { "Graphics Core Next 1.0", false, true };
+    constexpr Architecture arch_gcn_1_1 { "Graphics Core Next 1.1", false, true };
+    constexpr Architecture arch_gcn_1_2 { "Graphics Core Next 1.2", false, true };
+    constexpr Architecture arch_gcn_1_x { "Graphics Core Next 1.x", false, true };
 
-	static const char* GetArchPresentationString(Architecture arch, bool forceNonNull) {
-		switch(arch) {
-		case arch_gcn_1_0: return "Graphics Core Next 1.0";
-		case arch_gcn_1_1: return "Graphics Core Next 1.1";
-		case arch_gcn_1_x: return "Graphics Core Next 1.x";
-		}
-		return forceNonNull? "Unknown" : nullptr;
-	}
-
-	static Architecture GetArchitecture(const unsigned __int32 vendorid, const char *chipname, ChipType ct, const char *extensions) {
-#define TEST(x) if(!strcmp(#x, chipname)) return arch;
-		switch(vendorid) {
-		case 0x00001002: { // AMD
-			if(ct == ct_gpu) {
-				const Architecture arch = arch_gcn_1_0;
-				TEST(Capeverde);
-				TEST(Pitcairn);
-				TEST(Tahiti);
-			}
-			if(ct == ct_gpu) {
-				const Architecture arch = arch_gcn_1_1;
-				TEST(Hawaii);
-				TEST(Bonaire);
-				TEST(Hainan);
-				TEST(Curacao);
-				TEST(Oland);
-			}
-			if(ct == ct_gpu) {
-				const char *begin = extensions;
-				const char *end = extensions + strlen(extensions);
-				const char *match = "cl_khr_int64_base_atomics"; // I've been told this is GCN-only for the time being
-				const asizei mlen = strlen(match);
-				while(begin < end) {
-					const char *limit = begin;
-					while(limit < end && *limit != ' ') limit++;
-					if(mlen == limit - begin) {
-						if(!strncmp(match, begin, mlen)) return arch_gcn_1_x;
-					}
-					begin = limit + 1;
-				}
-			}
-
-			// "AMD Athlon(tm) II X3 450 Processor" --> "K10-Propus".
-		}
-		}
-		return arch_unknown;
-#undef TEST
-	}
-};
+    static Architecture GetArch(unsigned __int32 vendorid, bool cpu, bool gpu, const std::string &chipname, const char *extensions) {
+        auto matches = [&chipname](const std::initializer_list<char*> &list) {
+            for(const auto &el : list) {
+                if(el == chipname) return true;
+            }
+            return false;
+        };
+        auto matchExt = [extensions](const char *match) {
+            const char *begin = extensions;
+            const char *end = extensions + strlen(extensions);
+            const asizei mlen = strlen(match);
+            while(begin < end) {
+                const char *limit = begin;
+                while(limit < end && *limit != ' ') limit++;
+                if(mlen == limit - begin) {
+                    if(!strncmp(match, begin, mlen)) return true;
+                }
+                begin = limit + 1;
+            }
+            return false;
+        };
+        switch(vendorid) {
+        case 0x00001002: // AMD
+            if(gpu) { // codexl 1.8.9637.0
+                if(matches({ "Capeverde", "Hainan", "Oland", "Pitcairn", "Tahiti" })) return arch_gcn_1_0;
+                if(matches({ "Bonaire", "Hawaii", "Kalindi", "Mullins", "Spectre", "Spooky" })) return arch_gcn_1_1;
+                if(matches({ "Carrizo", "Fiji", "Iceland", "Tonga" })) return arch_gcn_1_2;
+                if(matchExt("cl_khr_int64_base_atomics")) return arch_gcn_1_x; // I've been told this is GCN-only for the time being
+            }
+            if(cpu) {
+                // "AMD Athlon(tm) II X3 450 Processor" --> "K10-Propus".
+            }
+            break;
+        }
+        return arch_unknown;
+    }
+}

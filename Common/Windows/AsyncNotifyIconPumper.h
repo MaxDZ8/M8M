@@ -65,6 +65,11 @@ private:
     void UpdateMessage();
 	void UpdateIconNCaption();
 	void Update(MenuItem &mi, const MenuItemEvent &mod);
+    
+    //! WM_APP_DATA_CHANGED is used as a way to wake up the window procedure and update state as specified.
+    //! This somewhat replaces a semaphore/condition variable. Called by wndProc
+    //! \return true if menu needs to be redrawn/regenerated.
+    bool AppDataChanged();
 };
 
 }

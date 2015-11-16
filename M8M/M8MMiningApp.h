@@ -66,7 +66,7 @@ private:
         asizei configIndex = asizei(-1);
         AbstractAlgorithm::ConfigDesc resources;
 
-        KnownHardware::Architecture architecture = KnownHardware::arch_unknown;
+        knownHardware::Architecture architecture { knownHardware::arch_unknown };
         struct Type {
             bool cpu, gpu, accelerator, /*custom,*/ defaultDevice;
             Type() { cpu = gpu = accelerator = defaultDevice = false; }

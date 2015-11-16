@@ -8,6 +8,7 @@
 #include <utility>
 #include <string>
 #include <array>
+#include <vector>
 
 
 /*! An IconCompositer takes a set of icons (expressed as 4D aubyte arrays) identified by name.

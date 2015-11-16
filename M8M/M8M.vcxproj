@@ -242,10 +242,12 @@ copy $(SolutionDir)license_dependancies.txt $(SolutionDir)deploy\M8M\license.txt
     <ClCompile Include="AlgoSourcesLoader.cpp" />
     <ClCompile Include="DataDrivenAlgoFactory.cpp" />
     <ClCompile Include="M8M.cpp" />
+    <ClCompile Include="M8MConfiguredApp.cpp" />
     <ClCompile Include="M8MMiningApp.cpp" />
     <ClCompile Include="M8MPoolConnectingApp.cpp" />
     <ClCompile Include="M8MPoolMonitoringApp.cpp" />
     <ClCompile Include="M8MWebServingApp.cpp" />
+    <ClCompile Include="ThreadedNonceFinders.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

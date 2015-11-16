@@ -110,36 +110,7 @@ LRESULT CALLBACK AsyncNotifyIconPumper::WindowProcedure(HWND window, UINT msg, W
 				return TRUE; // continue creating the window.
 			case WM_COMMAND:
 				break;
-			case WM_APP_DATA_CHANGED: {
-				std::unique_lock<std::mutex> lock(*owner->mutex);
-				if(owner->shared->terminate) {
-					PostQuitMessage(0);
-					return 0;
-				}
-				if(owner->shared->updateIcon || owner->shared->updateCaption) {
-					owner->UpdateIconNCaption();
-					owner->shared->updateIcon = owner->shared->updateCaption = false;
-				}
-				if(owner->shared->regenMenu) {
-					HMENU newMenu = owner->GenMenu();
-					if(owner->asyncOwned.contextMenu) DestroyMenu(owner->asyncOwned.contextMenu);
-					SetMenu(owner->asyncOwned.windowHandle, newMenu);
-					owner->asyncOwned.contextMenu = newMenu;
-					owner->shared->regenMenu = false;
-				}
-				for(asizei loop = 0; loop < owner->shared->commandChanges.size(); loop++) {
-					const asizei slot = owner->shared->commandChanges[loop].controlIndex;
-					if(slot >= owner->shared->commands.size()) continue;
-					owner->Update(owner->shared->commands[slot], owner->shared->commandChanges[loop]);
-				}
-				redrawMenu = owner->shared->commandChanges.size() > 0;
-				owner->shared->commandChanges.clear();
-				if(owner->shared->updateMessage) {
-					owner->UpdateMessage();
-					owner->shared->updateMessage = false;
-				}
-				break;
-			}
+			case WM_APP_DATA_CHANGED: redrawMenu = owner->AppDataChanged(); break;
 			case WM_APP_NOTIFICON: return owner->NotifyCallback(LOWORD(lparam), GET_X_LPARAM(wparam), GET_Y_LPARAM(wparam));
 			default:
 				return DefWindowProc(window, msg, wparam, lparam); 
@@ -302,6 +273,38 @@ void AsyncNotifyIconPumper::Update(MenuItem &mi, const MenuItemEvent &mod) {
 	if(success) {
 		if(mod.statusChange != mod.esc_notChanged) mi.enabled = mod.statusChange != mod.esc_disabled;
 	}
+}
+
+
+bool AsyncNotifyIconPumper::AppDataChanged() {
+    std::lock_guard<std::mutex> lock(*mutex);
+	if(shared->terminate) {
+		PostQuitMessage(0);
+		return false;
+	}
+	if(shared->updateIcon || shared->updateCaption) {
+		UpdateIconNCaption();
+		shared->updateIcon = shared->updateCaption = false;
+	}
+	if(shared->regenMenu) {
+		HMENU newMenu = GenMenu();
+		if(asyncOwned.contextMenu) DestroyMenu(asyncOwned.contextMenu);
+		SetMenu(asyncOwned.windowHandle, newMenu);
+		asyncOwned.contextMenu = newMenu;
+		shared->regenMenu = false;
+	}
+	for(asizei loop = 0; loop < shared->commandChanges.size(); loop++) {
+		const asizei slot = shared->commandChanges[loop].controlIndex;
+		if(slot >= shared->commands.size()) continue;
+		Update(shared->commands[slot], shared->commandChanges[loop]);
+	}
+	bool redrawMenu = shared->commandChanges.size() > 0;
+	shared->commandChanges.clear();
+	if(shared->updateMessage) {
+		UpdateMessage();
+		shared->updateMessage = false;
+	}
+    return redrawMenu;
 }
 
 }
