@@ -129,6 +129,14 @@ private:
 
     KnownConstantProvider cryptoConstants;
 
+    void TickMiner();
+
+    //! Helper function to StartMining
+    bool GenFactory(std::vector<std::pair<const char*, AbstractAlgoFactory*>> &factories, std::unique_ptr<AbstractNonceFindersBuild> &miner,
+                    const std::string &algo, const rapidjson::Value &implConfig, asizei index);
+    //! Helper to StartMining
+    void GenQueue(Device &dev, cl_context ctx, const rapidjson::Value &implConfig, const std::vector<std::pair<const char*, AbstractAlgoFactory*>> &factories, const std::string &algo, AbstractNonceFindersBuild &miner);
+
 protected:
     AlgoSourcesLoader sources;
 

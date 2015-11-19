@@ -69,6 +69,12 @@ std::unique_ptr<PoolInfo> M8MConfiguredApp::ParsePool(std::vector<std::string> &
 
     auto add { std::make_unique<PoolInfo>(poolName, MakeString(addr->value), MakeString(user->value), MakeString(psw->value)) };
     add->algo = MakeString(algo->value);
+    return ParsePoolExtended(add, errors, load, index);
+}
+
+
+std::unique_ptr<PoolInfo> M8MConfiguredApp::ParsePoolExtended(std::unique_ptr<PoolInfo> &add, std::vector<std::string> &errors, const rapidjson::Value &load, asizei index) {
+    std::unique_ptr<PoolInfo> empty;
     const auto proto(load.FindMember("protocol"));
     const auto diffMul(load.FindMember("diffMultipliers"));
     const auto merkleMode(load.FindMember("merkleMode"));
@@ -120,5 +126,5 @@ std::unique_ptr<PoolInfo> M8MConfiguredApp::ParsePool(std::vector<std::string> &
         else if(mmode == "neoScrypt") add->diffMode = PoolInfo::dm_neoScrypt;
         else throw std::string("Unknown difficulty calculation mode: \"" + mmode + "\".");
     }
-    return add;
+    return std::move(add);
 }

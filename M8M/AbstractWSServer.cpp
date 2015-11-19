@@ -82,76 +82,22 @@ void AbstractWSServer::Listen() {
 
 void AbstractWSServer::ReadWrite(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
     // First thing to do: serve already connected websockets. We first consume, then send.
-    struct ProcessingGuard {
-        const Network::SocketInterface **mark;
-        ProcessingGuard(const Network::SocketInterface **storage, const Network::SocketInterface *guard) {
-            mark = storage;
-            *mark = guard;
-        }
-        ~ProcessingGuard() { *mark = nullptr; }
-    };
-    std::for_each(toRead.begin(), toRead.end(), [this](const Network::SocketInterface *skt) {
+    for(const auto &skt : toRead) {
         auto el = std::find(clients.begin(), clients.end(), skt);
-        if(el == clients.cend()) return; // either not mine or landing socket
-        if(el->initializer) return; // Upgrading socket state later.
+        if(el == clients.cend()) continue; // either not mine or landing socket
+        if(el->initializer) continue; // Upgrading socket state later.
         std::vector<ws::Connection::Message> msg;
-        if(!el->ws->Read(msg)) return;
-
-        ProcessingGuard currentlyMangling(&this->processing, skt);
-        for(asizei loop = 0; loop < msg.size(); loop++) {
-            rapidjson::Document object;
-            msg[loop].push_back(0); // string must be zero terminated for parse
-            //! \todo figure out how to limit rapidjson parsing!
-            object.ParseInsitu(reinterpret_cast<char*>(msg[loop].data()));
-            if(object.HasParseError()) throw std::exception("Invalid JSON received.");
-            rapidjson::Value::ConstMemberIterator cmdIter(object.FindMember("command"));
-            if(cmdIter == object.MemberEnd() || cmdIter->value.IsString() == false) throw std::exception("Not a command object.");
-            const rapidjson::Value &cmd(cmdIter->value);
-            const std::string command(cmd.GetString(), cmd.GetStringLength());
-            auto matched = commands.find(command.c_str());
-            std::string reply;
-            std::unique_ptr<commands::PushInterface> stream;
-            if(matched == commands.cend()) reply = "!!ERROR: no such command \"" + command + "\"!!";
-            else if(matched->second->Mangle(reply, stream, object) == false) {
-                throw std::exception("Impossible, code out of sync. Command name already matched!");
-            }
-            if(!reply.length()) {
-                throw std::exception("Invalid zero-length reply.");
-            }
-            if(stream) {
-                auto list = std::find_if(pushing.begin(), pushing.end(), [&el](const PushList &test) { return test.dst == &el->conn.get(); });
-                std::unique_ptr<NamedPush> dataPush(new NamedPush);
-                dataPush->pusher = std::move(stream);
-                if(matched->second->GetMaxPushing() > 1) dataPush->name = std::to_string(numberedPushers);
-                else numberedPushers--;
-                dataPush->originator = matched->second.get();
-                if(list == pushing.end()) {
-                    PushList add;
-                    add.dst = &el->conn.get();
-                    add.active.push_back(std::move(dataPush));
-                    pushing.push_back(std::move(add));
-                }
-                else {
-                    if(list->active.size() + 1 == matched->second->GetMaxPushing()) {
-                        reply = "!!ERROR: max amount of pushers reached!!";
-                        numberedPushers--;
-                    }
-                    else list->active.push_back(std::move(dataPush));
-                }
-                numberedPushers++;
-            }
-            el->ws->EnqueueTextMessage(reply);
-        }
-    });
-    std::for_each(toWrite.begin(), toWrite.end(), [this](const Network::SocketInterface *skt) {
+        if(!el->ws->Read(msg)) continue;
+        Mangle(*el, msg, *skt);
+    }
+    for(const auto &skt : toWrite) {
         auto el = std::find(clients.begin(), clients.end(), skt);
-        if(el == clients.cend()) return;
-        if(el->initializer) return;
+        if(el == clients.cend()) continue;
+        if(el->initializer) continue;
         if(el->ws->NeedsToSend()) el->ws->Send();
-    });
-    // Now same read-write thing for sockets handshaking. I do this the other way around.
-    for(asizei loop = clients.size() - 1; loop < clients.size(); loop--) {
-        ClientState &client(clients[loop]);
+    }
+    // Now same read-write thing for sockets handshaking.
+    for(auto &client : clients) {
         auto r = std::find(toRead.begin(), toRead.end(), &client.conn.get());
         auto w = std::find(toWrite.begin(), toWrite.end(), &client.conn.get());
         if(r == toRead.end() && w == toWrite.end()) continue;
@@ -160,7 +106,7 @@ void AbstractWSServer::ReadWrite(std::vector<Network::SocketInterface*> &toRead,
             if(r != toRead.end()) client.initializer->Receive();
             if(w != toWrite.end()) client.initializer->Send();
         }
-    };
+    }
 }
 
 
@@ -260,4 +206,54 @@ void AbstractWSServer::EnqueuePushData() {
             }
         }
     });
+}
+
+
+void AbstractWSServer::Mangle(ClientState &state, std::vector<ws::Connection::Message> &msg, Network::SocketInterface &skt) {
+    processing = &skt;
+    ScopedFuncCall clearProcessing{ [this]() { this->processing = nullptr; } };
+    for(asizei loop = 0; loop < msg.size(); loop++) {
+        rapidjson::Document object;
+        msg[loop].push_back(0); // string must be zero terminated for parse
+        //! \todo figure out how to limit rapidjson parsing!
+        object.ParseInsitu(reinterpret_cast<char*>(msg[loop].data()));
+        if(object.HasParseError()) throw std::exception("Invalid JSON received.");
+        rapidjson::Value::ConstMemberIterator cmdIter(object.FindMember("command"));
+        if(cmdIter == object.MemberEnd() || cmdIter->value.IsString() == false) throw std::exception("Not a command object.");
+        const rapidjson::Value &cmd(cmdIter->value);
+        const std::string command(cmd.GetString(), cmd.GetStringLength());
+        auto matched = commands.find(command.c_str());
+        std::string reply;
+        std::unique_ptr<commands::PushInterface> stream;
+        if(matched == commands.cend()) reply = "!!ERROR: no such command \"" + command + "\"!!";
+        else if(matched->second->Mangle(reply, stream, object) == false) {
+            throw std::exception("Impossible, code out of sync. Command name already matched!");
+        }
+        if(!reply.length()) {
+            throw std::exception("Invalid zero-length reply.");
+        }
+        if(stream) {
+            auto list = std::find_if(pushing.begin(), pushing.end(), [&state](const PushList &test) { return test.dst == &state.conn.get(); });
+            std::unique_ptr<NamedPush> dataPush(new NamedPush);
+            dataPush->pusher = std::move(stream);
+            if(matched->second->GetMaxPushing() > 1) dataPush->name = std::to_string(numberedPushers);
+            else numberedPushers--;
+            dataPush->originator = matched->second.get();
+            if(list == pushing.end()) {
+                PushList add;
+                add.dst = &state.conn.get();
+                add.active.push_back(std::move(dataPush));
+                pushing.push_back(std::move(add));
+            }
+            else {
+                if(list->active.size() + 1 == matched->second->GetMaxPushing()) {
+                    reply = "!!ERROR: max amount of pushers reached!!";
+                    numberedPushers--;
+                }
+                else list->active.push_back(std::move(dataPush));
+            }
+            numberedPushers++;
+        }
+        state.ws->EnqueueTextMessage(reply);
+    }
 }

@@ -16,24 +16,8 @@ const char HandShaker::LF = 10;
 
 
 void HandShaker::Receive() {
-	asizei prev = used;
-	while(stream.GotData()) {
-		if(used == header.size()) header.resize(header.size() + headerIncrementBytes);
-		asizei got = stream.Receive(header.data() + used, header.size() - used);
-		used += got;
-	}
-
-	asizei headerEnd = prev - (prev? 1 : 0);
-	auint nl = 0;
-	while(headerEnd + 3 < used && nl != 2) {
-		nl = 0;
-		for(asizei loop = 0; loop < 2; loop++) {
-			if(header[headerEnd++] != CR) break;
-			if(header[headerEnd++] != LF) throw std::exception("valid HTTP is always CR,LF");
-			nl++;
-		}
-	}
-	if(nl != 2) return;
+    auto headerEnd { ReadHeaderTerm() };
+	if(headerEnd == 0) return;
 	
 	std::vector<std::string> lines; // I keep it easy!
 	asizei line = 0, lineBeg = 0;
@@ -46,33 +30,7 @@ void HandShaker::Receive() {
 			lineBeg = line;
 		}
 	}
-	
-	{ // HTTP GET, Request URI
-		if(strncmp(lines[0].c_str(), "GET", 3) || !LWS(lines[0][3])) throw std::exception("First line must be a GET request!");
-		line = 3;
-		while(lines[0][line] && lines[0][line] != '/') line++;
-		if(lines[0][line] == 0) throw std::exception("Not a valid HTTP GET request.");
-		line++;
-		if(strncmp(lines[0].c_str() + line, resource.c_str(), resource.length())) throw std::string("Bad resource request.");
-		line += resource.length();
-		//! \todo send 404 not found or similar, see page 23
-		while(lines[0][line] && LWS(lines[0][line])) line++;
-		if(lines[0][line] == 0 || strncmp(lines[0].c_str() + line, "HTTP", 4)) throw std::exception("GET request not HTTP?");
-		line += 4;
-		while(lines[0][line] && LWS(lines[0][line])) line++;
-		if(lines[0][line] != '/') throw std::exception("Not a valid HTTP GET request.");
-		line++;
-		while(lines[0][line] && LWS(lines[0][line])) line++;
-		if(!lines[0][line]) throw std::exception("Not a valid HTTP GET request.");
-		const aint major = atoi(lines[0].c_str() + line);
-		while(DIGIT(lines[0][line])) line++;
-		if(lines[0][line] != '.') throw std::exception("Not a valid HTTP GET request.");
-		line++;
-		const aint minor = atoi(lines[0].c_str() + line);
-		while(DIGIT(lines[0][line])) line++;
-		if(lines[0][line]) throw std::exception("Not a valid HTTP GET request.");
-		if(major < 1 || minor < 1) throw std::string("Invalid HTTP version ") + std::to_string(major) + '.' + std::to_string(minor) + ", expected >= 1.1.";
-	}
+    CheckGETRequest(lines[0]);
 
 	// (2.) |Host| header not checked. I'm not sure how should I do that because I'm not really a server.
 	// (3.) |Upgrade| "websocket" case insensitive
@@ -100,9 +58,62 @@ void HandShaker::Receive() {
 		if(match == protocols.cend()) 
 			throw std::exception("HTTP request missing valid \"Sec-WebSocket-Protocol\" header.");
 	}
+	response = BuildResponse(key);
+}
 
-	// If I am here then I need to build the response!
-	const char *webSocketSignature = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+asizei HandShaker::ReadHeaderTerm() {
+	while(stream.GotData()) {
+		if(used == header.size()) header.resize(header.size() + headerIncrementBytes);
+		asizei got = stream.Receive(header.data() + used, header.size() - used);
+		used += got;
+	}
+
+	auint nl = 0;
+    asizei check = 0;
+	while(check < used) {
+        if(header[check++] == CR) {
+            if(check >= used) return 0; // try again next time
+            if(header[check++] != LF) throw std::exception("valid HTTP is always CR,LF");
+            nl++;
+            if(nl == 2) return check;
+        }
+	}
+    return 0;
+}
+
+
+void HandShaker::CheckGETRequest(const std::string &req) {
+    // HTTP GET, Request URI
+	if(strncmp(req.c_str(), "GET", 3) || !LWS(req[3])) throw std::exception("First line must be a GET request!");
+    asizei scan { 3 };
+	while(req[scan] && req[scan] != '/') scan++;
+	if(req[scan] == 0) throw std::exception("Not a valid HTTP GET request.");
+	scan++;
+	if(strncmp(req.c_str() + scan, resource.c_str(), resource.length())) throw std::string("Bad resource request.");
+	scan += resource.length();
+	//! \todo send 404 not found or similar, see page 23
+	while(req[scan] && LWS(req[scan])) scan++;
+	if(req[scan] == 0 || strncmp(req.c_str() + scan, "HTTP", 4)) throw std::exception("GET request not HTTP?");
+	scan += 4;
+	while(req[scan] && LWS(req[scan])) scan++;
+	if(req[scan] != '/') throw std::exception("Not a valid HTTP GET request.");
+	scan++;
+	while(req[scan] && LWS(req[scan])) scan++;
+	if(!req[scan]) throw std::exception("Not a valid HTTP GET request.");
+	const aint major = atoi(req.c_str() + scan);
+	while(DIGIT(req[scan])) scan++;
+	if(req[scan] != '.') throw std::exception("Not a valid HTTP GET request.");
+	scan++;
+	const aint minor = atoi(req.c_str() + scan);
+	while(DIGIT(req[scan])) scan++;
+	if(req[scan]) throw std::exception("Not a valid HTTP GET request.");
+	if(major < 1 || minor < 1) throw std::string("Invalid HTTP version ") + std::to_string(major) + '.' + std::to_string(minor) + ", expected >= 1.1.";
+}
+
+
+std::string HandShaker::BuildResponse(const std::string &key) {
+    const char *webSocketSignature = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 	// key = "dGhlIHNhbXBsZSBub25jZQ=="; // testing
 	const std::string blob(key + webSocketSignature);
 	hashing::SHA160 mangler(reinterpret_cast<const aubyte*>(blob.data()), blob.length());
@@ -134,7 +145,7 @@ void HandShaker::Receive() {
 	resp<<"Sec-WebSocket-Accept: "<<result.data()<<CR<<LF;
 	resp<<"Sec-WebSocket-Protocol: "<<protocol<<CR<<LF;
 	resp<<CR<<LF;
-	response = resp.str();
+    return resp.str();
 }
 
 

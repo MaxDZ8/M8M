@@ -99,33 +99,7 @@ asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value
     for(asizei cp = 0; cp < implConfigs.size(); cp++) configData[cp].value = implConfigs[cp];
     std::vector<std::pair<const char*, AbstractAlgoFactory*>> factories; // map is nicer but case insensivity is meh, factories are owned by the source loader
     std::unique_ptr<AbstractNonceFindersBuild> miner;
-    for(asizei loop = 0; loop < implConfigs.size(); loop++) {
-        auto entry(implConfigs[loop]->FindMember("impl"));
-        if(entry == implConfigs[loop]->MemberEnd()) {
-            configData[loop].staticRejects.push_back(std::string("Missing \"impl\" value."));
-            validImpl[loop] = false;
-            continue;
-        }
-        const std::string impl(entry->value.GetString(), entry->value.GetStringLength());
-        configData[loop].impl = impl;
-        auto gen(NewAlgoFactory(miner, algo.c_str(), impl.c_str()));
-        if(gen.first == nullptr || gen.second == nullptr) {
-            configData[loop].staticRejects.push_back("Unknown implementation \"" + impl + "\".");
-            validImpl[loop] = false;
-            continue;
-        }
-        auto errors(gen.second->Parse(*implConfigs[loop]));
-        if(errors.size()) {
-            for(auto &err : errors) configData[loop].staticRejects.push_back(err);
-            validImpl[loop] = false;
-            continue;
-        }
-        auto unique(std::find_if(factories.cbegin(), factories.cend(), [&impl](const std::pair<const char*, AbstractAlgoFactory*> &check) {
-            return _stricmp(check.first, impl.c_str()) == 0;
-        }));
-        if(unique != factories.cend()) continue;
-        factories.push_back(std::make_pair(gen.first, gen.second));
-    }
+    for(asizei loop = 0; loop < implConfigs.size(); loop++) validImpl[loop] = GenFactory(factories, miner, algo, *implConfigs[loop], loop);
     SelectSettings(factories, implConfigs, validImpl);
     if(!BuildEveryUsefulContext()) {
         Error(L"No devices eligible to processing.");
@@ -141,43 +115,11 @@ asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value
     for(asizei loop = 0; loop < GetNumServers(); loop++) miner->RegisterWorkProvider(GetPool(loop));
     // Ok, now we're ready. Almost. I will now have to iterate the devices and configs once again.
     // Yes, I take it easy. It's a fast operation anyway, how many devices can you have?
-    auto lambda = [this](std::vector<std::string> &errors, const std::string &kernFile) -> std::pair<const char*, asizei> {
-        return sources.GetSourceBuffer(errors, kernFile);
-    };
-    std::function<std::pair<const char*, asizei>(std::vector<std::string> &errors, const std::string &kernFile)> loader(lambda);
     asizei launched = 0;
     for(auto &plat : computeNodes) {
         for(auto &dev : plat.devices) {
             if(dev.configIndex == asizei(-1)) continue;
-            auto &impl(implConfigs[dev.configIndex]->FindMember("impl")->value);
-            const std::string use(impl.GetString(), impl.GetStringLength());
-            AbstractAlgoFactory *factory = nullptr;
-            for(asizei loop = 0; loop < factories.size(); loop++) {
-                if(_stricmp(factories[loop].first, use.c_str()) == 0) {
-                    factory = factories[loop].second; // guaranteed to happen because of construction
-                    break;
-                }
-            }
-            factory->Parse(*implConfigs[dev.configIndex]);
-            // Eligibility already evaluated. Note only Parse sets internal state, Eligible does not!
-            AbstractNonceFindersBuild::AlgoBuild build;
-            factory->Kernels(build.kern);
-            factory->Resources(build.res, cryptoConstants);
-            sources.AddUser(algo, use);
-            dev.resources.hashCount = factory->GetHashCount();
-            build.numHashes = factory->GetHashCount();
-            build.candHashUints = factory->GetNumUintsPerCandidate();
-            build.ctx = plat.ctx;
-            build.dev = dev.clid;
-            build.identifier = factory->GetAlgoIdentifier();
-            AbstractAlgorithm::DescribeResources(dev.resources.memUsage, build.res);
-            // At this point we used to init this work queue. This is now just matters of adding an entry and spawning a thread.
-            const std::string algoFamily(factory->GetAlgoIdentifier().algorithm);
-            miner->GenQueue(std::move(build), loader, GetCanonicalAlgoInfo(algoFamily)
-#if defined REPLICATE_CLDEVICE_LINEARINDEX
-                , dev.linearIndex
-#endif
-            );
+            GenQueue(dev, plat.ctx, *implConfigs[dev.configIndex], factories, algo, *miner);
             launched++;
         }
     }
@@ -187,50 +129,7 @@ asizei M8MMiningApp::StartMining(const std::string &algo, const rapidjson::Value
 
 
 void M8MMiningApp::Refresh(std::vector<Network::SocketInterface*> &toRead, std::vector<Network::SocketInterface*> &toWrite) {
-    NonceOriginIdentifier from;
-    VerifiedNonces sharesFound;
-    using namespace std::chrono;
-    static system_clock::time_point nextStatusCheck;
-    if(miner) {
-        if(miner->ResultsFound(from, sharesFound)) {
-            if(firstNonce == system_clock::time_point()) {
-                firstNonce = system_clock::now();
-                std::wstring msg(L"Found my first result!\n");
-                if(sharesFound.wrong) msg = L"GPU produced bad numbers.\nSomething is very wrong!"; //!< \todo blink yellow for a few seconds every time a result is wrong
-                else msg += L"Numbers are getting crunched as expected.";
-                Popup(msg.c_str());
-                ChangeState(sharesFound.wrong? STATE_ERROR : STATE_OK, true);
-            }
-            else if(this->GetNumActiveServers()) { // As long as mining is going on and producing results, I consider it a win, provided stuff can go somewhere!
-                //! \todo Also consider the amount of rejects - how to? With multiple pools it's not so easy.
-                //! \todo Also consider the amount of HW errors. This is easier than pools but I still have to think about it.
-                if(GetIconState() != STATE_OK) ChangeState(STATE_OK, true);
-            }
-            UpdateDeviceStats(sharesFound); // this one goes to a derived class
-            SendResults(from, sharesFound); // this to a base class
-        }
-
-        if(nextStatusCheck == system_clock::time_point()) nextStatusCheck = system_clock::now() + minutes(1);
-        else if(nextStatusCheck < system_clock::now()) {
-            nextStatusCheck += minutes(1);
-            auto status(miner->GetNumWorkQueues());
-            if(status[0] == status[1]) Error(L"All miners failed!");
-            else if(status[0]) Error(std::to_wstring(status[0]) + L"miner" + (status[0] > 1? L"s" : L"") + L" failed!");
-            else {
-                asizei slow = 0;
-                for(asizei loop = 0; loop < status[1]; loop++) {
-                    auto probe(miner->GetTerminationReason(loop));
-                    if(std::get<1>(probe) == miner->s_created) continue; // not very likely considering a result has been already found by somebody else
-                    auto lastWU(miner->GetLastWUGenTime(loop));
-                    if(lastWU + minutes(5) < std::chrono::system_clock::now()) slow++;
-                    // In theory this should be a function of block time so for BTC we need at least 10 minutess to force a change by changing block.
-                    // Everybody else use shorter blocks (BSTY being a notable exception) we should be rolling work anyway if we run out of nonce2 bits.
-                    // Soooo... this is cutting it short. But I don't care.
-                }
-                if(slow) Error(L"Some miners are not generating any work!");
-            }
-        }
-    }
+    if(miner) TickMiner();
     if(sources.Flushed() == false) {
         if(miner) {
             using namespace std::chrono;
@@ -337,6 +236,117 @@ asizei M8MMiningApp::BuildEveryUsefulContext() {
 
 void M8MMiningApp::ParseRequirements(DevRequirements &build, const rapidjson::Value &match) const {
 }
+
+
+void M8MMiningApp::TickMiner() {
+    NonceOriginIdentifier from;
+    VerifiedNonces sharesFound;
+    using namespace std::chrono;
+    static system_clock::time_point nextStatusCheck;
+    if(miner->ResultsFound(from, sharesFound)) {
+        if(firstNonce == system_clock::time_point()) {
+            firstNonce = system_clock::now();
+            std::wstring msg(L"Found my first result!\n");
+            if(sharesFound.wrong) msg = L"GPU produced bad numbers.\nSomething is very wrong!"; //!< \todo blink yellow for a few seconds every time a result is wrong
+            else msg += L"Numbers are getting crunched as expected.";
+            Popup(msg.c_str());
+            ChangeState(sharesFound.wrong? STATE_ERROR : STATE_OK, true);
+        }
+        else if(this->GetNumActiveServers()) { // As long as mining is going on and producing results, I consider it a win, provided stuff can go somewhere!
+            //! \todo Also consider the amount of rejects - how to? With multiple pools it's not so easy.
+            //! \todo Also consider the amount of HW errors. This is easier than pools but I still have to think about it.
+            if(GetIconState() != STATE_OK) ChangeState(STATE_OK, true);
+        }
+        UpdateDeviceStats(sharesFound); // this one goes to a derived class
+        SendResults(from, sharesFound); // this to a base class
+    }
+
+    if(nextStatusCheck == system_clock::time_point()) nextStatusCheck = system_clock::now() + minutes(1);
+    else if(nextStatusCheck < system_clock::now()) {
+        nextStatusCheck += minutes(1);
+        auto status(miner->GetNumWorkQueues());
+        if(status[0] == status[1]) Error(L"All miners failed!");
+        else if(status[0]) Error(std::to_wstring(status[0]) + L"miner" + (status[0] > 1? L"s" : L"") + L" failed!");
+        else {
+            asizei slow = 0;
+            for(asizei loop = 0; loop < status[1]; loop++) {
+                auto probe(miner->GetTerminationReason(loop));
+                if(std::get<1>(probe) == miner->s_created) continue; // not very likely considering a result has been already found by somebody else
+                auto lastWU(miner->GetLastWUGenTime(loop));
+                if(lastWU + minutes(5) < std::chrono::system_clock::now()) slow++;
+                // In theory this should be a function of block time so for BTC we need at least 10 minutess to force a change by changing block.
+                // Everybody else use shorter blocks (BSTY being a notable exception) we should be rolling work anyway if we run out of nonce2 bits.
+                // Soooo... this is cutting it short. But I don't care.
+            }
+            if(slow) Error(L"Some miners are not generating any work!");
+        }
+    }
+}
+
+
+bool M8MMiningApp::GenFactory(std::vector<std::pair<const char*, AbstractAlgoFactory*>> &factories, std::unique_ptr<AbstractNonceFindersBuild> &miner,
+                              const std::string &algo, const rapidjson::Value &implConfig, asizei index) {
+    auto entry(implConfig.FindMember("impl"));
+    if(entry == implConfig.MemberEnd()) {
+        configData[index].staticRejects.push_back(std::string("Missing \"impl\" value."));
+        return false;
+    }
+    const std::string impl(entry->value.GetString(), entry->value.GetStringLength());
+    configData[index].impl = impl;
+    auto gen(NewAlgoFactory(miner, algo.c_str(), impl.c_str()));
+    if(gen.first == nullptr || gen.second == nullptr) {
+        configData[index].staticRejects.push_back("Unknown implementation \"" + impl + "\".");
+        return false;
+    }
+    auto errors(gen.second->Parse(implConfig));
+    if(errors.size()) {
+        for(auto &err : errors) configData[index].staticRejects.push_back(err);
+        return false;
+    }
+    auto unique(std::find_if(factories.cbegin(), factories.cend(), [&impl](const std::pair<const char*, AbstractAlgoFactory*> &check) {
+        return _stricmp(check.first, impl.c_str()) == 0;
+    }));
+    if(unique == factories.cend()) factories.push_back(std::make_pair(gen.first, gen.second));
+    return true;
+}
+
+
+void M8MMiningApp::GenQueue(Device &dev, cl_context ctx, const rapidjson::Value &implConfig, const std::vector<std::pair<const char*, AbstractAlgoFactory*>> &factories, const std::string &algo, AbstractNonceFindersBuild &miner) {
+    auto &impl(implConfig.FindMember("impl")->value);
+    const std::string use(impl.GetString(), impl.GetStringLength());
+    AbstractAlgoFactory *factory = nullptr;
+    for(asizei loop = 0; loop < factories.size(); loop++) {
+        if(_stricmp(factories[loop].first, use.c_str()) == 0) {
+            factory = factories[loop].second; // guaranteed to happen because of construction
+            break;
+        }
+    }
+    factory->Parse(implConfig);
+    // Eligibility already evaluated. Note only Parse sets internal state, Eligible does not!
+    AbstractNonceFindersBuild::AlgoBuild build;
+    factory->Kernels(build.kern);
+    factory->Resources(build.res, cryptoConstants);
+    sources.AddUser(algo, use);
+    dev.resources.hashCount = factory->GetHashCount();
+    build.numHashes = factory->GetHashCount();
+    build.candHashUints = factory->GetNumUintsPerCandidate();
+    build.ctx = ctx;
+    build.dev = dev.clid;
+    build.identifier = factory->GetAlgoIdentifier();
+    AbstractAlgorithm::DescribeResources(dev.resources.memUsage, build.res);
+    // At this point we used to init this work queue. This is now just matters of adding an entry and spawning a thread.
+    const std::string algoFamily(factory->GetAlgoIdentifier().algorithm);
+    auto lambda = [this](std::vector<std::string> &errors, const std::string &kernFile) -> std::pair<const char*, asizei> {
+        return sources.GetSourceBuffer(errors, kernFile);
+    };
+    std::function<std::pair<const char*, asizei>(std::vector<std::string> &errors, const std::string &kernFile)> loader(lambda);
+    miner.GenQueue(std::move(build), loader, GetCanonicalAlgoInfo(algoFamily)
+#if defined REPLICATE_CLDEVICE_LINEARINDEX
+        , dev.linearIndex
+#endif
+    );
+}
+
 
 std::string M8MMiningApp::GetPlatformString(asizei p, PlatformInfoString prop) const {
     std::vector<char> text;

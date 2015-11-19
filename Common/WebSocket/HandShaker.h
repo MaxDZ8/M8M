@@ -45,6 +45,10 @@ public:
 	bool Upgraded() { return response.length() > 0 && sent == response.length(); }
 
 private:
+    asizei ReadHeaderTerm(); //!< returns bytes to first char out of header, terminated by CR,LF,CR,LF
+    void CheckGETRequest(const std::string &firstLine); //!< throws if syntax error
+    std::string BuildResponse(const std::string &key);
+
 	static const asizei headerIncrementBytes;
 	static const char CR, LF;
 	static bool LWS(char c) { return c == ' ' || c == '\t'; }

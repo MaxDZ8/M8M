@@ -119,6 +119,9 @@ private:
     }
 
     static std::unique_ptr<PoolInfo> ParsePool(std::vector<std::string> &errors, const rapidjson::Value &poolInfo, asizei index);
+    /*! 'Extended' pool information is *mostly* M8M-specific. While there could be something in common with legacy miners, those settings are
+    absolutely not part of pool server specification in a traditional sense. */
+    static std::unique_ptr<PoolInfo> ParsePoolExtended(std::unique_ptr<PoolInfo> &base, std::vector<std::string> &errors, const rapidjson::Value &poolInfo, asizei index);
 
     static std::string MakeString(const rapidjson::Value &jv) { return std::string(jv.GetString(), jv.GetStringLength()); }
 

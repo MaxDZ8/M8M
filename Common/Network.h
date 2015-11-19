@@ -281,6 +281,9 @@ private:
 
 	std::map<SocketInterface*, ServiceSocket*> servers;
 
+    SOCKET BiggestSocket(fd_set &failures, fd_set &set, std::vector<SocketInterface*> &monitor) const;
+    bool Activated(fd_set &failures, SocketInterface *hilevel, const fd_set &search); //!< Might move connected sockets out of connecting step.
+
 public:
 	WindowsNetwork();
 	~WindowsNetwork();

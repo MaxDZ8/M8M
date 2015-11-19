@@ -100,6 +100,7 @@ private:
 	void Unsubscribe(const std::string &command, const std::string &stream);
 	void PurgeClosedConnections();
 	void EnqueuePushData();
+    void Mangle(ClientState &client, std::vector<ws::Connection::Message> &msg, Network::SocketInterface &skt);
 
 	NetworkInterface &network;
 	NetworkInterface::ServiceSocketInterface *landing; //!< A simple pointer is sufficient since the network blasts it anyway, we just have to de-register it.

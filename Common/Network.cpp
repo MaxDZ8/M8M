@@ -219,38 +219,7 @@ asizei WindowsNetwork::SleepOn(std::vector<SocketInterface*> &read, std::vector<
 	FD_ZERO(&readReady);
 	FD_ZERO(&writeReady);
 	FD_ZERO(&failures);
-	auto scan = [this, &failures](fd_set &set, std::vector<SocketInterface*> &monitor) -> SOCKET {
-		SOCKET biggest = 0;
-		for(asizei loop = 0; loop < monitor.size(); loop++) {
-			auto el = connections.find(monitor[loop]);
-			if(el == connections.cend()) { // maybe it's a listening socket
-				auto servicing = servers.find(monitor[loop]);
-				if(servicing == servers.cend()) { } // I am not managing this
-				else {
-					FD_SET(servicing->second->socket, &set);
-					FD_SET(servicing->second->socket, &failures);
-					biggest = max(biggest, servicing->second->socket);
-				}
-			}
-			else if(el->second->socket != INVALID_SOCKET) { // managing this, and fully initialized
-				FD_SET(el->second->socket, &set);
-				FD_SET(el->second->socket, &failures);
-				biggest = max(biggest, el->second->socket);
-			}
-			else { // still in the connecting state, then it can have a sequence of sockets.
-				auto pending = connecting.find(monitor[loop]);
-				if(pending == connecting.cend()) throw std::exception("Impossible, code incoherent (socket is connecting but no connecting state)!");
-				auto &list(pending->second->candidates);
-				for(asizei inner = 0; inner < list.size(); inner++) {
-					FD_SET(list[inner], &set);
-					FD_SET(list[inner], &failures);
-					biggest = max(biggest, list[inner]);
-				}
-			}
-		}
-		return biggest;
-	};
-	SOCKET biggest = max(scan(readReady, read), scan(writeReady, write));
+	SOCKET biggest = max(BiggestSocket(failures, readReady, read), BiggestSocket(failures, writeReady, write));
 	biggest++; // select needs a +1 to test with strict inequality <
 	timeval timeout;
 	timeout.tv_sec = long(timeoutms / 1000);
@@ -262,57 +231,13 @@ asizei WindowsNetwork::SleepOn(std::vector<SocketInterface*> &read, std::vector<
         return 0;
     }
 	if(result < 1) throw std::exception("Some error occured while waiting for sockets to connect.");
-	auto activated = [&failures, this](SocketInterface *hilevel, const fd_set &search) -> bool {
-		auto el = connections.find(hilevel);
-		if(el == connections.cend()) {
-			auto listening = servers.find(hilevel);
-			if(listening == servers.cend()) return false;
-			bool ret = FD_ISSET(listening->second->socket, &failures) != 0;
-			if(ret) listening->second->failed = true;
-			return ret || FD_ISSET(listening->second->socket, &search) != 0;
-		}
-		auto pending = connecting.find(hilevel);
-		if(pending == connecting.cend()) { // fully connected.
-			bool ret = FD_ISSET(el->second->socket, &failures) != 0;
-			if(ret) el->second->failed = true;
-			return ret || FD_ISSET(el->second->socket, &search) != 0;
-		}
-		// if here, connection completed, move it to estabilished connections, but only if an active socket
-		// is really found - we might have been awakened due to timeout or another socket!
-		// We must also take care of the failing possibilities.
-		for(asizei loop = 0; loop < pending->second->candidates.size(); loop++) {
-			if(FD_ISSET(pending->second->candidates[loop], &failures)) {
-				closesocket(pending->second->candidates[loop]);
-                auto entry(pending->second->candidates.begin() + loop);
-				pending->second->candidates.erase(entry);
-                loop--;
-			}
-		}
-		if(pending->second->candidates.empty()) { // will never finish connecting
-			delete pending->second;
-            connecting.erase(pending);
-            el->second->failed = true;
-			return true;
-		}
-
-		for(asizei loop = 0; loop < pending->second->candidates.size(); loop++) {
-			if(FD_ISSET(pending->second->candidates[loop], &search)) {
-				el->second->socket = pending->second->candidates[loop];
-				delete pending->second;
-				connecting.erase(pending);
-				return true;
-			}
-		}
-		return false;
-	};
 	asizei awaken = 0;
-	for(asizei loop = 0; loop < read.size(); loop++) {
-		if(activated(read[loop], readReady) == false)
-			read[loop] = nullptr;
+	for(auto &socket : read) {
+		if(Activated(failures, socket, readReady) == false) socket = nullptr;
 		else {
 			awaken++;
 			// a read handle awakens on connection close as well! Check it out by peeking at data.
-			auto el = connections.find(read[loop]);
+			auto el = connections.find(socket);
 			if(el == connections.end()) continue;
 			abyte byte;
 			int res = recv(el->second->socket, &byte, sizeof(byte), MSG_PEEK);
@@ -323,8 +248,7 @@ asizei WindowsNetwork::SleepOn(std::vector<SocketInterface*> &read, std::vector<
 		}
 	}
 	for(asizei loop = 0; loop < write.size(); loop++) {
-		if(activated(write[loop], writeReady) == false)
-			write[loop] = nullptr;
+		if(Activated(failures, write[loop], writeReady) == false) write[loop] = nullptr;
 		else awaken++;
 	}
 	return awaken;
@@ -427,4 +351,82 @@ NetworkInterface::ConnectedSocketInterface& WindowsNetwork::BeginConnection(Serv
 	clearSocket.Dont();
 	connections.insert(std::make_pair(static_cast<SocketInterface*>(add.get()), add.get()));
 	return *add.release();
+}
+
+
+SOCKET WindowsNetwork::BiggestSocket(fd_set &failures, fd_set &set, std::vector<SocketInterface*> &monitor) const {
+	SOCKET biggest = 0;
+	for(const auto &socket : monitor) {
+		auto el = connections.find(socket);
+		if(el == connections.cend()) { // maybe it's a listening socket
+			auto servicing = servers.find(socket);
+			if(servicing == servers.cend()) { } // I am not managing this
+			else {
+				FD_SET(servicing->second->socket, &set);
+				FD_SET(servicing->second->socket, &failures);
+				biggest = max(biggest, servicing->second->socket);
+			}
+		}
+		else if(el->second->socket != INVALID_SOCKET) { // managing this, and fully initialized
+			FD_SET(el->second->socket, &set);
+			FD_SET(el->second->socket, &failures);
+			biggest = max(biggest, el->second->socket);
+		}
+		else { // still in the connecting state, then it can have a sequence of sockets.
+			auto pending = connecting.find(socket);
+			if(pending == connecting.cend()) throw std::exception("Impossible, code incoherent (socket is connecting but no connecting state)!");
+			auto &list(pending->second->candidates);
+			for(asizei inner = 0; inner < list.size(); inner++) {
+				FD_SET(list[inner], &set);
+				FD_SET(list[inner], &failures);
+				biggest = max(biggest, list[inner]);
+			}
+		}
+	}
+	return biggest;
+}
+
+
+bool WindowsNetwork::Activated(fd_set &failures, SocketInterface *hilevel, const fd_set &search) {
+	auto el = connections.find(hilevel);
+	if(el == connections.cend()) {
+		auto listening = servers.find(hilevel);
+		if(listening == servers.cend()) return false;
+		bool ret = FD_ISSET(listening->second->socket, &failures) != 0;
+		if(ret) listening->second->failed = true;
+		return ret || FD_ISSET(listening->second->socket, &search) != 0;
+	}
+	auto pending = connecting.find(hilevel);
+	if(pending == connecting.cend()) { // fully connected.
+		bool ret = FD_ISSET(el->second->socket, &failures) != 0;
+		if(ret) el->second->failed = true;
+		return ret || FD_ISSET(el->second->socket, &search) != 0;
+	}
+	// if here, connection completed, move it to estabilished connections, but only if an active socket
+	// is really found - we might have been awakened due to timeout or another socket!
+	// We must also take care of the failing possibilities.
+	for(asizei loop = 0; loop < pending->second->candidates.size(); loop++) {
+		if(FD_ISSET(pending->second->candidates[loop], &failures)) {
+			closesocket(pending->second->candidates[loop]);
+            auto entry(pending->second->candidates.begin() + loop);
+			pending->second->candidates.erase(entry);
+            loop--;
+		}
+	}
+	if(pending->second->candidates.empty()) { // will never finish connecting
+		delete pending->second;
+        connecting.erase(pending);
+        el->second->failed = true;
+		return true;
+	}
+
+	for(asizei loop = 0; loop < pending->second->candidates.size(); loop++) {
+		if(FD_ISSET(pending->second->candidates[loop], &search)) {
+			el->second->socket = pending->second->candidates[loop];
+			delete pending->second;
+			connecting.erase(pending);
+			return true;
+		}
+	}
+	return false;
 }

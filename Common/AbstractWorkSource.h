@@ -219,4 +219,6 @@ private:
 
     bool SendChunk();
     void ProcessLine(rapidjson::Document &parser, char *pos, asizei len);
+
+    Events BuildWU(Events &ret, const stratum::WorkDiff &prevDiff, const stratum::MiningNotify &prevJob) const;
 };

@@ -61,28 +61,7 @@ AbstractWorkSource::Events AbstractWorkSource::Refresh(bool canRead, bool canWri
 #endif
 	}
 	else return ret;
-    const auto nowDiff(GetCurrentDiff());
-    const auto nowJob(stratum->GetCurrentJob());
-    auto different = [](const stratum::MiningNotify &one, const stratum::MiningNotify &two) {
-        if(one.job != two.job || one.ntime != two.ntime || one.clear != two.clear) return true; // most likely
-        if(one.prevHash != two.prevHash) return true; // fairly likely
-        // blockVer is mostly constant,
-        // nbits is... ?
-        if(one.merkles.size() != two.merkles.size()) return true; // happens quite often
-        if(one.coinBaseOne.size() != two.coinBaseOne.size() || one.coinBaseTwo.size() != two.coinBaseTwo.size()) return true; // not likely, if at all possible
-        bool diff = false;
-        for(asizei i = 0; i < one.merkles.size(); i++) diff |= one.merkles[i].hash != two.merkles[i].hash;
-        for(asizei i = 0; i < one.coinBaseOne.size(); i++) diff |= one.coinBaseOne[i] != two.coinBaseOne[i];
-        for(asizei i = 0; i < one.coinBaseTwo.size(); i++) diff |= one.coinBaseTwo[i] != two.coinBaseTwo[i];
-        return diff;
-    };
-    ret.diffChanged = nowDiff != prevDiff;
-    ret.newWork = different(prevJob, nowJob) && GetCurrentDiff().shareDiff != .0; // new work is to be delayed as long as diff is 0
-    if(prevDiff.shareDiff == .0 && nowDiff.shareDiff != .0) {
-        // When this happens and we already have a job of any sort we can finally flush the new work to the outer code
-        if(nowJob.job.size()) ret.newWork = true;
-    }
-    return ret;
+    return BuildWU(ret, prevDiff, prevJob);
 }
 
 
@@ -327,4 +306,30 @@ void AbstractWorkSource::ProcessLine(rapidjson::Document &json, char *pos, asize
 	else { // I consider it a reply. Then it has .result or .error... MAYBE. P2Pool for example sends .result=.error=null as AUTH replies to say it doesn't care about who's logging in!
 		MangleReplyFromServer(idvalue, json["result"], json["error"]);
 	}
+}
+
+
+AbstractWorkSource::Events AbstractWorkSource::BuildWU(Events &ret, const stratum::WorkDiff &prevDiff, const stratum::MiningNotify &prevJob) const {
+    const auto nowDiff(GetCurrentDiff());
+    const auto nowJob(stratum->GetCurrentJob());
+    auto different = [](const stratum::MiningNotify &one, const stratum::MiningNotify &two) {
+        if(one.job != two.job || one.ntime != two.ntime || one.clear != two.clear) return true; // most likely
+        if(one.prevHash != two.prevHash) return true; // fairly likely
+        // blockVer is mostly constant,
+        // nbits is... ?
+        if(one.merkles.size() != two.merkles.size()) return true; // happens quite often
+        if(one.coinBaseOne.size() != two.coinBaseOne.size() || one.coinBaseTwo.size() != two.coinBaseTwo.size()) return true; // not likely, if at all possible
+        bool diff = false;
+        for(asizei i = 0; i < one.merkles.size(); i++) diff |= one.merkles[i].hash != two.merkles[i].hash;
+        for(asizei i = 0; i < one.coinBaseOne.size(); i++) diff |= one.coinBaseOne[i] != two.coinBaseOne[i];
+        for(asizei i = 0; i < one.coinBaseTwo.size(); i++) diff |= one.coinBaseTwo[i] != two.coinBaseTwo[i];
+        return diff;
+    };
+    ret.diffChanged = nowDiff != prevDiff;
+    ret.newWork = different(prevJob, nowJob) && GetCurrentDiff().shareDiff != .0; // new work is to be delayed as long as diff is 0
+    if(prevDiff.shareDiff == .0 && nowDiff.shareDiff != .0) {
+        // When this happens and we already have a job of any sort we can finally flush the new work to the outer code
+        if(nowJob.job.size()) ret.newWork = true;
+    }
+    return ret;
 }
