@@ -3,6 +3,18 @@
  * This code is released under the MIT license.
  * For conditions of distribution and use, see the LICENSE or hit the web.
  */
+
+/*
+  Edit 2018-12-03.
+  I see this is getting views recently.
+  Make no mistake, this is one of the first kernels I wrote after having been away
+  from GPU programming for a while and possibly the first OpenCL kernel ever.
+  As a bit of exercise and a bit of joke I made it as complicated and contrived as I could
+  with the goal of maximizing parallelism and check how modern GPUs work.
+  
+  Do not use it as reference of anything sane.
+*/
+
 /* SIMD is a rather complicated hash function.
 The documentation is fairly extensive, in both theorical and practical terms, with several
 implementations provided for reference and speed evaluations.
