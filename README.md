@@ -1,11 +1,10 @@
-#M8M
-![Icons](https://github.com/MaxDZ8/M8M/blob/gh-pages/M8M-normal-states.gif)
+# M8M ![Icons](https://github.com/MaxDZ8/M8M/blob/gh-pages/M8M-normal-states.gif)
 
 *An (hopefully) educational cryptocurrency miner.*
 
 --------------------------------------------------------------------------------
 
-##Foreword
+## Foreword
 
 I was introduced to cryptocurrencies at the end of 2013 by a friend of mine. I immediately recognized the concept as very interesting but my interest was limited to a better understanding of the most simple mechanics involving hardware and computers. Since my first mining attempts I was somewhat pissed off by the approach used by standard mining software. For something that was GPU-driven, they were surprisingly *oldschool* with terminal interfaces and ncurses.
 By spending more time on my mining operations and surfing forums, I noticed there was very little understanding of what a GPU is and how it works. This was very surprising! After all GPUs are nothing new, having powered games for decades and even high-performance computing for quite a few years.
@@ -50,7 +49,7 @@ In my tests, M8M also turned out to be faster than standard miners. Perhaps it w
 
 Keep in mind M8M is very minimalistic. Other miners are indeed more complete and featured.
 
-###A note on the name
+### A note on the name
 
 What does the name mean? I haven't decided yet.
 By sure, the only wrong way to pronounce it is spelling the letters. It sounds ugly.
@@ -60,9 +59,9 @@ The following are all ideas I've been considering:
 - "my team": the "team" is built from the various ALUs in a GPU. I currently use the term to refer to a "local-x" slice of a workgroup, don't ask;
 - "M8y miner": 'cuz I totally need some self-celebration :P
 
-##On safety
+## On safety
 
-###A warning
+### A warning
 Cryptocurrency mining is an intensive operation for your computer. If you don't know what this means, then pay special attention here.
 
 The following are all things that **might happen** to your computer while using M8M (as well as any others performance-intensive applications):
@@ -85,18 +84,18 @@ If you don't know what this means or you cannot assess how the above affects you
 
 No matter what happens to you, I will take no responsability. **You use M8M at your own risk**.
 
-###A guarantee
+### A guarantee
 
 ***I have written M8M with no malicious intent.***
 
 In other words, it is **not** my intention to damage you, your computer or your data. It is **not** my intention to somehow obtain an unfair advantage by exploiting your resources.
 
-##Usage
+## Usage
 
 This document does not include installation nor usage instructions as it focuses on source code.
 See github pages instead: http://maxdz8.github.io/M8M/
 
-##Building 
+## Building 
 
 Compared to legacy miners the list of dependancies is limited you'll need:
 - Windows Platform SDK for desktop apps.
